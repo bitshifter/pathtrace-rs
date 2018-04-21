@@ -1,0 +1,6 @@
+[package]
+name = "pathtrace-rs"
+version = "0.1.0"
+authors = ["Cameron Hart <cameron.hart@gmail.com>"]
+
+[dependencies]
