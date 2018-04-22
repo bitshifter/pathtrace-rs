@@ -1,5 +1,8 @@
+extern crate rand;
+
 mod vmath;
 
+use rand::Rng;
 use std::fs::File;
 use std::io::Write;
 
@@ -7,7 +10,7 @@ use vmath::{dot, normalize, ray, Ray, Vec3, vec3};
 
 struct RayHit {
     t: f32,
-    p: Vec3,
+    point: Vec3,
     normal: Vec3,
 }
 
@@ -35,15 +38,15 @@ impl Hitable for Sphere {
             let discriminant_sqrt = discriminant.sqrt();
             let t = (-b - discriminant_sqrt) / a;
             if t < t_max && t > t_min {
-                let p = ray.point_at_parameter(t);
-                let normal = (p - self.centre) / self.radius;
-                return Some(RayHit { t, p, normal });
+                let point = ray.point_at_parameter(t);
+                let normal = (point - self.centre) / self.radius;
+                return Some(RayHit { t, point, normal });
             }
             let t = (-b + discriminant_sqrt) / a;
             if t < t_max && t > t_min {
-                let p = ray.point_at_parameter(t);
-                let normal = (p - self.centre) / self.radius;
-                return Some(RayHit { t, p, normal });
+                let point = ray.point_at_parameter(t);
+                let normal = (point - self.centre) / self.radius;
+                return Some(RayHit { t, point, normal });
             }
         }
         None
@@ -65,18 +68,30 @@ fn ray_to_colour(ray: &Ray, scene: &Scene) -> Vec3 {
     }
 }
 
-// fn hit_sphere(centre: Vec3, radius: f32, ray: &Ray) -> f32 {
-//     let oc = ray.origin - centre;
-//     let a = dot(ray.direction, ray.direction);
-//     let b = 2.0 * dot(oc, ray.direction);
-//     let c = dot(oc, oc) - radius * radius;
-//     let discriminant = b * b - 4.0 * a * c;
-//     if discriminant < 0.0 {
-//         -1.0
-//     } else {
-//         (-b - discriminant.sqrt()) / (2.0 * a)
-//     }
-// }
+struct Camera {
+    origin: Vec3,
+    lower_left_corner: Vec3,
+    horizontal: Vec3,
+    vertical: Vec3,
+}
+
+impl Camera {
+    fn default() -> Camera {
+        Camera {
+            lower_left_corner: vec3(-2.0, -1.0, -1.0),
+            horizontal: vec3(4.0, 0.0, 0.0),
+            vertical: vec3(0.0, 2.0, 0.0),
+            origin: vec3(0.0, 0.0, 0.0),
+        }
+    }
+
+    fn get_ray(&self, u: f32, v: f32) -> Ray {
+        ray(
+            self.origin,
+            self.lower_left_corner + u * self.horizontal + v * self.vertical,
+        )
+    }
+}
 
 struct Scene {
     spheres: Vec<Sphere>,
@@ -102,27 +117,30 @@ impl Scene {
 fn main() {
     let nx = 200;
     let ny = 100;
-    let lower_left_corner = vec3(-2.0, -1.0, -1.0);
-    let horizontal = vec3(4.0, 0.0, 0.0);
-    let vertical = vec3(0.0, 2.0, 0.0);
-    let origin = vec3(0.0, 0.0, 0.0);
+    let ns = 100;
     let scene = Scene::new(vec![
         sphere(vec3(0.0, 0.0, -1.0), 0.5),
         sphere(vec3(0.0, -100.5, -1.0), 100.0),
     ]);
+    let camera = Camera::default();
+    let mut rng = rand::weak_rng();
     let mut out = File::create("output.ppm").expect("Failed to create output.ppm");
-    write!(out, "P3\n{} {} \n255\n", nx, ny).expect("Failed to write to output.ppm");
+    writeln!(out, "P3\n{} {} \n255", nx, ny).expect("Failed to write to output.ppm");
     for j in 0..(ny - 1) {
         for i in 0..nx {
-            let u = i as f32 / nx as f32;
-            let v = (ny - j) as f32 / ny as f32;
-            let r = ray(origin, lower_left_corner + u * horizontal + v * vertical);
-            let col = ray_to_colour(&r, &scene);
-            // let col = vec3(u, v, 0.2);
+            let mut col = vec3(0.0, 0.0, 0.0);
+            for _ in 0..ns {
+                let u = (i as f32 + rng.next_f32()) / nx as f32;
+                let v = ((ny - j) as f32 + rng.next_f32()) / ny as f32;
+                let ray = camera.get_ray(u, v);
+                // let point = ray.point_at_parameter(2.0);
+                col += ray_to_colour(&ray, &scene);
+            }
+            col /= ns as f32;
             let ir = (255.99 * col.x) as i32;
             let ig = (255.99 * col.y) as i32;
             let ib = (255.99 * col.z) as i32;
-            write!(out, "{} {} {}\n", ir, ig, ib).expect("Failed to write to output.ppm");
+            writeln!(out, "{} {} {}\n", ir, ig, ib).expect("Failed to write to output.ppm");
         }
     }
 }
