@@ -35,6 +35,22 @@ fn deg_to_rad(a: f32) -> f32 {
     f32::consts::PI * 2.0 * a / 360.0
 }
 
+pub trait Dot {
+    fn dot(self, rhs: Self) -> f32;
+}
+
+pub trait Cross {
+    fn cross(self, rhs: Self) -> Self;
+}
+
+pub trait Length {
+    fn length(self) -> f32;
+}
+
+pub trait Normalize {
+    fn normalize(self) -> Self;
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Vec3 {
     pub x: f32,
@@ -46,6 +62,18 @@ pub fn vec3(x: f32, y: f32, z: f32) -> Vec3 {
     Vec3 { x: x, y: y, z: z }
 }
 
+pub fn dot<T: Dot>(lhs: T, rhs: T) -> f32 {
+    lhs.dot(rhs)
+}
+
+pub fn cross<T: Cross>(lhs: T, rhs: T) -> T {
+    lhs.cross(rhs)
+}
+
+pub fn normalize<T: Normalize>(v: T) -> T {
+    v.normalize()
+}
+
 impl Vec3 {
     pub fn zero() -> Vec3 {
         Vec3 {
@@ -54,20 +82,32 @@ impl Vec3 {
             z: 0.0,
         }
     }
-    pub fn dot(self, rhs: Vec3) -> f32 {
+}
+
+impl Dot for Vec3 {
+    fn dot(self, rhs: Vec3) -> f32 {
         (self.x * rhs.x) + (self.y * rhs.y) + (self.z * rhs.z)
     }
-    pub fn cross(self, rhs: Vec3) -> Vec3 {
+}
+
+impl Cross for Vec3 {
+    fn cross(self, rhs: Vec3) -> Vec3 {
         Vec3 {
             x: self.y * rhs.z - rhs.y * self.z,
             y: self.z * rhs.x - rhs.z * self.x,
             z: self.x * rhs.y - rhs.x * self.y,
         }
     }
-    pub fn length(self) -> f32 {
+}
+
+impl Length for Vec3 {
+    fn length(self) -> f32 {
         self.dot(self).sqrt()
     }
-    pub fn normalize(self) -> Vec3 {
+}
+
+impl Normalize for Vec3 {
+    fn normalize(self) -> Vec3 {
         let inv_length = 1.0 / self.dot(self).sqrt();
         self * inv_length
     }
@@ -160,14 +200,22 @@ impl Vec4 {
             w: 0.0,
         }
     }
-    pub fn dot(self, rhs: Vec4) -> f32 {
+}
+
+impl Dot for Vec4 {
+    fn dot(self, rhs: Vec4) -> f32 {
         (self.x * rhs.x) + (self.y * rhs.y) + (self.z * rhs.z) + (self.w * rhs.w)
     }
-    pub fn length(self) -> f32 {
-        self.dot(self).sqrt()
+}
 
+impl Length for Vec4 {
+    fn length(self) -> f32 {
+        self.dot(self).sqrt()
     }
-    pub fn normalize(self) -> Vec4 {
+}
+
+impl Normalize for Vec4 {
+    fn normalize(self) -> Vec4 {
         let inv_length = 1.0 / self.dot(self).sqrt();
         self * inv_length
     }
