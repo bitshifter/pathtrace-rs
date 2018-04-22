@@ -1,10 +1,10 @@
+extern crate image;
 extern crate rand;
 
 mod vmath;
 
+use image::RgbImage;
 use rand::Rng;
-use std::fs::File;
-use std::io::Write;
 
 use vmath::{dot, normalize, ray, Ray, Vec3, vec3};
 
@@ -124,8 +124,7 @@ fn main() {
     ]);
     let camera = Camera::default();
     let mut rng = rand::weak_rng();
-    let mut out = File::create("output.ppm").expect("Failed to create output.ppm");
-    writeln!(out, "P3\n{} {} \n255", nx, ny).expect("Failed to write to output.ppm");
+    let mut img = RgbImage::new(nx, ny);
     for j in 0..(ny - 1) {
         for i in 0..nx {
             let mut col = vec3(0.0, 0.0, 0.0);
@@ -137,10 +136,11 @@ fn main() {
                 col += ray_to_colour(&ray, &scene);
             }
             col /= ns as f32;
-            let ir = (255.99 * col.x) as i32;
-            let ig = (255.99 * col.y) as i32;
-            let ib = (255.99 * col.z) as i32;
-            writeln!(out, "{} {} {}\n", ir, ig, ib).expect("Failed to write to output.ppm");
+            let pixel = &mut img[(i, j)];
+            pixel[0] = (255.99 * col.x) as u8;
+            pixel[1] = (255.99 * col.y) as u8;
+            pixel[2] = (255.99 * col.z) as u8;
         }
     }
+    img.save("output.png").expect("Failed to save output image");
 }
