@@ -8,17 +8,45 @@ mod vmath;
 use camera::Camera;
 use image::RgbImage;
 use rand::Rng;
-use scene::Scene;
+use scene::{sphere, Material, Scene};
 
-use vmath::{sphere, vec3};
+use vmath::vec3;
 
 fn main() {
     let nx = 200;
     let ny = 100;
     let ns = 100;
     let scene = Scene::new(vec![
-        sphere(vec3(0.0, 0.0, -1.0), 0.5),
-        sphere(vec3(0.0, -100.5, -1.0), 100.0),
+        sphere(
+            vec3(0.0, 0.0, -1.0),
+            0.5,
+            Material::Lambertian {
+                albedo: vec3(0.8, 0.3, 0.3),
+            },
+        ),
+        sphere(
+            vec3(0.0, -100.5, -1.0),
+            100.0,
+            Material::Lambertian {
+                albedo: vec3(0.8, 0.8, 0.0),
+            },
+        ),
+        sphere(
+            vec3(1.0, 0.0, -1.0),
+            0.5,
+            Material::Metal {
+                albedo: vec3(0.8, 0.6, 0.2),
+                fuzz: 0.3,
+            },
+        ),
+        sphere(
+            vec3(-1.0, 0.0, -1.0),
+            0.5,
+            Material::Metal {
+                albedo: vec3(0.8, 0.8, 0.8),
+                fuzz: 0.1,
+            },
+        ),
     ]);
     let camera = Camera::default();
     let mut rng = rand::weak_rng();
@@ -30,7 +58,7 @@ fn main() {
                 let u = (i as f32 + rng.next_f32()) / nx as f32;
                 let v = ((ny - j) as f32 + rng.next_f32()) / ny as f32;
                 let ray = camera.get_ray(u, v);
-                col += scene.ray_to_colour(&ray, &mut rng);
+                col += scene.ray_to_colour(&ray, 0, &mut rng);
             }
             col /= ns as f32;
             let pixel = &mut img[(i, j)];
