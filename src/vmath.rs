@@ -238,6 +238,17 @@ impl SubAssign for Vec3 {
     }
 }
 
+impl Neg for Vec3 {
+    type Output = Vec3;
+    fn neg(self) -> Vec3 {
+        Vec3 {
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Vec4 {
     pub x: f32,
@@ -401,6 +412,18 @@ impl SubAssign for Vec4 {
     }
 }
 
+impl Neg for Vec4 {
+    type Output = Vec4;
+    fn neg(self) -> Vec4 {
+        Vec4 {
+            x: -self.x,
+            y: -self.y,
+            z: -self.z,
+            w: -self.w,
+        }
+    }
+}
+
 impl fmt::Display for Vec4 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "[{}, {}, {}, {}]", self.x, self.y, self.z, self.w)
@@ -530,9 +553,9 @@ impl Mat4 {
     }
 }
 
-impl Mul for Mat4 {
+impl<'a, 'b> Mul<&'a Mat4> for &'b Mat4 {
     type Output = Mat4;
-    fn mul(self, rhs: Mat4) -> Mat4 {
+    fn mul(self, rhs: &Mat4) -> Mat4 {
         let a0 = self.col0;
         let a1 = self.col1;
         let a2 = self.col2;

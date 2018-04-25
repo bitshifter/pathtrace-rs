@@ -15,10 +15,32 @@ fn random_in_unit_sphere(rng: &mut Rng) -> Vec3 {
     }
 }
 
+fn reflect(v: Vec3, n: Vec3) -> Vec3 {
+    v - 2.0 * dot(v, n) * n
+}
+
+fn refract(v: Vec3, n: Vec3, ni_over_nt: f32) -> Option<Vec3> {
+    let uv = normalize(v);
+    let dt = dot(uv, n);
+    let discriminant = 1.0 - ni_over_nt * ni_over_nt * (1.0 - dt * dt);
+    if discriminant > 0.0 {
+        Some(ni_over_nt * (uv - n * dt) - n * discriminant.sqrt())
+    } else {
+        None
+    }
+}
+
+fn schlick(cosine: f32, ref_idx: f32) -> f32 {
+    let r0 = (1.0 - ref_idx) / (1.0 + ref_idx);
+    let r0 = r0 * r0;
+    r0 + (1.0 - r0) * (1.0 - cosine).powf(5.0)
+}
+
 #[derive(Clone, Copy)]
 pub enum Material {
     Lambertian { albedo: Vec3 },
     Metal { albedo: Vec3, fuzz: f32 },
+    Dielectric { ref_idx: f32 },
 }
 
 impl Material {
@@ -38,7 +60,6 @@ impl Material {
         ray_hit: &RayHit,
         rng: &mut Rng,
     ) -> Option<(Vec3, Ray)> {
-        let reflect = |v, n| v - 2.0 * dot(v, n) * n;
         let reflected = reflect(normalize(ray_in.direction), ray_hit.normal);
         if dot(reflected, ray_hit.normal) > 0.0 {
             Some((
@@ -49,6 +70,32 @@ impl Material {
             None
         }
     }
+    fn scatter_dielectric(
+        ref_idx: f32,
+        ray_in: &Ray,
+        ray_hit: &RayHit,
+        rng: &mut Rng,
+    ) -> Option<(Vec3, Ray)> {
+        let attenuation = vec3(1.0, 1.0, 1.0);
+        let rdotn = dot(ray_in.direction, ray_hit.normal);
+        let (outward_normal, ni_over_nt, cosine) = if rdotn > 0.0 {
+            let cosine = ref_idx * rdotn / ray_in.direction.length();
+            (-ray_hit.normal, ref_idx, cosine)
+        } else {
+            let cosine = -rdotn / ray_in.direction.length();
+            (ray_hit.normal, 1.0 / ref_idx, cosine)
+        };
+        if let Some(refracted) = refract(ray_in.direction, outward_normal, ni_over_nt) {
+            let reflect_prob = schlick(cosine, ref_idx);
+            if reflect_prob <= rng.next_f32() {
+                return Some((attenuation, ray(ray_in.origin, refracted)));
+            }
+        }
+        Some((
+            attenuation,
+            ray(ray_in.origin, reflect(ray_in.direction, ray_hit.normal)),
+        ))
+    }
     fn scatter(&self, ray: &Ray, ray_hit: &RayHit, rng: &mut Rng) -> Option<(Vec3, Ray)> {
         match *self {
             Material::Lambertian { albedo } => {
@@ -56,6 +103,9 @@ impl Material {
             }
             Material::Metal { albedo, fuzz } => {
                 Material::scatter_metal(albedo, fuzz, ray, ray_hit, rng)
+            }
+            Material::Dielectric { ref_idx } => {
+                Material::scatter_dielectric(ref_idx, ray, ray_hit, rng)
             }
         }
     }

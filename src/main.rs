@@ -39,13 +39,15 @@ fn main() {
                 fuzz: 0.3,
             },
         ),
+        // sphere(
+        //     vec3(-1.0, 0.0, -1.0),
+        //     0.5,
+        //     Material::Dielectric { ref_idx: 1.5 },
+        // ),
         sphere(
             vec3(-1.0, 0.0, -1.0),
-            0.5,
-            Material::Metal {
-                albedo: vec3(0.8, 0.8, 0.8),
-                fuzz: 0.1,
-            },
+            -0.45,
+            Material::Dielectric { ref_idx: 1.5 },
         ),
     ]);
     let camera = Camera::default();
