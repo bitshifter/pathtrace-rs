@@ -21,7 +21,7 @@ fn main() {
             vec3(0.0, 0.0, -1.0),
             0.5,
             Material::Lambertian {
-                albedo: vec3(0.8, 0.3, 0.3),
+                albedo: vec3(0.1, 0.2, 0.5),
             },
         ),
         sphere(
@@ -36,14 +36,14 @@ fn main() {
             0.5,
             Material::Metal {
                 albedo: vec3(0.8, 0.6, 0.2),
-                fuzz: 0.3,
+                fuzz: 0.0,
             },
         ),
-        // sphere(
-        //     vec3(-1.0, 0.0, -1.0),
-        //     0.5,
-        //     Material::Dielectric { ref_idx: 1.5 },
-        // ),
+        sphere(
+            vec3(-1.0, 0.0, -1.0),
+            0.5,
+            Material::Dielectric { ref_idx: 1.5 },
+        ),
         sphere(
             vec3(-1.0, 0.0, -1.0),
             -0.45,

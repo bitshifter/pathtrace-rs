@@ -22,7 +22,7 @@ fn reflect(v: Vec3, n: Vec3) -> Vec3 {
 fn refract(v: Vec3, n: Vec3, ni_over_nt: f32) -> Option<Vec3> {
     let uv = normalize(v);
     let dt = dot(uv, n);
-    let discriminant = 1.0 - ni_over_nt * ni_over_nt * (1.0 - dt * dt);
+    let discriminant = 1.0 - (ni_over_nt * ni_over_nt) * (1.0 - (dt * dt));
     if discriminant > 0.0 {
         Some(ni_over_nt * (uv - n * dt) - n * discriminant.sqrt())
     } else {
@@ -79,7 +79,8 @@ impl Material {
         let attenuation = vec3(1.0, 1.0, 1.0);
         let rdotn = dot(ray_in.direction, ray_hit.normal);
         let (outward_normal, ni_over_nt, cosine) = if rdotn > 0.0 {
-            let cosine = ref_idx * rdotn / ray_in.direction.length();
+            let cosine = rdotn / ray_in.direction.length();
+            let cosine = (1.0 - ref_idx * ref_idx * (1.0 - cosine * cosine)).sqrt();
             (-ray_hit.normal, ref_idx, cosine)
         } else {
             let cosine = -rdotn / ray_in.direction.length();
@@ -87,13 +88,13 @@ impl Material {
         };
         if let Some(refracted) = refract(ray_in.direction, outward_normal, ni_over_nt) {
             let reflect_prob = schlick(cosine, ref_idx);
-            if reflect_prob <= rng.next_f32() {
-                return Some((attenuation, ray(ray_in.origin, refracted)));
+            if rng.next_f32() > reflect_prob {
+                return Some((attenuation, ray(ray_hit.point, refracted)));
             }
         }
         Some((
             attenuation,
-            ray(ray_in.origin, reflect(ray_in.direction, ray_hit.normal)),
+            ray(ray_hit.point, reflect(ray_in.direction, ray_hit.normal)),
         ))
     }
     fn scatter(&self, ray: &Ray, ray_hit: &RayHit, rng: &mut Rng) -> Option<(Vec3, Ray)> {
@@ -189,15 +190,14 @@ impl Scene {
     }
     pub fn ray_to_colour(&self, ray_in: &Ray, depth: u32, rng: &mut Rng) -> Vec3 {
         if let Some(ray_hit) = self.hit(ray_in, 0.001, f32::MAX) {
-            if depth >= 50 {
-                Vec3::zero()
-            } else if let Some((attenuation, scattered)) =
-                ray_hit.material.scatter(ray_in, &ray_hit, rng)
-            {
-                attenuation * self.ray_to_colour(&scattered, depth + 1, rng)
-            } else {
-                Vec3::zero()
+            if depth < 50 {
+                if let Some((attenuation, scattered)) =
+                    ray_hit.material.scatter(ray_in, &ray_hit, rng)
+                {
+                    return attenuation * self.ray_to_colour(&scattered, depth + 1, rng);
+                }
             }
+            return Vec3::zero();
         } else {
             let unit_direction = normalize(ray_in.direction);
             let t = 0.5 * (unit_direction.y + 1.0);
