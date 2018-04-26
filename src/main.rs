@@ -9,7 +9,7 @@ use camera::Camera;
 use image::RgbImage;
 use rand::Rng;
 use scene::{sphere, Material, Scene};
-
+use std::f32;
 use vmath::vec3;
 
 fn main() {
@@ -50,7 +50,13 @@ fn main() {
             Material::Dielectric { ref_idx: 1.5 },
         ),
     ]);
-    let camera = Camera::default();
+    let camera = Camera::new(
+        vec3(-2.0, 2.0, 1.0),
+        vec3(0.0, 0.0, -1.0),
+        vec3(0.0, 1.0, 0.0),
+        90.0,
+        nx as f32 / ny as f32,
+    );
     let mut rng = rand::weak_rng();
     let mut img = RgbImage::new(nx, ny);
     for j in 0..(ny - 1) {
