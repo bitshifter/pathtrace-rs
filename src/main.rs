@@ -8,52 +8,21 @@ mod vmath;
 use camera::Camera;
 use image::RgbImage;
 use rand::Rng;
-use scene::{sphere, Material, Scene};
+use scene::Scene;
 use std::f32;
-use vmath::{Length, vec3};
+use vmath::vec3;
 
 fn main() {
-    let nx = 200;
-    let ny = 100;
-    let ns = 100;
-    let scene = Scene::new(vec![
-        sphere(
-            vec3(0.0, 0.0, -1.0),
-            0.5,
-            Material::Lambertian {
-                albedo: vec3(0.1, 0.2, 0.5),
-            },
-        ),
-        sphere(
-            vec3(0.0, -100.5, -1.0),
-            100.0,
-            Material::Lambertian {
-                albedo: vec3(0.8, 0.8, 0.0),
-            },
-        ),
-        sphere(
-            vec3(1.0, 0.0, -1.0),
-            0.5,
-            Material::Metal {
-                albedo: vec3(0.8, 0.6, 0.2),
-                fuzz: 0.0,
-            },
-        ),
-        sphere(
-            vec3(-1.0, 0.0, -1.0),
-            0.5,
-            Material::Dielectric { ref_idx: 1.5 },
-        ),
-        sphere(
-            vec3(-1.0, 0.0, -1.0),
-            -0.45,
-            Material::Dielectric { ref_idx: 1.5 },
-        ),
-    ]);
-    let lookfrom = vec3(3.0, 3.0, 2.0);
-    let lookat = vec3(0.0, 0.0, -1.0);
-    let dist_to_focus = (lookfrom - lookat).length();
-    let aperture = 2.0;
+    let nx = 1200;
+    let ny = 800;
+    let ns = 10;
+    let mut rng = rand::weak_rng();
+    let scene = Scene::random_scene(&mut rng);
+
+    let lookfrom = vec3(13.0, 2.0, 3.0);
+    let lookat = vec3(0.0, 0.0, 0.0);
+    let dist_to_focus = 10.0;
+    let aperture = 0.1;
     let camera = Camera::new(
         lookfrom,
         lookat,
@@ -63,8 +32,9 @@ fn main() {
         aperture,
         dist_to_focus,
     );
-    let mut rng = rand::weak_rng();
+
     let mut img = RgbImage::new(nx, ny);
+
     for j in 0..(ny - 1) {
         for i in 0..nx {
             let mut col = vec3(0.0, 0.0, 0.0);
