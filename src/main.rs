@@ -10,7 +10,7 @@ use image::RgbImage;
 use rand::Rng;
 use scene::{sphere, Material, Scene};
 use std::f32;
-use vmath::vec3;
+use vmath::{Length, vec3};
 
 fn main() {
     let nx = 200;
@@ -50,12 +50,18 @@ fn main() {
             Material::Dielectric { ref_idx: 1.5 },
         ),
     ]);
+    let lookfrom = vec3(3.0, 3.0, 2.0);
+    let lookat = vec3(0.0, 0.0, -1.0);
+    let dist_to_focus = (lookfrom - lookat).length();
+    let aperture = 2.0;
     let camera = Camera::new(
-        vec3(-2.0, 2.0, 1.0),
-        vec3(0.0, 0.0, -1.0),
+        lookfrom,
+        lookat,
         vec3(0.0, 1.0, 0.0),
-        90.0,
+        20.0,
         nx as f32 / ny as f32,
+        aperture,
+        dist_to_focus,
     );
     let mut rng = rand::weak_rng();
     let mut img = RgbImage::new(nx, ny);
@@ -65,7 +71,7 @@ fn main() {
             for _ in 0..ns {
                 let u = (i as f32 + rng.next_f32()) / nx as f32;
                 let v = ((ny - j) as f32 + rng.next_f32()) / ny as f32;
-                let ray = camera.get_ray(u, v);
+                let ray = camera.get_ray(u, v, &mut rng);
                 col += scene.ray_to_colour(&ray, 0, &mut rng);
             }
             col /= ns as f32;
