@@ -171,6 +171,7 @@ impl Sphere {
 
 pub struct Scene {
     spheres: Vec<Sphere>,
+    pub ray_count: u64,
 }
 
 impl Scene {
@@ -243,8 +244,12 @@ impl Scene {
                 fuzz: 0.0,
             },
         ));
-        Scene { spheres }
+        Scene {
+            spheres,
+            ray_count: 0,
+        }
     }
+
     #[allow(dead_code)]
     pub fn default() -> Scene {
         Scene {
@@ -282,13 +287,19 @@ impl Scene {
                     Material::Dielectric { ref_idx: 1.5 },
                 ),
             ],
+            ray_count: 0,
         }
     }
+
     #[allow(dead_code)]
     pub fn new(spheres: Vec<Sphere>) -> Scene {
-        Scene { spheres }
+        Scene {
+            spheres,
+            ray_count: 0,
+        }
     }
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<RayHit> {
+
+    fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<RayHit> {
         let mut result = None;
         let mut closest_so_far = t_max;
         for sphere in &self.spheres {
@@ -299,13 +310,18 @@ impl Scene {
         }
         result
     }
-    pub fn ray_to_colour(&self, ray_in: &Ray, depth: u32, rng: &mut Rng) -> Vec3 {
-        if let Some(ray_hit) = self.hit(ray_in, 0.001, f32::MAX) {
-            if depth < 50 {
+
+    pub fn ray_trace(&mut self, ray_in: &Ray, depth: u32, rng: &mut Rng) -> Vec3 {
+        const MAX_DEPTH: u32 = 50;
+        const MAX_T: f32 = f32::MAX;
+        const MIN_T: f32 = 0.001;
+        self.ray_count += 1;
+        if let Some(ray_hit) = self.ray_hit(ray_in, MIN_T, MAX_T) {
+            if depth < MAX_DEPTH {
                 if let Some((attenuation, scattered)) =
                     ray_hit.material.scatter(ray_in, &ray_hit, rng)
                 {
-                    return attenuation * self.ray_to_colour(&scattered, depth + 1, rng);
+                    return attenuation * self.ray_trace(&scattered, depth + 1, rng);
                 }
             }
             return Vec3::zero();
