@@ -7,8 +7,4 @@ I found the book via Aras Pranckevičius' [blog series](http://aras-p.info/blog/
 ## License
 [license]: #license
 
-I'm being lazy and just copying Rust's dual MIT and Apache License.
-
-See [LICENSE-APACHE](LICENSE-APACHE), [LICENSE-MIT](LICENSE-MIT), and
-[COPYRIGHT](COPYRIGHT) for details.
-
+See [LICENSE-APACHE](LICENSE-APACHE) and [LICENSE-MIT](LICENSE-MIT) for details.
