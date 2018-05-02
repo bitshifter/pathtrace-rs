@@ -1,3 +1,5 @@
+#[macro_use]
+extern crate clap;
 extern crate image;
 extern crate rand;
 
@@ -6,6 +8,7 @@ mod scene;
 mod vmath;
 
 use camera::Camera;
+use clap::{App, Arg};
 use image::RgbImage;
 use rand::Rng;
 use scene::Scene;
@@ -14,9 +17,37 @@ use std::time::SystemTime;
 use vmath::vec3;
 
 fn main() {
-    let nx = 1200;
-    let ny = 800;
-    let ns = 10;
+    let matches = App::new("Toy Path Tracer")
+        .version("0.1")
+        .args(&[
+            Arg::with_name("width")
+                .help("Image width to generate")
+                .short("W")
+                .long("width")
+                .takes_value(true),
+            Arg::with_name("height")
+                .help("Image height to generate")
+                .short("H")
+                .long("height")
+                .takes_value(true),
+            Arg::with_name("samples")
+                .help("Number of samples per pixel")
+                .short("S")
+                .long("samples")
+                .takes_value(true),
+        ])
+        .get_matches();
+
+    let nx = value_t!(matches, "width", u32).unwrap_or(1200);
+    let ny = value_t!(matches, "height", u32).unwrap_or(800);
+    let ns = value_t!(matches, "samples", u32).unwrap_or(10);
+
+    println!(
+        "generating {}x{} image with {} samples per pixel",
+        nx, ny, ns
+    );
+
+    // Not writing crypto so use a weak rng, also pass it around to avoid construction cost.
     let mut rng = rand::weak_rng();
     let mut scene = Scene::random_scene(&mut rng);
 
@@ -55,8 +86,15 @@ fn main() {
         }
     }
 
-    let elapsed = start_time.elapsed().expect("SystemTime elapsed time failed");
-    println!("{}.{:.2} seconds {} rays", elapsed.as_secs(), elapsed.subsec_nanos() * 1_000_000_000, scene.ray_count);
+    let elapsed = start_time
+        .elapsed()
+        .expect("SystemTime elapsed time failed");
+    println!(
+        "{}.{:.2} seconds {} rays",
+        elapsed.as_secs(),
+        elapsed.subsec_nanos() * 1_000_000_000,
+        scene.ray_count
+    );
 
     img.save("output.png").expect("Failed to save output image");
 }

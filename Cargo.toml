@@ -7,5 +7,9 @@ authors = ["Cameron Hart <cameron.hart@gmail.com>"]
 rand = "0.4"
 image = "0.18"
 
+[dependencies.clap]
+version = "~2.31.2"
+default-features = false
+
 [profile.dev]
 opt-level = 1
