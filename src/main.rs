@@ -2,6 +2,7 @@
 extern crate clap;
 extern crate image;
 extern crate rand;
+extern crate rayon;
 
 mod camera;
 mod scene;
@@ -10,10 +11,11 @@ mod vmath;
 use camera::Camera;
 use clap::{App, Arg};
 use rand::Rng;
+use rayon::prelude::*;
 use scene::Scene;
 use std::f32;
 use std::time::SystemTime;
-use vmath::vec3;
+use vmath::{Vec3, vec3};
 
 fn main() {
     let matches = App::new("Toy Path Tracer")
@@ -47,8 +49,7 @@ fn main() {
     );
 
     // Not writing crypto so use a weak rng, also pass it around to avoid construction cost.
-    let mut rng = rand::weak_rng();
-    let mut scene = Scene::random_scene(&mut rng);
+    let scene = Scene::random_scene(&mut rand::weak_rng());
 
     let lookfrom = vec3(13.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
@@ -64,25 +65,32 @@ fn main() {
         dist_to_focus,
     );
 
-    let mut buffer = Vec::with_capacity((nx * ny * 3) as usize);
+    let mut pixels: Vec<Vec3> = std::iter::repeat(vec3(0.0, 0.0, 0.0))
+        .take((nx * ny) as usize)
+        .collect();
 
     let start_time = SystemTime::now();
 
-    for j in 0..ny {
-        for i in 0..nx {
-            let mut col = vec3(0.0, 0.0, 0.0);
-            for _ in 0..ns {
-                let u = (i as f32 + rng.next_f32()) / nx as f32;
-                let v = ((ny - j - 1) as f32 + rng.next_f32()) / ny as f32;
-                let ray = camera.get_ray(u, v, &mut rng);
-                col += scene.ray_trace(&ray, 0, &mut rng);
+    let inv_nx = 1.0 / nx as f32;
+    let inv_ny = 1.0 / ny as f32;
+
+    // parallel iterate each row of pixels
+    pixels
+        .par_chunks_mut(nx as usize)
+        .rev()
+        .enumerate()
+        .for_each(|(j, row)| {
+            for (i, rgb) in row.iter_mut().enumerate() {
+                let mut rng = rand::weak_rng();
+                for _ in 0..ns {
+                    let u = (i as f32 + rng.next_f32()) * inv_nx;
+                    let v = (j as f32 + rng.next_f32()) * inv_ny;
+                    let ray = camera.get_ray(u, v, &mut rng);
+                    *rgb += scene.ray_trace(&ray, 0, &mut rng);
+                }
+                *rgb /= ns as f32;
             }
-            col /= ns as f32;
-            buffer.push((255.99 * col.x.sqrt()) as u8);
-            buffer.push((255.99 * col.y.sqrt()) as u8);
-            buffer.push((255.99 * col.z.sqrt()) as u8);
-        }
-    }
+        });
 
     let elapsed = start_time
         .elapsed()
@@ -91,8 +99,16 @@ fn main() {
         "{}.{:.2} seconds {} rays",
         elapsed.as_secs(),
         elapsed.subsec_nanos() * 1_000_000_000,
-        scene.ray_count
+        scene.ray_count()
     );
+
+    // write colour values out as bytes and save as image
+    let mut buffer = Vec::with_capacity((nx * ny * 3) as usize);
+    for col in pixels {
+        buffer.push((255.99 * col.x.sqrt()) as u8);
+        buffer.push((255.99 * col.y.sqrt()) as u8);
+        buffer.push((255.99 * col.z.sqrt()) as u8);
+    }
 
     image::save_buffer("output.png", &buffer, nx, ny, image::RGB(8))
         .expect("Failed to save output image");
