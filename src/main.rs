@@ -9,7 +9,6 @@ mod vmath;
 
 use camera::Camera;
 use clap::{App, Arg};
-use image::RgbImage;
 use rand::Rng;
 use scene::Scene;
 use std::f32;
@@ -65,7 +64,7 @@ fn main() {
         dist_to_focus,
     );
 
-    let mut img = RgbImage::new(nx, ny);
+    let mut buffer = Vec::with_capacity((nx * ny * 3) as usize);
 
     let start_time = SystemTime::now();
 
@@ -79,10 +78,9 @@ fn main() {
                 col += scene.ray_trace(&ray, 0, &mut rng);
             }
             col /= ns as f32;
-            let pixel = &mut img[(i, j)];
-            pixel[0] = (255.99 * col.x.sqrt()) as u8;
-            pixel[1] = (255.99 * col.y.sqrt()) as u8;
-            pixel[2] = (255.99 * col.z.sqrt()) as u8;
+            buffer.push((255.99 * col.x.sqrt()) as u8);
+            buffer.push((255.99 * col.y.sqrt()) as u8);
+            buffer.push((255.99 * col.z.sqrt()) as u8);
         }
     }
 
@@ -96,5 +94,6 @@ fn main() {
         scene.ray_count
     );
 
-    img.save("output.png").expect("Failed to save output image");
+    image::save_buffer("output.png", &buffer, nx, ny, image::RGB(8))
+        .expect("Failed to save output image");
 }
