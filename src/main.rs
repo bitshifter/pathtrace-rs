@@ -42,7 +42,7 @@ fn main() {
     let nx = value_t!(matches, "width", u32).unwrap_or(1200);
     let ny = value_t!(matches, "height", u32).unwrap_or(800);
     let ns = value_t!(matches, "samples", u32).unwrap_or(10);
-    let bpp = 3;
+    let channels = 3;
 
     println!(
         "generating {}x{} image with {} samples per pixel",
@@ -71,18 +71,18 @@ fn main() {
     );
 
     let mut buffer: Vec<u8> = std::iter::repeat(0)
-        .take((nx * ny * bpp) as usize)
+        .take((nx * ny * channels) as usize)
         .collect();
 
     let start_time = SystemTime::now();
 
     // parallel iterate each row of pixels
     buffer
-        .par_chunks_mut((nx * bpp) as usize)
+        .par_chunks_mut((nx * channels) as usize)
         .rev()
         .enumerate()
         .for_each(|(j, row)| {
-            for (i, rgb) in row.chunks_mut(bpp as usize).enumerate() {
+            for (i, rgb) in row.chunks_mut(channels as usize).enumerate() {
                 let mut rng = rand::weak_rng();
                 let mut col = vec3(0.0, 0.0, 0.0);
                 for _ in 0..ns {
