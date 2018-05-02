@@ -4,6 +4,16 @@ This is a Rust implementation of the Raytracer described in Peter Shirley's [Ray
 
 I found the book via Aras Pranckevičius' [blog series](http://aras-p.info/blog/2018/03/28/Daily-Pathtracer-Part-0-Intro/) on his [toy path tracer](https://github.com/aras-p/ToyPathTracer) experiments which was my inspiration for doing this, thanks Aras!
 
+## Compiling and running
+
+The easiest way to build and run the path tracer use the command:
+
+```
+cargo run --release
+```
+
+If you build without the `--release` flag the application will be very slow!
+
 ## License
 [license]: #license
 
