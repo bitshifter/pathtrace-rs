@@ -87,10 +87,11 @@ fn main() {
     let elapsed = start_time
         .elapsed()
         .expect("SystemTime elapsed time failed");
+
     println!(
         "{}.{:.2} seconds {} rays",
         elapsed.as_secs(),
-        elapsed.subsec_nanos() * 1_000_000_000,
+        elapsed.subsec_nanos(),
         scene.ray_count
     );
 
