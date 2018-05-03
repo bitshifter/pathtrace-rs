@@ -5,11 +5,15 @@ authors = ["Cameron Hart <cameron.hart@gmail.com>"]
 
 [dependencies]
 rand = "0.4"
-image = "0.18"
 
 [dependencies.clap]
 version = "~2.31.2"
 default-features = false
 
+[dependencies.image]
+version = "~0.19"
+default-features = false
+features = ["png_codec"]
+
 [profile.dev]
-opt-level = 1
+opt-level = 3
