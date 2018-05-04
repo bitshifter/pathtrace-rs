@@ -3,4 +3,5 @@
 *.swp
 /target
 **/*.rs.bk
+perf.*
 Session.vim
