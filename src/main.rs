@@ -10,12 +10,14 @@ mod vmath;
 
 use camera::Camera;
 use clap::{App, Arg};
-use rand::Rng;
+use rand::{thread_rng, Rng, SeedableRng, XorShiftRng};
 use rayon::prelude::*;
 use scene::Scene;
 use std::f32;
 use std::time::SystemTime;
 use vmath::vec3;
+
+const FIXED_SEED: [u32; 4] = [0x193a6754, 0xa8a7d469, 0x97830e05, 0x113ba7bb];
 
 fn main() {
     let matches = App::new("Toy Path Tracer")
@@ -36,6 +38,10 @@ fn main() {
                 .short("S")
                 .long("samples")
                 .takes_value(true),
+            Arg::with_name("random")
+                .help("Use a random seed")
+                .short("R")
+                .long("random"),
         ])
         .get_matches();
 
@@ -53,8 +59,13 @@ fn main() {
     let inv_ny = 1.0 / ny as f32;
     let inv_ns = 1.0 / ns as f32;
 
-    // Not writing crypto so use a weak rng, also pass it around to avoid construction cost.
-    let scene = Scene::random_scene(&mut rand::weak_rng());
+    let seed = if matches.is_present("random") {
+        thread_rng().gen()
+    } else {
+        FIXED_SEED
+    };
+
+    let scene = Scene::random_scene(&mut XorShiftRng::from_seed(seed));
 
     let lookfrom = vec3(13.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
@@ -83,7 +94,7 @@ fn main() {
         .enumerate()
         .for_each(|(j, row)| {
             for (i, rgb) in row.chunks_mut(channels as usize).enumerate() {
-                let mut rng = rand::weak_rng();
+                let mut rng = XorShiftRng::from_seed(seed);
                 let mut col = vec3(0.0, 0.0, 0.0);
                 for _ in 0..ns {
                     let u = (i as f32 + rng.next_f32()) * inv_nx;
