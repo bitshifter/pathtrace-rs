@@ -11,7 +11,6 @@ mod vmath;
 use camera::Camera;
 use clap::{App, Arg};
 use rand::{thread_rng, Rng, SeedableRng, XorShiftRng};
-use rayon::prelude::*;
 use scene::Scene;
 use std::f32;
 use std::time::SystemTime;
@@ -55,17 +54,14 @@ fn main() {
         nx, ny, ns
     );
 
-    let inv_nx = 1.0 / nx as f32;
-    let inv_ny = 1.0 / ny as f32;
-    let inv_ns = 1.0 / ns as f32;
-
     let seed = if matches.is_present("random") {
         thread_rng().gen()
     } else {
         FIXED_SEED
     };
 
-    let scene = Scene::random_scene(&mut XorShiftRng::from_seed(seed));
+    let mut rng = XorShiftRng::from_seed(seed);
+    let mut scene = Scene::random_scene(&mut rng);
 
     let lookfrom = vec3(13.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
@@ -81,34 +77,25 @@ fn main() {
         dist_to_focus,
     );
 
-    let mut buffer: Vec<u8> = std::iter::repeat(0)
-        .take((nx * ny * channels) as usize)
-        .collect();
+    let mut buffer = Vec::with_capacity((nx * ny * channels) as usize);
 
     let start_time = SystemTime::now();
 
-    // parallel iterate each row of pixels
-    buffer
-        .par_chunks_mut((nx * channels) as usize)
-        .rev()
-        .enumerate()
-        .for_each(|(j, row)| {
-            for (i, rgb) in row.chunks_mut(channels as usize).enumerate() {
-                let mut rng = XorShiftRng::from_seed(seed);
-                let mut col = vec3(0.0, 0.0, 0.0);
-                for _ in 0..ns {
-                    let u = (i as f32 + rng.next_f32()) * inv_nx;
-                    let v = (j as f32 + rng.next_f32()) * inv_ny;
-                    let ray = camera.get_ray(u, v, &mut rng);
-                    col += scene.ray_trace(&ray, 0, &mut rng);
-                }
-                col *= inv_ns;
-                let mut iter = rgb.iter_mut();
-                *iter.next().unwrap() = (255.99 * col.x.sqrt()) as u8;
-                *iter.next().unwrap() = (255.99 * col.y.sqrt()) as u8;
-                *iter.next().unwrap() = (255.99 * col.z.sqrt()) as u8;
+    for j in 0..ny {
+        for i in 0..nx {
+            let mut col = vec3(0.0, 0.0, 0.0);
+            for _ in 0..ns {
+                let u = (i as f32 + rng.next_f32()) / nx as f32;
+                let v = ((ny - j - 1) as f32 + rng.next_f32()) / ny as f32;
+                let ray = camera.get_ray(u, v, &mut rng);
+                col += scene.ray_trace(&ray, 0, &mut rng);
             }
-        });
+            col /= ns as f32;
+            buffer.push((255.99 * col.x.sqrt()) as u8);
+            buffer.push((255.99 * col.y.sqrt()) as u8);
+            buffer.push((255.99 * col.z.sqrt()) as u8);
+        }
+    }
 
     let elapsed = start_time
         .elapsed()
