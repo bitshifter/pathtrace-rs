@@ -11,6 +11,7 @@ mod vmath;
 use camera::Camera;
 use clap::{App, Arg};
 use rand::{thread_rng, Rng, SeedableRng, XorShiftRng};
+use rayon::prelude::*;
 use scene::Scene;
 use std::f32;
 use std::time::SystemTime;
@@ -61,7 +62,7 @@ fn main() {
     };
 
     let mut rng = XorShiftRng::from_seed(seed);
-    let mut scene = Scene::random_scene(&mut rng);
+    let scene = Scene::random_scene(&mut rng);
 
     let lookfrom = vec3(13.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
@@ -84,7 +85,7 @@ fn main() {
     let start_time = SystemTime::now();
 
     buffer
-        .chunks_mut((nx * channels) as usize)
+        .par_chunks_mut((nx * channels) as usize)
         .rev()
         .enumerate()
         .for_each(|(j, row)| {

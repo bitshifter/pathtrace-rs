@@ -1,6 +1,6 @@
 use rand::Rng;
 use std::f32;
-// use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use vmath::{dot, normalize, ray, Length, Ray, Vec3, vec3};
 
@@ -173,7 +173,7 @@ impl Sphere {
 
 pub struct Scene {
     spheres: Vec<Sphere>,
-    ray_count: usize,
+    ray_count: AtomicUsize,
 }
 
 impl Scene {
@@ -248,7 +248,7 @@ impl Scene {
         ));
         Scene {
             spheres,
-            ray_count: 0,
+            ray_count: AtomicUsize::new(0),
         }
     }
 
@@ -289,7 +289,7 @@ impl Scene {
                     Material::Dielectric { ref_idx: 1.5 },
                 ),
             ],
-            ray_count: 0,
+            ray_count: AtomicUsize::new(0),
         }
     }
 
@@ -297,7 +297,7 @@ impl Scene {
     pub fn new(spheres: Vec<Sphere>) -> Scene {
         Scene {
             spheres,
-            ray_count: 0,
+            ray_count: AtomicUsize::new(0),
         }
     }
 
@@ -313,11 +313,11 @@ impl Scene {
         result
     }
 
-    pub fn ray_trace(&mut self, ray_in: &Ray, depth: u32, rng: &mut Rng) -> Vec3 {
+    pub fn ray_trace(&self, ray_in: &Ray, depth: u32, rng: &mut Rng) -> Vec3 {
         const MAX_DEPTH: u32 = 50;
         const MAX_T: f32 = f32::MAX;
         const MIN_T: f32 = 0.001;
-        self.ray_count += 1;
+        self.ray_count.fetch_add(1, Ordering::SeqCst);
         if let Some(ray_hit) = self.ray_hit(ray_in, MIN_T, MAX_T) {
             if depth < MAX_DEPTH {
                 if let Some((attenuation, scattered)) =
@@ -335,6 +335,6 @@ impl Scene {
     }
 
     pub fn ray_count(&self) -> usize {
-        self.ray_count
+        self.ray_count.load(Ordering::Relaxed)
     }
 }
