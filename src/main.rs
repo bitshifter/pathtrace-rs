@@ -77,25 +77,33 @@ fn main() {
         dist_to_focus,
     );
 
-    let mut buffer = Vec::with_capacity((nx * ny * channels) as usize);
+    let mut buffer: Vec<u8> = std::iter::repeat(0)
+        .take((nx * ny * channels) as usize)
+        .collect();
 
     let start_time = SystemTime::now();
 
-    for j in 0..ny {
-        for i in 0..nx {
-            let mut col = vec3(0.0, 0.0, 0.0);
-            for _ in 0..ns {
-                let u = (i as f32 + rng.next_f32()) / nx as f32;
-                let v = ((ny - j - 1) as f32 + rng.next_f32()) / ny as f32;
-                let ray = camera.get_ray(u, v, &mut rng);
-                col += scene.ray_trace(&ray, 0, &mut rng);
+    buffer
+        .chunks_mut((nx * channels) as usize)
+        .rev()
+        .enumerate()
+        .for_each(|(j, row)| {
+            for (i, rgb) in row.chunks_mut(channels as usize).enumerate() {
+                let mut rng = XorShiftRng::from_seed(seed);
+                let mut col = vec3(0.0, 0.0, 0.0);
+                for _ in 0..ns {
+                    let u = (i as f32 + rng.next_f32()) / nx as f32;
+                    let v = (j as f32 + rng.next_f32()) / ny as f32;
+                    let ray = camera.get_ray(u, v, &mut rng);
+                    col += scene.ray_trace(&ray, 0, &mut rng);
+                }
+                col /= ns as f32;
+                let mut iter = rgb.iter_mut();
+                *iter.next().unwrap() = (255.99 * col.x.sqrt()) as u8;
+                *iter.next().unwrap() = (255.99 * col.y.sqrt()) as u8;
+                *iter.next().unwrap() = (255.99 * col.z.sqrt()) as u8;
             }
-            col /= ns as f32;
-            buffer.push((255.99 * col.x.sqrt()) as u8);
-            buffer.push((255.99 * col.y.sqrt()) as u8);
-            buffer.push((255.99 * col.z.sqrt()) as u8);
-        }
-    }
+        });
 
     let elapsed = start_time
         .elapsed()
