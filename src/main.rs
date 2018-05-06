@@ -78,9 +78,7 @@ fn main() {
         dist_to_focus,
     );
 
-    let mut buffer: Vec<u8> = std::iter::repeat(0)
-        .take((nx * ny * channels) as usize)
-        .collect();
+    let mut buffer = vec![0u8; (nx * ny * channels) as usize];
 
     let start_time = SystemTime::now();
 
