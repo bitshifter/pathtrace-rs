@@ -81,9 +81,7 @@ fn main() {
         dist_to_focus,
     );
 
-    let mut buffer: Vec<u8> = std::iter::repeat(0)
-        .take((nx * ny * channels) as usize)
-        .collect();
+    let mut buffer = vec![0u8; (nx * ny * channels) as usize];
 
     let start_time = SystemTime::now();
 
@@ -93,8 +91,8 @@ fn main() {
         .rev()
         .enumerate()
         .for_each(|(j, row)| {
+            let mut rng = XorShiftRng::from_seed(seed);
             for (i, rgb) in row.chunks_mut(channels as usize).enumerate() {
-                let mut rng = XorShiftRng::from_seed(seed);
                 let mut col = vec3(0.0, 0.0, 0.0);
                 for _ in 0..ns {
                     let u = (i as f32 + rng.next_f32()) * inv_nx;
