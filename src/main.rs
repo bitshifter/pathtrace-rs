@@ -87,8 +87,8 @@ fn main() {
         .rev()
         .enumerate()
         .for_each(|(j, row)| {
+            let mut rng = XorShiftRng::from_seed(seed);
             for (i, rgb) in row.chunks_mut(channels as usize).enumerate() {
-                let mut rng = XorShiftRng::from_seed(seed);
                 let mut col = vec3(0.0, 0.0, 0.0);
                 for _ in 0..ns {
                     let u = (i as f32 + rng.next_f32()) / nx as f32;
