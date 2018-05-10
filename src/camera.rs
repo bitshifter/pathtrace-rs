@@ -3,12 +3,12 @@ extern crate std;
 
 use rand::Rng;
 use std::f32;
-use vmath::{cross, dot, normalize, ray, Ray, Vec3, vec3};
+use vmath::{ray, Ray, Vec3, vec3};
 
 fn random_in_unit_disk(rng: &mut Rng) -> Vec3 {
     loop {
         let p = 2.0 * vec3(rng.next_f32(), rng.next_f32(), 0.0) - vec3(1.0, 1.0, 0.0);
-        if dot(p, p) < 1.0 {
+        if p.dot(p) < 1.0 {
             return p;
         }
     }
@@ -37,9 +37,9 @@ impl Camera {
         let theta = vfov * f32::consts::PI / 180.0;
         let half_height = (theta * 0.5).tan();
         let half_width = aspect * half_height;
-        let w = normalize(lookfrom - lookat);
-        let u = normalize(cross(vup, w));
-        let v = cross(w, u);
+        let w = (lookfrom - lookat).normalize();
+        let u = vup.cross(w).normalize();
+        let v = w.cross(u);
         Camera {
             origin: lookfrom,
             lower_left_corner: lookfrom - half_width * focus_dist * u - half_height * focus_dist * v
@@ -54,7 +54,7 @@ impl Camera {
 
     pub fn get_ray(&self, s: f32, t: f32, rng: &mut Rng) -> Ray {
         let rd = self.lens_radius * random_in_unit_disk(rng);
-        let offset = self.u * rd.x + self.v * rd.y;
+        let offset = self.u * rd.x() + self.v * rd.y();
         ray(
             self.origin + offset,
             self.lower_left_corner + s * self.horizontal + t * self.vertical - self.origin - offset,

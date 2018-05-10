@@ -1,3 +1,5 @@
+#![feature(stdsimd)]
+
 #[macro_use]
 extern crate clap;
 extern crate image;
@@ -102,9 +104,9 @@ fn main() {
                 }
                 col *= inv_ns;
                 let mut iter = rgb.iter_mut();
-                *iter.next().unwrap() = (255.99 * col.x.sqrt()) as u8;
-                *iter.next().unwrap() = (255.99 * col.y.sqrt()) as u8;
-                *iter.next().unwrap() = (255.99 * col.z.sqrt()) as u8;
+                *iter.next().unwrap() = (255.99 * col.x().sqrt()) as u8;
+                *iter.next().unwrap() = (255.99 * col.y().sqrt()) as u8;
+                *iter.next().unwrap() = (255.99 * col.z().sqrt()) as u8;
             }
         });
 
