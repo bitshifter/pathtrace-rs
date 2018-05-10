@@ -2,7 +2,8 @@ use rand::Rng;
 use std::f32;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use vmath::{dot, normalize, ray, Length, Ray, Vec3, vec3};
+use vmath::{Vec3, vec3, Ray, ray};
+
 
 fn random_in_unit_sphere(rng: &mut Rng) -> Vec3 {
     loop {
@@ -18,12 +19,12 @@ fn random_in_unit_sphere(rng: &mut Rng) -> Vec3 {
 }
 
 fn reflect(v: Vec3, n: Vec3) -> Vec3 {
-    v - 2.0 * dot(v, n) * n
+    v - 2.0 * v.dot(n) * n
 }
 
 fn refract(v: Vec3, n: Vec3, ni_over_nt: f32) -> Option<Vec3> {
-    let uv = normalize(v);
-    let dt = dot(uv, n);
+    let uv = v.normalize();
+    let dt = uv.dot(n);
     let discriminant = 1.0 - (ni_over_nt * ni_over_nt) * (1.0 - (dt * dt));
     if discriminant > 0.0 {
         Some(ni_over_nt * (uv - n * dt) - n * discriminant.sqrt())
@@ -62,8 +63,8 @@ impl Material {
         ray_hit: &RayHit,
         rng: &mut Rng,
     ) -> Option<(Vec3, Ray)> {
-        let reflected = reflect(normalize(ray_in.direction), ray_hit.normal);
-        if dot(reflected, ray_hit.normal) > 0.0 {
+        let reflected = reflect(ray_in.direction.normalize(), ray_hit.normal);
+        if reflected.dot(ray_hit.normal) > 0.0 {
             Some((
                 albedo,
                 ray(ray_hit.point, reflected + fuzz * random_in_unit_sphere(rng)),
@@ -79,7 +80,7 @@ impl Material {
         rng: &mut Rng,
     ) -> Option<(Vec3, Ray)> {
         let attenuation = vec3(1.0, 1.0, 1.0);
-        let rdotn = dot(ray_in.direction, ray_hit.normal);
+        let rdotn = ray_in.direction.dot(ray_hit.normal);
         let (outward_normal, ni_over_nt, cosine) = if rdotn > 0.0 {
             let cosine = rdotn / ray_in.direction.length();
             let cosine = (1.0 - ref_idx * ref_idx * (1.0 - cosine * cosine)).sqrt();
@@ -138,9 +139,9 @@ pub fn sphere(centre: Vec3, radius: f32, material: Material) -> Sphere {
 impl Sphere {
     fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<RayHit> {
         let oc = ray.origin - self.centre;
-        let a = dot(ray.direction, ray.direction);
-        let b = dot(oc, ray.direction);
-        let c = dot(oc, oc) - self.radius * self.radius;
+        let a = ray.direction.dot(ray.direction);
+        let b = oc.dot(ray.direction);
+        let c = oc.dot(oc) - self.radius * self.radius;
         let discriminant = b * b - a * c;
         if discriminant > 0.0 {
             let discriminant_sqrt = discriminant.sqrt();
@@ -328,8 +329,8 @@ impl Scene {
             }
             return Vec3::zero();
         } else {
-            let unit_direction = normalize(ray_in.direction);
-            let t = 0.5 * (unit_direction.y + 1.0);
+            let unit_direction = ray_in.direction.normalize();
+            let t = 0.5 * (unit_direction.y() + 1.0);
             (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0)
         }
     }
