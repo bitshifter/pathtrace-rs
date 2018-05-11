@@ -10,14 +10,19 @@ mod vmath;
 
 use camera::Camera;
 use clap::{App, Arg};
-use rand::{thread_rng, Rng, SeedableRng, XorShiftRng};
+use rand::{Rng, SeedableRng, XorShiftRng};
 use rayon::prelude::*;
 use scene::Scene;
+use std::cell::RefCell;
 use std::f32;
 use std::time::SystemTime;
 use vmath::vec3;
 
 const FIXED_SEED: [u32; 4] = [0x193a_6754, 0xa8a7_d469, 0x9783_0e05, 0x113b_a7bb];
+
+thread_local! {
+    pub static XOR_SHIFT_RNG: RefCell<XorShiftRng> = RefCell::new(XorShiftRng::from_seed(FIXED_SEED));
+}
 
 fn main() {
     let matches = App::new("Toy Path Tracer")
@@ -59,13 +64,17 @@ fn main() {
     let inv_ny = 1.0 / ny as f32;
     let inv_ns = 1.0 / ns as f32;
 
-    let seed = if matches.is_present("random") {
-        thread_rng().gen()
-    } else {
-        FIXED_SEED
-    };
+    // let seed = if matches.is_present("random") {
+    //     thread_rng().gen()
+    // } else {
+    //     FIXED_SEED
+    // };
 
-    let scene = Scene::random_scene(&mut XorShiftRng::from_seed(seed));
+    let scene = {
+        XOR_SHIFT_RNG.with(|rng| {
+            Scene::random_scene(&mut *rng.borrow_mut())
+        })
+    };
 
     let lookfrom = vec3(13.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
@@ -91,21 +100,23 @@ fn main() {
         .rev()
         .enumerate()
         .for_each(|(j, row)| {
-            let mut rng = XorShiftRng::from_seed(seed);
-            for (i, rgb) in row.chunks_mut(channels as usize).enumerate() {
-                let mut col = vec3(0.0, 0.0, 0.0);
-                for _ in 0..ns {
-                    let u = (i as f32 + rng.next_f32()) * inv_nx;
-                    let v = (j as f32 + rng.next_f32()) * inv_ny;
-                    let ray = camera.get_ray(u, v, &mut rng);
-                    col += scene.ray_trace(&ray, 0, &mut rng);
+            XOR_SHIFT_RNG.with(|rng| {
+                let mut rng = rng.borrow_mut();
+                for (i, rgb) in row.chunks_mut(channels as usize).enumerate() {
+                    let mut col = vec3(0.0, 0.0, 0.0);
+                    for _ in 0..ns {
+                        let u = (i as f32 + rng.next_f32()) * inv_nx;
+                        let v = (j as f32 + rng.next_f32()) * inv_ny;
+                        let ray = camera.get_ray(u, v, &mut *rng);
+                        col += scene.ray_trace(&ray, 0, &mut *rng);
+                    }
+                    col *= inv_ns;
+                    let mut iter = rgb.iter_mut();
+                    *iter.next().unwrap() = (255.99 * col.x.sqrt()) as u8;
+                    *iter.next().unwrap() = (255.99 * col.y.sqrt()) as u8;
+                    *iter.next().unwrap() = (255.99 * col.z.sqrt()) as u8;
                 }
-                col *= inv_ns;
-                let mut iter = rgb.iter_mut();
-                *iter.next().unwrap() = (255.99 * col.x.sqrt()) as u8;
-                *iter.next().unwrap() = (255.99 * col.y.sqrt()) as u8;
-                *iter.next().unwrap() = (255.99 * col.z.sqrt()) as u8;
-            }
+            });
         });
 
     let elapsed = start_time
