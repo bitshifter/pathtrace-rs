@@ -46,8 +46,8 @@ impl Camera {
                 - focus_dist * w,
             horizontal: 2.0 * half_width * focus_dist * u,
             vertical: 2.0 * half_height * focus_dist * v,
-            u: u,
-            v: v,
+            u,
+            v,
             lens_radius: aperture * 0.5,
         }
     }

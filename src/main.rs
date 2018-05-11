@@ -17,7 +17,7 @@ use std::f32;
 use std::time::SystemTime;
 use vmath::vec3;
 
-const FIXED_SEED: [u32; 4] = [0x193a6754, 0xa8a7d469, 0x97830e05, 0x113ba7bb];
+const FIXED_SEED: [u32; 4] = [0x193a_6754, 0xa8a7_d469, 0x9783_0e05, 0x113b_a7bb];
 
 fn main() {
     let matches = App::new("Toy Path Tracer")
