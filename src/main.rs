@@ -1,16 +1,16 @@
 #[macro_use]
 extern crate clap;
 extern crate image;
-extern crate rand;
 extern crate rayon;
 
 mod camera;
+mod rand;
 mod scene;
 mod vmath;
 
 use camera::Camera;
 use clap::{App, Arg};
-use rand::{Rng, SeedableRng, XorShiftRng};
+use rand::{Rng, SeedableRng, XorShift32Rng};
 use rayon::prelude::*;
 use scene::Scene;
 use std::f32;
@@ -64,17 +64,8 @@ fn main() {
     let inv_ny = 1.0 / ny as f32;
     let inv_ns = 1.0 / ns as f32;
 
-    let random_seed = matches.is_present("random");
-    let weak_rng = || {
-        if random_seed {
-            rand::weak_rng()
-        } else {
-            XorShiftRng::from_seed(FIXED_SEED)
-        }
-    };
-
     let max_depth = value_t!(matches, "depth", u32).unwrap_or(50);
-    let scene = Scene::random_scene(max_depth, &mut weak_rng());
+    let scene = Scene::random_scene(max_depth, &mut XorShift32Rng::from_seed(FIXED_SEED[0]));
 
     let lookfrom = vec3(13.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
@@ -100,10 +91,10 @@ fn main() {
         .rev()
         .enumerate()
         .for_each(|(j, row)| {
+            let mut rng = XorShift32Rng::from_seed(FIXED_SEED[0]);
             row.chunks_mut(channels as usize)
                 .enumerate()
                 .for_each(|(i, rgb)| {
-                    let mut rng = weak_rng();
                     let mut col = vec3(0.0, 0.0, 0.0);
                     for _ in 0..ns {
                         let u = (i as f32 + rng.next_f32()) * inv_nx;
