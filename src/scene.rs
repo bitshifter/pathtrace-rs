@@ -17,6 +17,7 @@ fn random_in_unit_sphere(rng: &mut Rng) -> Vec3 {
     }
 }
 
+#[inline]
 fn reflect(v: Vec3, n: Vec3) -> Vec3 {
     v - 2.0 * dot(v, n) * n
 }
@@ -32,6 +33,7 @@ fn refract(v: Vec3, n: Vec3, ni_over_nt: f32) -> Option<Vec3> {
     }
 }
 
+#[inline]
 fn schlick(cosine: f32, ref_idx: f32) -> f32 {
     let r0 = (1.0 - ref_idx) / (1.0 + ref_idx);
     let r0 = r0 * r0;
@@ -160,12 +162,13 @@ impl Sphere {
 pub struct Scene {
     spheres: Vec<Sphere>,
     materials: Vec<Material>,
+    max_depth: u32,
     ray_count: AtomicUsize,
 }
 
 impl Scene {
     #[allow(dead_code)]
-    pub fn random_scene(rng: &mut Rng) -> Scene {
+    pub fn random_scene(max_depth: u32, rng: &mut Rng) -> Scene {
         let n = 500;
         let mut spheres = Vec::with_capacity(n + 1);
         spheres.push(sphere(
@@ -233,53 +236,15 @@ impl Scene {
                 fuzz: 0.0,
             },
         ));
-        Scene::new(&spheres)
+        Scene::new(&spheres, max_depth)
     }
 
-    #[allow(dead_code)]
-    pub fn default() -> Scene {
-        Scene::new(&[
-            sphere(
-                vec3(0.0, 0.0, -1.0),
-                0.5,
-                Material::Lambertian {
-                    albedo: vec3(0.1, 0.2, 0.5),
-                },
-            ),
-            sphere(
-                vec3(0.0, -100.5, -1.0),
-                100.0,
-                Material::Lambertian {
-                    albedo: vec3(0.8, 0.8, 0.0),
-                },
-            ),
-            sphere(
-                vec3(1.0, 0.0, -1.0),
-                0.5,
-                Material::Metal {
-                    albedo: vec3(0.8, 0.6, 0.2),
-                    fuzz: 0.0,
-                },
-            ),
-            sphere(
-                vec3(-1.0, 0.0, -1.0),
-                0.5,
-                Material::Dielectric { ref_idx: 1.5 },
-            ),
-            sphere(
-                vec3(-1.0, 0.0, -1.0),
-                -0.45,
-                Material::Dielectric { ref_idx: 1.5 },
-            ),
-        ])
-    }
-
-    #[allow(dead_code)]
-    pub fn new(sphere_materials: &[(Sphere, Material)]) -> Scene {
+    pub fn new(sphere_materials: &[(Sphere, Material)], max_depth: u32) -> Scene {
         let (spheres, materials) = sphere_materials.iter().cloned().unzip();
         Scene {
             spheres,
             materials,
+            max_depth,
             ray_count: AtomicUsize::new(0),
         }
     }
@@ -297,12 +262,11 @@ impl Scene {
     }
 
     pub fn ray_trace(&self, ray_in: &Ray, depth: u32, rng: &mut Rng) -> Vec3 {
-        const MAX_DEPTH: u32 = 50;
         const MAX_T: f32 = f32::MAX;
         const MIN_T: f32 = 0.001;
         self.ray_count.fetch_add(1, Ordering::SeqCst);
         if let Some((ray_hit, material)) = self.ray_hit(ray_in, MIN_T, MAX_T) {
-            if depth < MAX_DEPTH {
+            if depth < self.max_depth {
                 if let Some((attenuation, scattered)) = material.scatter(ray_in, &ray_hit, rng) {
                     return attenuation * self.ray_trace(&scattered, depth + 1, rng);
                 }

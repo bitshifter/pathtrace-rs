@@ -10,7 +10,7 @@ mod vmath;
 
 use camera::Camera;
 use clap::{App, Arg};
-use rand::{thread_rng, Rng, SeedableRng, XorShiftRng};
+use rand::{Rng, SeedableRng, XorShiftRng};
 use rayon::prelude::*;
 use scene::Scene;
 use std::f32;
@@ -38,6 +38,11 @@ fn main() {
                 .short("S")
                 .long("samples")
                 .takes_value(true),
+            Arg::with_name("depth")
+                .help("Maximum bounces per ray")
+                .short("D")
+                .long("depth")
+                .takes_value(true),
             Arg::with_name("random")
                 .help("Use a random seed")
                 .short("R")
@@ -59,13 +64,17 @@ fn main() {
     let inv_ny = 1.0 / ny as f32;
     let inv_ns = 1.0 / ns as f32;
 
-    let seed = if matches.is_present("random") {
-        thread_rng().gen()
-    } else {
-        FIXED_SEED
+    let random_seed = matches.is_present("random");
+    let weak_rng = || {
+        if random_seed {
+            rand::weak_rng()
+        } else {
+            XorShiftRng::from_seed(FIXED_SEED)
+        }
     };
 
-    let scene = Scene::random_scene(&mut XorShiftRng::from_seed(seed));
+    let max_depth = value_t!(matches, "depth", u32).unwrap_or(50);
+    let scene = Scene::random_scene(max_depth, &mut weak_rng());
 
     let lookfrom = vec3(13.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
@@ -91,21 +100,23 @@ fn main() {
         .rev()
         .enumerate()
         .for_each(|(j, row)| {
-            let mut rng = XorShiftRng::from_seed(seed);
-            for (i, rgb) in row.chunks_mut(channels as usize).enumerate() {
-                let mut col = vec3(0.0, 0.0, 0.0);
-                for _ in 0..ns {
-                    let u = (i as f32 + rng.next_f32()) * inv_nx;
-                    let v = (j as f32 + rng.next_f32()) * inv_ny;
-                    let ray = camera.get_ray(u, v, &mut rng);
-                    col += scene.ray_trace(&ray, 0, &mut rng);
-                }
-                col *= inv_ns;
-                let mut iter = rgb.iter_mut();
-                *iter.next().unwrap() = (255.99 * col.x.sqrt()) as u8;
-                *iter.next().unwrap() = (255.99 * col.y.sqrt()) as u8;
-                *iter.next().unwrap() = (255.99 * col.z.sqrt()) as u8;
-            }
+            row.chunks_mut(channels as usize)
+                .enumerate()
+                .for_each(|(i, rgb)| {
+                    let mut rng = weak_rng();
+                    let mut col = vec3(0.0, 0.0, 0.0);
+                    for _ in 0..ns {
+                        let u = (i as f32 + rng.next_f32()) * inv_nx;
+                        let v = (j as f32 + rng.next_f32()) * inv_ny;
+                        let ray = camera.get_ray(u, v, &mut rng);
+                        col += scene.ray_trace(&ray, 0, &mut rng);
+                    }
+                    col *= inv_ns;
+                    let mut iter = rgb.iter_mut();
+                    *iter.next().unwrap() = (255.99 * col.x.sqrt()) as u8;
+                    *iter.next().unwrap() = (255.99 * col.y.sqrt()) as u8;
+                    *iter.next().unwrap() = (255.99 * col.z.sqrt()) as u8;
+                });
         });
 
     let elapsed = start_time
