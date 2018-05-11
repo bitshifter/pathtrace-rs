@@ -10,14 +10,15 @@ mod vmath;
 
 use camera::Camera;
 use clap::{App, Arg};
-use rand::{Rng, SeedableRng, XorShiftRng};
+use rand::{Rng, FromEntropy, SeedableRng};
+use rand::rngs::SmallRng;
 use rayon::prelude::*;
 use scene::Scene;
 use std::f32;
 use std::time::SystemTime;
 use vmath::vec3;
 
-const FIXED_SEED: [u32; 4] = [0x193a_6754, 0xa8a7_d469, 0x9783_0e05, 0x113b_a7bb];
+const FIXED_SEED: [u8; 16] = [0x19, 0x3a, 0x67, 0x54, 0xa8, 0xa7, 0xd4, 0x69, 0x97, 0x83, 0x0, 0xe05, 0x11, 0x3b, 0xa7, 0xbb];
 
 fn main() {
     let matches = App::new("Toy Path Tracer")
@@ -67,9 +68,9 @@ fn main() {
     let random_seed = matches.is_present("random");
     let weak_rng = || {
         if random_seed {
-            rand::weak_rng()
+            SmallRng::from_entropy()
         } else {
-            XorShiftRng::from_seed(FIXED_SEED)
+            SmallRng::from_seed(FIXED_SEED)
         }
     };
 
@@ -106,8 +107,8 @@ fn main() {
                     let mut rng = weak_rng();
                     let mut col = vec3(0.0, 0.0, 0.0);
                     for _ in 0..ns {
-                        let u = (i as f32 + rng.next_f32()) * inv_nx;
-                        let v = (j as f32 + rng.next_f32()) * inv_ny;
+                        let u = (i as f32 + rng.gen::<f32>()) * inv_nx;
+                        let v = (j as f32 + rng.gen::<f32>()) * inv_ny;
                         let ray = camera.get_ray(u, v, &mut rng);
                         col += scene.ray_trace(&ray, 0, &mut rng);
                     }

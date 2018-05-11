@@ -7,7 +7,7 @@ use vmath::{cross, dot, normalize, ray, Ray, Vec3, vec3};
 
 fn random_in_unit_disk(rng: &mut Rng) -> Vec3 {
     loop {
-        let p = 2.0 * vec3(rng.next_f32(), rng.next_f32(), 0.0) - vec3(1.0, 1.0, 0.0);
+        let p = 2.0 * vec3(rng.gen(), rng.gen(), 0.0) - vec3(1.0, 1.0, 0.0);
         if dot(p, p) < 1.0 {
             return p;
         }
