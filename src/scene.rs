@@ -114,25 +114,21 @@ impl Material {
     }
 }
 
+#[derive(Clone, Copy)]
 struct RayHit {
     t: f32,
     point: Vec3,
     normal: Vec3,
-    material: Material,
 }
 
+#[derive(Clone, Copy)]
 pub struct Sphere {
     pub centre: Vec3,
     pub radius: f32,
-    pub material: Material,
 }
 
-pub fn sphere(centre: Vec3, radius: f32, material: Material) -> Sphere {
-    Sphere {
-        centre,
-        radius,
-        material,
-    }
+pub fn sphere(centre: Vec3, radius: f32, material: Material) -> (Sphere, Material) {
+    (Sphere { centre, radius }, material)
 }
 
 impl Sphere {
@@ -148,23 +144,13 @@ impl Sphere {
             if t < t_max && t > t_min {
                 let point = ray.point_at_parameter(t);
                 let normal = (point - self.centre) / self.radius;
-                return Some(RayHit {
-                    t,
-                    point,
-                    normal,
-                    material: self.material,
-                });
+                return Some(RayHit { t, point, normal });
             }
             let t = (-b + discriminant_sqrt) / a;
             if t < t_max && t > t_min {
                 let point = ray.point_at_parameter(t);
                 let normal = (point - self.centre) / self.radius;
-                return Some(RayHit {
-                    t,
-                    point,
-                    normal,
-                    material: self.material,
-                });
+                return Some(RayHit { t, point, normal });
             }
         }
         None
@@ -173,6 +159,7 @@ impl Sphere {
 
 pub struct Scene {
     spheres: Vec<Sphere>,
+    materials: Vec<Material>,
     ray_count: AtomicUsize,
 }
 
@@ -246,68 +233,64 @@ impl Scene {
                 fuzz: 0.0,
             },
         ));
-        Scene {
-            spheres,
-            ray_count: AtomicUsize::new(0),
-        }
+        Scene::new(&spheres)
     }
 
     #[allow(dead_code)]
     pub fn default() -> Scene {
-        Scene {
-            spheres: vec![
-                sphere(
-                    vec3(0.0, 0.0, -1.0),
-                    0.5,
-                    Material::Lambertian {
-                        albedo: vec3(0.1, 0.2, 0.5),
-                    },
-                ),
-                sphere(
-                    vec3(0.0, -100.5, -1.0),
-                    100.0,
-                    Material::Lambertian {
-                        albedo: vec3(0.8, 0.8, 0.0),
-                    },
-                ),
-                sphere(
-                    vec3(1.0, 0.0, -1.0),
-                    0.5,
-                    Material::Metal {
-                        albedo: vec3(0.8, 0.6, 0.2),
-                        fuzz: 0.0,
-                    },
-                ),
-                sphere(
-                    vec3(-1.0, 0.0, -1.0),
-                    0.5,
-                    Material::Dielectric { ref_idx: 1.5 },
-                ),
-                sphere(
-                    vec3(-1.0, 0.0, -1.0),
-                    -0.45,
-                    Material::Dielectric { ref_idx: 1.5 },
-                ),
-            ],
-            ray_count: AtomicUsize::new(0),
-        }
+        Scene::new(&[
+            sphere(
+                vec3(0.0, 0.0, -1.0),
+                0.5,
+                Material::Lambertian {
+                    albedo: vec3(0.1, 0.2, 0.5),
+                },
+            ),
+            sphere(
+                vec3(0.0, -100.5, -1.0),
+                100.0,
+                Material::Lambertian {
+                    albedo: vec3(0.8, 0.8, 0.0),
+                },
+            ),
+            sphere(
+                vec3(1.0, 0.0, -1.0),
+                0.5,
+                Material::Metal {
+                    albedo: vec3(0.8, 0.6, 0.2),
+                    fuzz: 0.0,
+                },
+            ),
+            sphere(
+                vec3(-1.0, 0.0, -1.0),
+                0.5,
+                Material::Dielectric { ref_idx: 1.5 },
+            ),
+            sphere(
+                vec3(-1.0, 0.0, -1.0),
+                -0.45,
+                Material::Dielectric { ref_idx: 1.5 },
+            ),
+        ])
     }
 
     #[allow(dead_code)]
-    pub fn new(spheres: Vec<Sphere>) -> Scene {
+    pub fn new(sphere_materials: &[(Sphere, Material)]) -> Scene {
+        let (spheres, materials) = sphere_materials.iter().cloned().unzip();
         Scene {
             spheres,
+            materials,
             ray_count: AtomicUsize::new(0),
         }
     }
 
-    fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<RayHit> {
+    fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
         let mut result = None;
         let mut closest_so_far = t_max;
-        for sphere in &self.spheres {
+        for (sphere, material) in self.spheres.iter().zip(self.materials.iter()) {
             if let Some(ray_hit) = sphere.hit(ray, t_min, closest_so_far) {
                 closest_so_far = ray_hit.t;
-                result = Some(ray_hit);
+                result = Some((ray_hit, material));
             }
         }
         result
@@ -318,11 +301,9 @@ impl Scene {
         const MAX_T: f32 = f32::MAX;
         const MIN_T: f32 = 0.001;
         self.ray_count.fetch_add(1, Ordering::SeqCst);
-        if let Some(ray_hit) = self.ray_hit(ray_in, MIN_T, MAX_T) {
+        if let Some((ray_hit, material)) = self.ray_hit(ray_in, MIN_T, MAX_T) {
             if depth < MAX_DEPTH {
-                if let Some((attenuation, scattered)) =
-                    ray_hit.material.scatter(ray_in, &ray_hit, rng)
-                {
+                if let Some((attenuation, scattered)) = material.scatter(ray_in, &ray_hit, rng) {
                     return attenuation * self.ray_trace(&scattered, depth + 1, rng);
                 }
             }
