@@ -17,6 +17,16 @@ fn random_in_unit_sphere(rng: &mut Rng) -> Vec3 {
     }
 }
 
+fn random_unit_vector(rng: &mut Rng) -> Vec3 {
+    let z = rng.next_f32() * 2.0 - 1.0;
+    let a = rng.next_f32() * 2.0 * f32::consts::PI;
+    let r = (1.0 - z * z).sqrt();
+    let (sina, cosa) = a.sin_cos();
+    let x = r * cosa;
+    let y = r * sina;
+    vec3(x, y, z)
+}
+
 #[inline]
 fn reflect(v: Vec3, n: Vec3) -> Vec3 {
     v - 2.0 * dot(v, n) * n
@@ -54,7 +64,7 @@ impl Material {
         ray_hit: &RayHit,
         rng: &mut Rng,
     ) -> Option<(Vec3, Ray)> {
-        let target = ray_hit.point + ray_hit.normal + random_in_unit_sphere(rng);
+        let target = ray_hit.point + ray_hit.normal + random_unit_vector(rng);
         Some((albedo, ray(ray_hit.point, target - ray_hit.point)))
     }
     fn scatter_metal(
