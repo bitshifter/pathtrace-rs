@@ -1,9 +1,9 @@
-use math::{random_in_unit_sphere, random_unit_vector};
+use math::{random_in_unit_sphere, random_unit_vector, ray, Ray};
 use rand::{Rng, XorShiftRng};
 use std::f32;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use vmath::{dot, normalize, ray, Length, Ray, Vec3, vec3};
+use vmath::{dot, normalize, Length, Vec3, vec3};
 
 #[inline]
 fn reflect(v: Vec3, n: Vec3) -> Vec3 {
@@ -117,6 +117,7 @@ pub struct Sphere {
     pub radius: f32,
 }
 
+#[inline]
 pub fn sphere(centre: Vec3, radius: f32, material: Material) -> (Sphere, Material) {
     (Sphere { centre, radius }, material)
 }
@@ -155,78 +156,6 @@ pub struct Scene {
 }
 
 impl Scene {
-    #[allow(dead_code)]
-    pub fn random_scene(max_depth: u32, rng: &mut XorShiftRng) -> Scene {
-        let n = 500;
-        let mut spheres = Vec::with_capacity(n + 1);
-        spheres.push(sphere(
-            vec3(0.0, -1000.0, 0.0),
-            1000.0,
-            Material::Lambertian {
-                albedo: vec3(0.5, 0.5, 0.5),
-            },
-        ));
-        for a in -11..11 {
-            for b in -11..11 {
-                let choose_material = rng.next_f32();
-                let centre = vec3(
-                    a as f32 + 0.9 * rng.next_f32(),
-                    0.2,
-                    b as f32 + 0.9 * rng.next_f32(),
-                );
-                if choose_material < 0.8 {
-                    spheres.push(sphere(
-                        centre,
-                        0.2,
-                        Material::Lambertian {
-                            albedo: vec3(
-                                rng.next_f32() * rng.next_f32(),
-                                rng.next_f32() * rng.next_f32(),
-                                rng.next_f32() * rng.next_f32(),
-                            ),
-                        },
-                    ));
-                } else if choose_material < 0.95 {
-                    spheres.push(sphere(
-                        centre,
-                        0.2,
-                        Material::Metal {
-                            albedo: vec3(
-                                0.5 * (1.0 + rng.next_f32()),
-                                0.5 * (1.0 + rng.next_f32()),
-                                0.5 * (1.0 + rng.next_f32()),
-                            ),
-                            fuzz: 0.5 * rng.next_f32(),
-                        },
-                    ));
-                } else {
-                    spheres.push(sphere(centre, 0.2, Material::Dielectric { ref_idx: 1.5 }));
-                }
-            }
-        }
-        spheres.push(sphere(
-            vec3(0.0, 1.0, 0.0),
-            1.0,
-            Material::Dielectric { ref_idx: 1.5 },
-        ));
-        spheres.push(sphere(
-            vec3(-4.0, 1.0, 0.0),
-            1.0,
-            Material::Lambertian {
-                albedo: vec3(0.4, 0.2, 0.1),
-            },
-        ));
-        spheres.push(sphere(
-            vec3(4.0, 1.0, 0.0),
-            1.0,
-            Material::Metal {
-                albedo: vec3(0.7, 0.6, 0.5),
-                fuzz: 0.0,
-            },
-        ));
-        Scene::new(&spheres, max_depth)
-    }
-
     pub fn new(sphere_materials: &[(Sphere, Material)], max_depth: u32) -> Scene {
         let (spheres, materials) = sphere_materials.iter().cloned().unzip();
         Scene {

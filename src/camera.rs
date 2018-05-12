@@ -1,7 +1,7 @@
+use math::{random_in_unit_disk, ray, Ray};
 use rand::Rng;
 use std::f32;
-use math::random_in_unit_disk;
-use vmath::{cross, normalize, ray, Ray, Vec3};
+use vmath::{cross, normalize, Vec3};
 
 pub struct Camera {
     origin: Vec3,

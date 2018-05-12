@@ -6,14 +6,13 @@ extern crate rayon;
 
 mod camera;
 mod math;
+mod presets;
 mod scene;
 mod vmath;
 
-use camera::Camera;
 use clap::{App, Arg};
 use rand::{Rng, SeedableRng, XorShiftRng};
 use rayon::prelude::*;
-use scene::Scene;
 use std::f32;
 use std::time::SystemTime;
 use vmath::vec3;
@@ -48,22 +47,23 @@ fn main() {
                 .help("Use a random seed")
                 .short("R")
                 .long("random"),
+            Arg::with_name("preset")
+                .help("Scene preset to render")
+                .short("P")
+                .long("preset")
+                .takes_value(true),
         ])
         .get_matches();
 
-    let nx = value_t!(matches, "width", u32).unwrap_or(1200);
-    let ny = value_t!(matches, "height", u32).unwrap_or(800);
-    let ns = value_t!(matches, "samples", u32).unwrap_or(10);
+    let nx = value_t!(matches, "width", u32).unwrap_or(1280);
+    let ny = value_t!(matches, "height", u32).unwrap_or(720);
+    let ns = value_t!(matches, "samples", u32).unwrap_or(4);
     let channels = 3;
 
     println!(
         "generating {}x{} image with {} samples per pixel",
         nx, ny, ns
     );
-
-    let inv_nx = 1.0 / nx as f32;
-    let inv_ny = 1.0 / ny as f32;
-    let inv_ns = 1.0 / ns as f32;
 
     let random_seed = matches.is_present("random");
     let weak_rng = || {
@@ -75,21 +75,21 @@ fn main() {
     };
 
     let max_depth = value_t!(matches, "depth", u32).unwrap_or(50);
-    let scene = Scene::random_scene(max_depth, &mut weak_rng());
+    let preset = matches.value_of("preset").unwrap_or("random");
 
-    let lookfrom = vec3(13.0, 2.0, 3.0);
-    let lookat = vec3(0.0, 0.0, 0.0);
-    let dist_to_focus = 10.0;
-    let aperture = 0.1;
-    let camera = Camera::new(
-        lookfrom,
-        lookat,
-        vec3(0.0, 1.0, 0.0),
-        20.0,
-        nx as f32 / ny as f32,
-        aperture,
-        dist_to_focus,
-    );
+    let (scene, camera) = presets::from_name(
+        preset,
+        &presets::Params {
+            width: nx,
+            height: ny,
+            max_depth,
+        },
+        &mut weak_rng(),
+    ).expect("unrecognised preset");
+
+    let inv_nx = 1.0 / nx as f32;
+    let inv_ny = 1.0 / ny as f32;
+    let inv_ns = 1.0 / ns as f32;
 
     let mut buffer = vec![0u8; (nx * ny * channels) as usize];
 

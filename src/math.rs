@@ -1,6 +1,6 @@
 use rand::Rng;
 use std::f32;
-use vmath::{dot, Length, vec3, Vec3};
+use vmath::{dot, Length, Vec3, vec3};
 
 pub fn random_in_unit_disk<T: Rng>(rng: &mut T) -> Vec3 {
     loop {
@@ -34,3 +34,25 @@ pub fn random_unit_vector<T: Rng>(rng: &mut T) -> Vec3 {
     vec3(x, y, z)
 }
 
+#[derive(Clone, Copy)]
+pub struct Ray {
+    pub origin: Vec3,
+    pub direction: Vec3,
+}
+
+#[inline]
+pub fn ray(origin: Vec3, direction: Vec3) -> Ray {
+    Ray { origin, direction }
+}
+
+impl Ray {
+    #[inline]
+    #[allow(dead_code)]
+    pub fn new(origin: Vec3, direction: Vec3) -> Ray {
+        Ray { origin, direction }
+    }
+    #[inline]
+    pub fn point_at_parameter(&self, t: f32) -> Vec3 {
+        self.origin + (t * self.direction)
+    }
+}
