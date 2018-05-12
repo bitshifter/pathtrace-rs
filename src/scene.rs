@@ -1,12 +1,11 @@
 use camera::Camera;
-use collision::{Ray, RayHit, Sphere};
+use collision::{Ray, RayHit, Sphere, SpheresSoA};
 use material::Material;
 use rand::{weak_rng, Rng, SeedableRng, XorShiftRng};
 use rayon::prelude::*;
 use std::f32;
 use std::sync::atomic::{AtomicUsize, Ordering};
-
-use vmath::{normalize, vec3, Vec3};
+use vmath::{vec3, Vec3};
 
 #[derive(Copy, Clone)]
 pub struct Params {
@@ -18,31 +17,20 @@ pub struct Params {
 }
 
 pub struct Scene {
-    spheres: Vec<Sphere>,
-    materials: Vec<Material>,
+    spheres: SpheresSoA,
     ray_count: AtomicUsize,
 }
 
 impl Scene {
     pub fn new(sphere_materials: &[(Sphere, Material)]) -> Scene {
-        let (spheres, materials) = sphere_materials.iter().cloned().unzip();
         Scene {
-            spheres,
-            materials,
+            spheres: SpheresSoA::new(sphere_materials),
             ray_count: AtomicUsize::new(0),
         }
     }
 
     fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
-        let mut result = None;
-        let mut closest_so_far = t_max;
-        for (sphere, material) in self.spheres.iter().zip(self.materials.iter()) {
-            if let Some(ray_hit) = sphere.hit(ray, t_min, closest_so_far) {
-                closest_so_far = ray_hit.t;
-                result = Some((ray_hit, material));
-            }
-        }
-        result
+        self.spheres.hit(ray, t_min, t_max)
     }
 
     fn ray_trace(&self, ray_in: &Ray, depth: u32, max_depth: u32, rng: &mut XorShiftRng) -> Vec3 {
@@ -57,8 +45,7 @@ impl Scene {
             }
             return Vec3::zero();
         } else {
-            let unit_direction = normalize(ray_in.direction);
-            let t = 0.5 * (unit_direction.y + 1.0);
+            let t = 0.5 * (ray_in.direction.y + 1.0);
             (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0)
         }
     }
@@ -105,5 +92,34 @@ impl Scene {
                 });
             });
         self.ray_count.load(Ordering::Relaxed)
+    }
+}
+
+#[cfg(test)]
+mod bench {
+    use presets;
+    use rand::{SeedableRng, XorShiftRng};
+    use scene::Params;
+    use std::f32;
+    use test::{black_box, Bencher};
+
+    const FIXED_SEED: [u32; 4] = [0x193a_6754, 0xa8a7_d469, 0x9783_0e05, 0x113b_a7bb];
+
+    #[bench]
+    fn ray_hit(b: &mut Bencher) {
+        const MAX_T: f32 = f32::MAX;
+        const MIN_T: f32 = 0.001;
+        let seed = black_box(FIXED_SEED);
+        let mut rng = XorShiftRng::from_seed(seed);
+        let params = Params {
+            width: 200,
+            height: 100,
+            samples: 10,
+            max_depth: 10,
+            random_seed: false,
+        };
+        let (scene, camera) = presets::aras_p(&params);
+        let ray = camera.get_ray(0.5, 0.5, &mut rng);
+        b.iter(|| scene.ray_hit(&ray, MIN_T, MAX_T));
     }
 }
