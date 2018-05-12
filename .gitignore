@@ -1,6 +1,7 @@
 *.orig
+*.out.*
 *.png
-*.swp
+*.sw[a-z]
 /target
 **/*.rs.bk
 perf.*

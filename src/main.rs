@@ -5,6 +5,7 @@ extern crate rand;
 extern crate rayon;
 
 mod camera;
+mod math;
 mod scene;
 mod vmath;
 

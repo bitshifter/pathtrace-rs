@@ -1,31 +1,9 @@
-use rand::Rng;
+use math::{random_in_unit_sphere, random_unit_vector};
+use rand::{Rng, XorShiftRng};
 use std::f32;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use vmath::{dot, normalize, ray, Length, Ray, Vec3, vec3};
-
-fn random_in_unit_sphere(rng: &mut Rng) -> Vec3 {
-    loop {
-        let p = vec3(
-            2.0 * rng.next_f32() - 1.0,
-            2.0 * rng.next_f32() - 1.0,
-            2.0 * rng.next_f32() - 1.0,
-        );
-        if p.length_squared() < 1.0 {
-            return p;
-        }
-    }
-}
-
-fn random_unit_vector(rng: &mut Rng) -> Vec3 {
-    let z = rng.next_f32() * 2.0 - 1.0;
-    let a = rng.next_f32() * 2.0 * f32::consts::PI;
-    let r = (1.0 - z * z).sqrt();
-    let (sina, cosa) = a.sin_cos();
-    let x = r * cosa;
-    let y = r * sina;
-    vec3(x, y, z)
-}
 
 #[inline]
 fn reflect(v: Vec3, n: Vec3) -> Vec3 {
@@ -62,7 +40,7 @@ impl Material {
         albedo: Vec3,
         _: &Ray,
         ray_hit: &RayHit,
-        rng: &mut Rng,
+        rng: &mut XorShiftRng,
     ) -> Option<(Vec3, Ray)> {
         let target = ray_hit.point + ray_hit.normal + random_unit_vector(rng);
         Some((albedo, ray(ray_hit.point, target - ray_hit.point)))
@@ -72,7 +50,7 @@ impl Material {
         fuzz: f32,
         ray_in: &Ray,
         ray_hit: &RayHit,
-        rng: &mut Rng,
+        rng: &mut XorShiftRng,
     ) -> Option<(Vec3, Ray)> {
         let reflected = reflect(normalize(ray_in.direction), ray_hit.normal);
         if dot(reflected, ray_hit.normal) > 0.0 {
@@ -88,7 +66,7 @@ impl Material {
         ref_idx: f32,
         ray_in: &Ray,
         ray_hit: &RayHit,
-        rng: &mut Rng,
+        rng: &mut XorShiftRng,
     ) -> Option<(Vec3, Ray)> {
         let attenuation = vec3(1.0, 1.0, 1.0);
         let rdotn = dot(ray_in.direction, ray_hit.normal);
@@ -111,7 +89,7 @@ impl Material {
             ray(ray_hit.point, reflect(ray_in.direction, ray_hit.normal)),
         ))
     }
-    fn scatter(&self, ray: &Ray, ray_hit: &RayHit, rng: &mut Rng) -> Option<(Vec3, Ray)> {
+    fn scatter(&self, ray: &Ray, ray_hit: &RayHit, rng: &mut XorShiftRng) -> Option<(Vec3, Ray)> {
         match *self {
             Material::Lambertian { albedo } => {
                 Material::scatter_lambertian(albedo, ray, ray_hit, rng)
@@ -178,7 +156,7 @@ pub struct Scene {
 
 impl Scene {
     #[allow(dead_code)]
-    pub fn random_scene(max_depth: u32, rng: &mut Rng) -> Scene {
+    pub fn random_scene(max_depth: u32, rng: &mut XorShiftRng) -> Scene {
         let n = 500;
         let mut spheres = Vec::with_capacity(n + 1);
         spheres.push(sphere(
@@ -271,7 +249,7 @@ impl Scene {
         result
     }
 
-    pub fn ray_trace(&self, ray_in: &Ray, depth: u32, rng: &mut Rng) -> Vec3 {
+    pub fn ray_trace(&self, ray_in: &Ray, depth: u32, rng: &mut XorShiftRng) -> Vec3 {
         const MAX_T: f32 = f32::MAX;
         const MIN_T: f32 = 0.001;
         self.ray_count.fetch_add(1, Ordering::SeqCst);

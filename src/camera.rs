@@ -1,18 +1,7 @@
-extern crate rand;
-extern crate std;
-
 use rand::Rng;
 use std::f32;
-use vmath::{cross, dot, normalize, ray, Ray, Vec3, vec3};
-
-fn random_in_unit_disk(rng: &mut Rng) -> Vec3 {
-    loop {
-        let p = 2.0 * vec3(rng.next_f32(), rng.next_f32(), 0.0) - vec3(1.0, 1.0, 0.0);
-        if dot(p, p) < 1.0 {
-            return p;
-        }
-    }
-}
+use math::random_in_unit_disk;
+use vmath::{cross, normalize, ray, Ray, Vec3};
 
 pub struct Camera {
     origin: Vec3,
@@ -52,7 +41,7 @@ impl Camera {
         }
     }
 
-    pub fn get_ray(&self, s: f32, t: f32, rng: &mut Rng) -> Ray {
+    pub fn get_ray<T: Rng>(&self, s: f32, t: f32, rng: &mut T) -> Ray {
         let rd = self.lens_radius * random_in_unit_disk(rng);
         let offset = self.u * rd.x + self.v * rd.y;
         ray(
