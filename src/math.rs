@@ -2,7 +2,7 @@ use rand::Rng;
 use std::f32;
 use vmath::{dot, Length, Vec3, vec3};
 
-pub fn random_in_unit_disk<T: Rng>(rng: &mut T) -> Vec3 {
+pub fn random_in_unit_disk(rng: &mut Rng) -> Vec3 {
     loop {
         let p = 2.0 * vec3(rng.next_f32(), rng.next_f32(), 0.0) - vec3(1.0, 1.0, 0.0);
         if dot(p, p) < 1.0 {
@@ -11,7 +11,7 @@ pub fn random_in_unit_disk<T: Rng>(rng: &mut T) -> Vec3 {
     }
 }
 
-pub fn random_in_unit_sphere<T: Rng>(rng: &mut T) -> Vec3 {
+pub fn random_in_unit_sphere(rng: &mut Rng) -> Vec3 {
     loop {
         let p = vec3(
             2.0 * rng.next_f32() - 1.0,
@@ -24,7 +24,7 @@ pub fn random_in_unit_sphere<T: Rng>(rng: &mut T) -> Vec3 {
     }
 }
 
-pub fn random_unit_vector<T: Rng>(rng: &mut T) -> Vec3 {
+pub fn random_unit_vector(rng: &mut Rng) -> Vec3 {
     let z = rng.next_f32() * 2.0 - 1.0;
     let a = rng.next_f32() * 2.0 * f32::consts::PI;
     let r = (1.0 - z * z).sqrt();
