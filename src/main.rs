@@ -58,11 +58,13 @@ fn main() {
     let nx = value_t!(matches, "width", u32).unwrap_or(1280);
     let ny = value_t!(matches, "height", u32).unwrap_or(720);
     let ns = value_t!(matches, "samples", u32).unwrap_or(4);
+    let max_depth = value_t!(matches, "depth", u32).unwrap_or(50);
+    let preset = matches.value_of("preset").unwrap_or("random");
     let channels = 3;
 
     println!(
-        "generating {}x{} image with {} samples per pixel",
-        nx, ny, ns
+        "generating '{}' preset at {}x{} with {} samples per pixel",
+        preset, nx, ny, ns
     );
 
     let random_seed = matches.is_present("random");
@@ -73,9 +75,6 @@ fn main() {
             XorShiftRng::from_seed(FIXED_SEED)
         }
     };
-
-    let max_depth = value_t!(matches, "depth", u32).unwrap_or(50);
-    let preset = matches.value_of("preset").unwrap_or("random");
 
     let (scene, camera) = presets::from_name(
         preset,
@@ -123,12 +122,14 @@ fn main() {
     let elapsed = start_time
         .elapsed()
         .expect("SystemTime elapsed time failed");
+    let elapsed_secs = elapsed.as_secs() as f64 + (elapsed.subsec_nanos() as f64) / 1000_000_000.0;
+    let ray_count = scene.ray_count();
 
     println!(
-        "{}.{:.2} seconds {} rays",
-        elapsed.as_secs(),
-        elapsed.subsec_nanos(),
-        scene.ray_count()
+        "{:.2}secs {}rays {:.2}Mrays/s",
+        elapsed_secs,
+        ray_count,
+        ray_count as f64 / 1_000_000.0 / elapsed_secs
     );
 
     image::save_buffer("output.png", &buffer, nx, ny, image::RGB(8))
