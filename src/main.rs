@@ -94,30 +94,7 @@ fn main() {
 
     let start_time = SystemTime::now();
 
-    // parallel iterate each row of pixels
-    buffer
-        .par_chunks_mut((nx * channels) as usize)
-        .rev()
-        .enumerate()
-        .for_each(|(j, row)| {
-            row.chunks_mut(channels as usize)
-                .enumerate()
-                .for_each(|(i, rgb)| {
-                    let mut rng = weak_rng();
-                    let mut col = vec3(0.0, 0.0, 0.0);
-                    for _ in 0..ns {
-                        let u = (i as f32 + rng.next_f32()) * inv_nx;
-                        let v = (j as f32 + rng.next_f32()) * inv_ny;
-                        let ray = camera.get_ray(u, v, &mut rng);
-                        col += scene.ray_trace(&ray, 0, &mut rng);
-                    }
-                    col *= inv_ns;
-                    let mut iter = rgb.iter_mut();
-                    *iter.next().unwrap() = (255.99 * col.x.sqrt()) as u8;
-                    *iter.next().unwrap() = (255.99 * col.y.sqrt()) as u8;
-                    *iter.next().unwrap() = (255.99 * col.z.sqrt()) as u8;
-                });
-        });
+    scene.update_frame(nx, ny, ns, &mut buffer);
 
     let elapsed = start_time
         .elapsed()
