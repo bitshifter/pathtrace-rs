@@ -201,32 +201,36 @@ fn main() {
         rgb_buffer = match main_recv.recv_timeout(Duration::from_millis(100)) {
             Ok(rgb_buffer) => {
                 // data received - copy to buffer texture
-                let mut mapping = buffer_texture.map();
-                for (texel, rgb) in mapping.iter_mut().zip(rgb_buffer.iter()) {
-                    *texel = (
-                        (255.99 * rgb.0) as u8,
-                        (255.99 * rgb.1) as u8,
-                        (255.99 * rgb.2) as u8,
-                        255,
-                    );
+                {
+                    let mut mapping = buffer_texture.map();
+                    for (texel, rgb) in mapping.iter_mut().zip(rgb_buffer.iter()) {
+                        *texel = (
+                            (255.99 * rgb.0) as u8,
+                            (255.99 * rgb.1) as u8,
+                            (255.99 * rgb.2) as u8,
+                            255,
+                        );
+                    }
                 }
+
+                // only draw the buffer if we just recieved it
+                let mut target = display.draw();
+                target
+                    .draw(
+                        EmptyVertexAttributes { len: 4 },
+                        NoIndices(PrimitiveType::TriangleStrip),
+                        &program,
+                        &uniform!{ tex: &buffer_texture, stride: params.width as i32 },
+                        &Default::default(),
+                    )
+                    .unwrap();
+                target.finish().unwrap();
+
                 Some(rgb_buffer)
             }
             Err(RecvTimeoutError::Timeout) => None,
             Err(RecvTimeoutError::Disconnected) => break,
         };
-
-        let mut target = display.draw();
-        target
-            .draw(
-                EmptyVertexAttributes { len: 4 },
-                NoIndices(PrimitiveType::TriangleStrip),
-                &program,
-                &uniform!{ tex: &buffer_texture, stride: params.width as i32 },
-                &Default::default(),
-            )
-            .unwrap();
-        target.finish().unwrap();
     }
 
     // reading the front rgb_buffer into an image
