@@ -16,7 +16,9 @@ use clap::{App, Arg};
 use glium::{Surface, glutin::{Api, GlProfile, GlRequest}, index::{NoIndices, PrimitiveType},
             texture::buffer_texture::{BufferTexture, BufferTextureType},
             vertex::EmptyVertexAttributes};
-use std::time::SystemTime;
+use std::sync::mpsc::{channel, RecvTimeoutError};
+use std::thread;
+use std::time::{Duration, SystemTime};
 
 fn main() {
     let matches = App::new("Toy Path Tracer")
@@ -81,6 +83,13 @@ fn main() {
             (params.width * params.height * 4) as usize,
             BufferTextureType::Float,
         ).expect("Failed to create rgb_buffer texture");
+    {
+        // init buffer texture to something
+        let mut mapping = buffer_texture.map();
+        for texel in mapping.iter_mut() {
+            *texel = (0, 0, 0, 255);
+        }
+    }
 
     let program = glium::Program::from_source(
         &display,
@@ -120,9 +129,45 @@ fn main() {
 
     let (scene, camera) = presets::from_name(preset, &params).expect("unrecognised preset");
 
-    let mut rgb_buffer = vec![(0.0, 0.0, 0.0); (params.width * params.height) as usize];
+    let mut rgb_buffer = Some(vec![
+        (0.0, 0.0, 0.0);
+        (params.width * params.height) as usize
+    ]);
 
-    let mut frame_num = 0;
+    let (main_send, worker_recv) = channel::<Option<Vec<(f32, f32, f32)>>>();
+    let (worker_send, main_recv) = channel::<Vec<(f32, f32, f32)>>();
+
+    thread::spawn(move || {
+        let mut frame_num = 0;
+        loop {
+            let rgb_buffer = worker_recv.recv().unwrap();
+            if let Some(mut rgb_buffer) = rgb_buffer {
+                let start_time = SystemTime::now();
+                let ray_count = scene.update(&params, &camera, frame_num, &mut rgb_buffer);
+                frame_num += 1;
+
+                let elapsed = start_time
+                    .elapsed()
+                    .expect("SystemTime elapsed time failed");
+                let elapsed_secs =
+                    elapsed.as_secs() as f64 + (elapsed.subsec_nanos() as f64) / 1_000_000_000.0;
+                let ray_count = ray_count as f64 / 1_000_000.0;
+
+                println!(
+                    "{:.2}secs {:.2}Mrays/s {:.2}Mrays/frame {}frames",
+                    elapsed_secs,
+                    ray_count / elapsed_secs,
+                    ray_count,
+                    frame_num
+                );
+
+                worker_send.send(rgb_buffer).unwrap();
+            } else {
+                break;
+            }
+        }
+    });
+
     loop {
         let mut quit = false;
         events_loop.poll_events(|event| {
@@ -136,43 +181,40 @@ fn main() {
                                 quit = true;
                             }
                         }
-                    },
+                    }
                     _ => (),
                 };
             }
         });
+
         if quit {
             break;
         }
 
-        let start_time = SystemTime::now();
-        let ray_count = scene.update(&params, &camera, frame_num, &mut rgb_buffer);
-        frame_num += 1;
-
-        let elapsed = start_time
-            .elapsed()
-            .expect("SystemTime elapsed time failed");
-        let elapsed_secs =
-            elapsed.as_secs() as f64 + (elapsed.subsec_nanos() as f64) / 1_000_000_000.0;
-        let ray_count = ray_count as f64 / 1_000_000.0;
-
-        println!(
-            "{:.2}secs {:.2}Mrays/s {:.2}Mrays/frame {}frames",
-            elapsed_secs,
-            ray_count / elapsed_secs,
-            ray_count,
-            frame_num
-        );
-
-        {
-            let mut mapping = buffer_texture.map();
-            for (color_out, color_in) in mapping.iter_mut().zip(rgb_buffer.iter()) {
-                color_out.0 = (255.99 * color_in.0) as u8;
-                color_out.1 = (255.99 * color_in.1) as u8;
-                color_out.2 = (255.99 * color_in.2) as u8;
-                color_out.3 = 255;
-            }
+        // if we own the buffer then send it back to the worker thread
+        if let Some(rgb_buffer) = rgb_buffer {
+            // send data to worker thread
+            main_send.send(Some(rgb_buffer)).unwrap();
         }
+
+        // poll the worker thread to see if it's done
+        rgb_buffer = match main_recv.recv_timeout(Duration::from_millis(100)) {
+            Ok(rgb_buffer) => {
+                // data received - copy to buffer texture
+                let mut mapping = buffer_texture.map();
+                for (texel, rgb) in mapping.iter_mut().zip(rgb_buffer.iter()) {
+                    *texel = (
+                        (255.99 * rgb.0) as u8,
+                        (255.99 * rgb.1) as u8,
+                        (255.99 * rgb.2) as u8,
+                        255,
+                    );
+                }
+                Some(rgb_buffer)
+            }
+            Err(RecvTimeoutError::Timeout) => None,
+            Err(RecvTimeoutError::Disconnected) => break,
+        };
 
         let mut target = display.draw();
         target
@@ -195,4 +237,7 @@ fn main() {
     image
         .save("output.png")
         .expect("Failed to save output image");
+
+    // tell the worker to exit
+    main_send.send(None).unwrap();
 }

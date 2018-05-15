@@ -150,6 +150,7 @@ impl Sphere {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct Params {
     pub width: u32,
     pub height: u32,
