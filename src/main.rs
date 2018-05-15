@@ -13,8 +13,9 @@ mod scene;
 mod vmath;
 
 use clap::{App, Arg};
-use glium::{Surface, index::PrimitiveType,
-            texture::buffer_texture::{BufferTexture, BufferTextureType}};
+use glium::{Surface, index::{NoIndices, PrimitiveType},
+            texture::buffer_texture::{BufferTexture, BufferTextureType},
+            vertex::EmptyVertexAttributes};
 use rand::{Rng, SeedableRng, XorShiftRng};
 use rayon::prelude::*;
 use std::f32;
@@ -78,40 +79,10 @@ fn main() {
         BufferTexture::empty_persistent(&display, (nx * ny * 4) as usize, BufferTextureType::Float)
             .expect("Failed to create buffer texture");
 
-    // #[derive(Copy, Clone)]
-    // struct Vertex {
-    //     position: [f32; 2],
-    // }
-
-    // implement_vertex!(Vertex, position);
-
-    // let vb = glium::VertexBuffer::new(
-    //     &display,
-    //     &[
-    //         Vertex {
-    //             position: [-1.0, 1.0],
-    //         },
-    //         Vertex {
-    //             position: [1.0, 1.0],
-    //         },
-    //         Vertex {
-    //             position: [-1.0, -1.0],
-    //         },
-    //         Vertex {
-    //             position: [1.0, -1.0],
-    //         },
-    //     ],
-    // ).unwrap()
-    //     .into_vertex_buffer_any();
-    // let ib =
-    //     glium::IndexBuffer::new(&display, PrimitiveType::TriangleStrip, &[0u8, 1, 2, 3]).unwrap();
-
     let program = glium::Program::from_source(
         &display,
         "
             #version 330 core
-
-            //attribute vec2 position;
 
             void main() {
                 const vec4 vertices[] = vec4[](vec4(-1.0, -1.0, 0.5, 1.0),
@@ -120,21 +91,20 @@ fn main() {
                                                vec4( 1.0,  1.0, 0.5, 1.0));
 
                 gl_Position = vertices[gl_VertexID];
-                //gl_Position = vec4(position, 0.0, 1.0);
             }
         ",
         "
             #version 330 core
 
-            //uniform ivec2 size;
+            uniform int stride;
             uniform samplerBuffer tex;
+            out vec4 color;
 
             void main() {
-                const ivec2 size = ivec2(1280, 720);
-                int x = int(gl_FragCoord.x * size.x);
-                int y = int(gl_FragCoord.y * size.y);
-                int index = (y * size.x + x) / 4;
-                gl_FragColor = texelFetch(tex, index);
+                int x = int(gl_FragCoord.x);
+                int y = int(gl_FragCoord.y);
+                int index = y * stride + x;
+                color = texelFetch(tex, index);
             }
         ",
         None,
@@ -175,7 +145,6 @@ fn main() {
     // parallel iterate each row of pixels
     buffer
         .par_chunks_mut((nx * channels) as usize)
-        .rev()
         .enumerate()
         .for_each(|(j, row)| {
             row.chunks_mut(channels as usize)
@@ -191,9 +160,9 @@ fn main() {
                     }
                     col *= inv_ns;
                     let mut iter = rgb.iter_mut();
-                    *iter.next().unwrap() = (255.99 * col.x.sqrt()) as u8;
-                    *iter.next().unwrap() = (255.99 * col.y.sqrt()) as u8;
-                    *iter.next().unwrap() = (255.99 * col.z.sqrt()) as u8;
+                    *iter.next().unwrap() = (255.99 * col.x) as u8;
+                    *iter.next().unwrap() = (255.99 * col.y) as u8;
+                    *iter.next().unwrap() = (255.99 * col.z) as u8;
                 });
         });
 
@@ -212,15 +181,6 @@ fn main() {
 
     {
         let mut mapping = buf_tex.map();
-        // let half = (nx * ny / 2) as usize;
-        // for (index, texel) in mapping.iter_mut().enumerate() {
-        //     if index < half {
-        //         texel.0 = 255;
-        //     } else {
-        //         println!("here");
-        //         texel.1 = 255;
-        //     }
-        // }
         for (texel, rgb) in mapping.iter_mut().zip(buffer.chunks(channels as usize)) {
             let mut iter = rgb.iter();
             texel.0 = *iter.next().unwrap();
@@ -255,12 +215,10 @@ fn main() {
         target.clear_color(0.0, 0.0, 0.0, 0.0);
         target
             .draw(
-                // &vb,
-                glium::vertex::EmptyVertexAttributes { len: 4 },
-                // &ib,
-                glium::index::NoIndices(PrimitiveType::TriangleStrip),
+                EmptyVertexAttributes { len: 4 },
+                NoIndices(PrimitiveType::TriangleStrip),
                 &program,
-                &uniform!{ tex: &buf_tex },
+                &uniform!{ tex: &buf_tex, stride: nx as i32 },
                 &Default::default(),
             )
             .unwrap();
