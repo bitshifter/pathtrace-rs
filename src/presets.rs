@@ -1,24 +1,27 @@
+extern crate rand;
+
 use camera::Camera;
-use rand::Rng;
-use scene::{sphere, Material, Scene};
+use rand::{Rng, SeedableRng, XorShiftRng};
+use scene::{sphere, Material, Params, Scene};
 use vmath::{Length, vec3};
 
-pub struct Params {
-    pub width: u32,
-    pub height: u32,
-    pub max_depth: u32,
-}
-
-pub fn from_name(name: &str, params: &Params, rng: &mut Rng) -> Option<(Scene, Camera)> {
+pub fn from_name(name: &str, params: &Params) -> Option<(Scene, Camera)> {
     match name {
-        "random" => Some(random(params, rng)),
-        "small" => Some(small(params, rng)),
-        "aras" => Some(aras_p(params, rng)),
+        "random" => Some(random(params)),
+        "small" => Some(small(params)),
+        "aras" => Some(aras_p(params)),
         _ => None,
     }
 }
 
-pub fn random(params: &Params, rng: &mut Rng) -> (Scene, Camera) {
+pub fn random(params: &Params) -> (Scene, Camera) {
+    let mut rng = if params.random_seed {
+        rand::weak_rng()
+    } else {
+        const FIXED_SEED: [u32; 4] = [0x193a_6754, 0xa8a7_d469, 0x9783_0e05, 0x113b_a7bb];
+        XorShiftRng::from_seed(FIXED_SEED)
+    };
+
     let lookfrom = vec3(13.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
     let dist_to_focus = 10.0;
@@ -101,11 +104,11 @@ pub fn random(params: &Params, rng: &mut Rng) -> (Scene, Camera) {
         },
     ));
 
-    let scene = Scene::new(&spheres, params.max_depth);
+    let scene = Scene::new(&spheres);
     (scene, camera)
 }
 
-pub fn small(params: &Params, _rng: &mut Rng) -> (Scene, Camera) {
+pub fn small(params: &Params) -> (Scene, Camera) {
     let lookfrom = vec3(3.0, 3.0, 2.0);
     let lookat = vec3(0.0, 0.0, -1.0);
     let dist_to_focus = (lookfrom - lookat).length();
@@ -155,11 +158,11 @@ pub fn small(params: &Params, _rng: &mut Rng) -> (Scene, Camera) {
         ),
     ];
 
-    let scene = Scene::new(&spheres, params.max_depth);
+    let scene = Scene::new(&spheres);
     (scene, camera)
 }
 
-pub fn aras_p(params: &Params, _rng: &mut Rng) -> (Scene, Camera) {
+pub fn aras_p(params: &Params) -> (Scene, Camera) {
     let lookfrom = vec3(0.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
     let dist_to_focus = 3.0;
@@ -520,6 +523,6 @@ pub fn aras_p(params: &Params, _rng: &mut Rng) -> (Scene, Camera) {
         ),
     ];
 
-    let scene = Scene::new(&spheres, params.max_depth);
+    let scene = Scene::new(&spheres);
     (scene, camera)
 }
