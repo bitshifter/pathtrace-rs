@@ -166,7 +166,7 @@ pub fn aras_p(params: &Params) -> (Scene, Camera) {
     let lookfrom = vec3(0.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
     let dist_to_focus = 3.0;
-    let aperture = 0.2;
+    let aperture = 0.02;
     let camera = Camera::new(
         lookfrom,
         lookat,
