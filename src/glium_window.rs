@@ -86,7 +86,7 @@ pub fn start_loop(params: Params, camera: Camera, scene: Scene, max_frames: Opti
                     .elapsed()
                     .expect("SystemTime elapsed time failed");
                 let elapsed_secs =
-                    elapsed.as_secs() as f64 + (elapsed.subsec_nanos() as f64) / 1_000_000_000.0;
+                    elapsed.as_secs() as f64 + f64::from(elapsed.subsec_nanos()) / 1_000_000_000.0;
                 let ray_count = ray_count as f64 / 1_000_000.0;
 
                 println!(

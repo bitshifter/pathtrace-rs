@@ -29,9 +29,17 @@ pub fn random_unit_vector<T: Rng>(rng: &mut T) -> Vec3 {
     let a = rng.next_f32() * 2.0 * f32::consts::PI;
     let r = (1.0 - z * z).sqrt();
     let (sina, cosa) = a.sin_cos();
-    let x = r * cosa;
-    let y = r * sina;
-    vec3(x, y, z)
+    vec3(r * cosa, r * sina, z)
+}
+
+pub fn linear_to_srgb(rgb: (f32, f32, f32)) -> (u8, u8, u8) {
+    let rgb = (rgb.0.max(0.0), rgb.1.max(0.0), rgb.2.max(0.0));
+    let srgb = (
+        (1.055 * rgb.0.powf(0.416666667) - 0.055).max(0.0),
+        (1.055 * rgb.1.powf(0.416666667) - 0.055).max(0.0),
+        (1.055 * rgb.2.powf(0.416666667) - 0.055).max(0.0)
+        );
+    ((srgb.0 * 255.99) as u8, (srgb.1 * 255.99) as u8, (srgb.2 * 255.99) as u8)
 }
 
 #[derive(Clone, Copy)]

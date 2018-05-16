@@ -9,6 +9,7 @@ extern crate rayon;
 mod camera;
 mod glium_window;
 mod math;
+mod offline;
 mod presets;
 mod scene;
 mod vmath;
@@ -53,6 +54,10 @@ fn main() {
                 .short("F")
                 .long("frames")
                 .takes_value(true),
+            Arg::with_name("offline")
+                .help("Don't create a preview render window")
+                .short("O")
+                .long("offline"),
         ])
         .get_matches();
 
@@ -65,7 +70,6 @@ fn main() {
     };
 
     let preset = matches.value_of("preset").unwrap_or("aras");
-    let max_frames = value_t!(matches, "frames", u32).ok().map_or(None, |v| Some(v));
 
     println!(
         "generating '{}' preset at {}x{} with {} samples per pixel",
@@ -74,5 +78,10 @@ fn main() {
 
     let (scene, camera) = presets::from_name(preset, &params).expect("unrecognised preset");
 
-    glium_window::start_loop(params, camera, scene, max_frames);
+    if matches.is_present("offline") {
+        offline::render_offline(&params, &camera, &scene);
+    } else {
+        let max_frames = value_t!(matches, "frames", u32).ok().and_then(Some);
+        glium_window::start_loop(params, camera, scene, max_frames);
+    }
 }
