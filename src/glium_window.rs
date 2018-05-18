@@ -1,7 +1,9 @@
 use camera::Camera;
-use glium::{self, Surface, glutin::{Api, GlProfile, GlRequest}, index::{NoIndices, PrimitiveType},
-            texture::buffer_texture::{BufferTexture, BufferTextureType},
-            vertex::EmptyVertexAttributes};
+use glium::{
+    self, glutin::{Api, GlProfile, GlRequest}, index::{NoIndices, PrimitiveType},
+    texture::buffer_texture::{BufferTexture, BufferTextureType}, vertex::EmptyVertexAttributes,
+    Surface,
+};
 use image;
 use scene::{Params, Scene};
 use std::sync::mpsc::{channel, RecvTimeoutError};

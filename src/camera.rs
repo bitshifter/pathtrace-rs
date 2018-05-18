@@ -1,8 +1,10 @@
-use math::{random_in_unit_disk, ray, Ray};
+use collision::{ray, Ray};
+use math::random_in_unit_disk;
 use rand::Rng;
 use std::f32;
 use vmath::{cross, normalize, Vec3};
 
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct Camera {
     origin: Vec3,
     lower_left_corner: Vec3,

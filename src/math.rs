@@ -1,6 +1,6 @@
 use rand::Rng;
 use std::f32;
-use vmath::{dot, Length, Vec3, vec3};
+use vmath::{dot, normalize, vec3, Length, Vec3};
 
 pub fn random_in_unit_disk<T: Rng>(rng: &mut T) -> Vec3 {
     loop {
@@ -37,30 +37,34 @@ pub fn linear_to_srgb(rgb: (f32, f32, f32)) -> (u8, u8, u8) {
     let srgb = (
         (1.055 * rgb.0.powf(0.416666667) - 0.055).max(0.0),
         (1.055 * rgb.1.powf(0.416666667) - 0.055).max(0.0),
-        (1.055 * rgb.2.powf(0.416666667) - 0.055).max(0.0)
-        );
-    ((srgb.0 * 255.99) as u8, (srgb.1 * 255.99) as u8, (srgb.2 * 255.99) as u8)
-}
-
-#[derive(Clone, Copy)]
-pub struct Ray {
-    pub origin: Vec3,
-    pub direction: Vec3,
+        (1.055 * rgb.2.powf(0.416666667) - 0.055).max(0.0),
+    );
+    (
+        (srgb.0 * 255.99) as u8,
+        (srgb.1 * 255.99) as u8,
+        (srgb.2 * 255.99) as u8,
+    )
 }
 
 #[inline]
-pub fn ray(origin: Vec3, direction: Vec3) -> Ray {
-    Ray { origin, direction }
+pub fn reflect(v: Vec3, n: Vec3) -> Vec3 {
+    v - 2.0 * dot(v, n) * n
 }
 
-impl Ray {
-    #[inline]
-    #[allow(dead_code)]
-    pub fn new(origin: Vec3, direction: Vec3) -> Ray {
-        Ray { origin, direction }
+pub fn refract(v: Vec3, n: Vec3, ni_over_nt: f32) -> Option<Vec3> {
+    let uv = normalize(v);
+    let dt = dot(uv, n);
+    let discriminant = 1.0 - (ni_over_nt * ni_over_nt) * (1.0 - (dt * dt));
+    if discriminant > 0.0 {
+        Some(ni_over_nt * (uv - n * dt) - n * discriminant.sqrt())
+    } else {
+        None
     }
-    #[inline]
-    pub fn point_at_parameter(&self, t: f32) -> Vec3 {
-        self.origin + (t * self.direction)
-    }
+}
+
+#[inline]
+pub fn schlick(cosine: f32, ref_idx: f32) -> f32 {
+    let r0 = (1.0 - ref_idx) / (1.0 + ref_idx);
+    let r0 = r0 * r0;
+    r0 + (1.0 - r0) * (1.0 - cosine).powf(5.0)
 }

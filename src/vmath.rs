@@ -49,7 +49,8 @@ pub trait Normalize {
     fn normalize(self) -> Self;
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[repr(C)]
 pub struct Vec3 {
     pub x: f32,
     pub y: f32,
@@ -273,7 +274,8 @@ impl Neg for Vec3 {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[repr(C)]
 pub struct Vec4 {
     pub x: f32,
     pub y: f32,
@@ -472,7 +474,8 @@ impl fmt::Display for Vec4 {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[repr(C)]
 pub struct Mat4 {
     pub col0: Vec4,
     pub col1: Vec4,

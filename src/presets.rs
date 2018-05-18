@@ -1,9 +1,11 @@
 extern crate rand;
 
 use camera::Camera;
+use collision::sphere;
+use material::Material;
 use rand::{Rng, SeedableRng, XorShiftRng};
-use scene::{sphere, Material, Params, Scene};
-use vmath::{Length, vec3};
+use scene::{Params, Scene};
+use vmath::{vec3, Length};
 
 pub fn from_name(name: &str, params: &Params) -> Option<(Scene, Camera)> {
     match name {
