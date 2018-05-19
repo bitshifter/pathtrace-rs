@@ -47,13 +47,14 @@ pub fn sphere(centre: Vec3, radius: f32, material: Material) -> (Sphere, Materia
 
 #[derive(Debug)]
 pub struct SpheresSoA {
-    num_spheres: usize,
     centre_x: Vec<ArrayF32xN>,
     centre_y: Vec<ArrayF32xN>,
     centre_z: Vec<ArrayF32xN>,
     radius_sq: Vec<ArrayF32xN>,
     radius_inv: Vec<ArrayF32xN>,
     material: Vec<[Material; F32XN_LANES]>,
+    num_chunks: u32,
+    num_spheres: u32,
 }
 
 impl SpheresSoA {
@@ -67,6 +68,8 @@ impl SpheresSoA {
         let mut radius_sq = Vec::with_capacity(num_chunks);
         let mut material = Vec::with_capacity(num_chunks);
         for chunk in sphere_materials.chunks(F32XN_LANES) {
+            // this is so if we have a final chunk that is smaller than the chunk size it will be
+            // initialised to impossible to hit data.
             let mut chunk_x = ArrayF32xN::new([f32::MAX; F32XN_LANES]);
             let mut chunk_y = ArrayF32xN::new([f32::MAX; F32XN_LANES]);
             let mut chunk_z = ArrayF32xN::new([f32::MAX; F32XN_LANES]);
@@ -89,7 +92,8 @@ impl SpheresSoA {
             material.push(chunk_mat);
         }
         SpheresSoA {
-            num_spheres,
+            num_spheres: num_spheres as u32,
+            num_chunks: num_chunks as u32,
             centre_x,
             centre_y,
             centre_z,
@@ -99,6 +103,7 @@ impl SpheresSoA {
         }
     }
 
+    /*
     pub fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
@@ -111,7 +116,6 @@ impl SpheresSoA {
         // self.hit_scalar(ray, t_min, t_max)
     }
 
-    /*
     fn hit_scalar(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
         let mut hit_t = t_max;
         let mut hit_index = self.len;
@@ -159,13 +163,19 @@ impl SpheresSoA {
     */
 
     #[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "sse4.1"))]
-    unsafe fn hit_sse4_1(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
+    pub unsafe fn hit_sse4_1(
+        &self,
+        ray: &Ray,
+        t_min: f32,
+        t_max: f32,
+    ) -> Option<(RayHit, &Material)> {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::*;
         #[cfg(target_arch = "x86_64")]
         use std::arch::x86_64::*;
         let t_min = _mm_set_ps1(t_min);
         let mut hit_t = _mm_set_ps1(t_max);
+        // TODO: generate based on width
         let mut hit_index = _mm_set_epi32(-1, -1, -1, -1);
         // load ray origin
         let ro_x = _mm_set_ps1(ray.origin.x);
@@ -177,7 +187,7 @@ impl SpheresSoA {
         let rd_z = _mm_set_ps1(ray.direction.z);
         // current indices being processed (little endian ordering)
         // TODO: generate this based on width
-        let mut index = _mm_set_epi32(3, 2, 1, 0);
+        let mut sphere_index = _mm_set_epi32(3, 2, 1, 0);
         for (((centre_x, centre_y), centre_z), radius_sq) in self
             .centre_x
             .iter()
@@ -224,13 +234,13 @@ impl SpheresSoA {
                     ptve_discr,
                     _mm_and_ps(_mm_cmpgt_ps(t, t_min), _mm_cmplt_ps(t, hit_t)),
                 );
-                // hit_index = mask ? index : hit_index;
-                hit_index = _mm_blendv_epi8(hit_index, index, _mm_castps_si128(mask));
+                // hit_index = mask ? sphere_index : hit_index;
+                hit_index = _mm_blendv_epi8(hit_index, sphere_index, _mm_castps_si128(mask));
                 // hit_t = mask ? t : hit_t;
                 hit_t = _mm_blendv_ps(hit_t, t, mask);
             }
             // increment indices
-            index = _mm_add_epi32(index, _mm_set1_epi32(F32XN_LANES as i32));
+            sphere_index = _mm_add_epi32(sphere_index, _mm_set1_epi32(F32XN_LANES as i32));
         }
 
         let min_hit_t = horizontal_min(hit_t);
@@ -252,11 +262,10 @@ impl SpheresSoA {
                 let hit_index_scalar = *hit_index_array.get_unchecked(hit_t_lane) as usize;
                 let hit_t_scalar = *hit_t_array.0.get_unchecked(hit_t_lane);
 
-                // TODO: does compiler turn this into a bit shift?
-                let array_index = hit_index_scalar >> F32XN_LANES_LOG2;
-                let lane_index = hit_index_scalar - (array_index << F32XN_LANES_LOG2);
+                let chunk_index = hit_index_scalar >> F32XN_LANES_LOG2;
+                let lane_index = hit_index_scalar - (chunk_index << F32XN_LANES_LOG2);
 
-                debug_assert!(array_index < self.num_spheres);
+                debug_assert!(chunk_index < self.num_spheres as usize);
                 debug_assert!(lane_index < F32XN_LANES);
 
                 let point = ray.point_at_parameter(hit_t_scalar);
@@ -264,30 +273,30 @@ impl SpheresSoA {
                     point.x
                         - self
                             .centre_x
-                            .get_unchecked(array_index)
+                            .get_unchecked(chunk_index)
                             .0
                             .get_unchecked(lane_index),
                     point.y
                         - self
                             .centre_y
-                            .get_unchecked(array_index)
+                            .get_unchecked(chunk_index)
                             .0
                             .get_unchecked(lane_index),
                     point.z
                         - self
                             .centre_z
-                            .get_unchecked(array_index)
+                            .get_unchecked(chunk_index)
                             .0
                             .get_unchecked(lane_index),
                 )
                     * *self
                         .radius_inv
-                        .get_unchecked(array_index)
+                        .get_unchecked(chunk_index)
                         .0
                         .get_unchecked(lane_index);
                 let material = &self
                     .material
-                    .get_unchecked(array_index)
+                    .get_unchecked(chunk_index)
                     .get_unchecked(lane_index);
                 return Some((RayHit { point, normal }, material));
             }
