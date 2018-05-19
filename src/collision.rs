@@ -45,7 +45,7 @@ pub fn sphere(centre: Vec3, radius: f32, material: Material) -> (Sphere, Materia
 
 #[derive(Debug)]
 pub struct SpheresSoA {
-    len: usize,
+    num_spheres: usize,
     centre_x: Vec<ArrayF32xN>,
     centre_y: Vec<ArrayF32xN>,
     centre_z: Vec<ArrayF32xN>,
@@ -56,14 +56,14 @@ pub struct SpheresSoA {
 
 impl SpheresSoA {
     pub fn new(sphere_materials: &[(Sphere, Material)]) -> SpheresSoA {
-        let unaligned_len = sphere_materials.len();
-        let len = align_to(unaligned_len, F32XN_LANES) / F32XN_LANES;
-        let mut centre_x = Vec::with_capacity(len);
-        let mut centre_y = Vec::with_capacity(len);
-        let mut centre_z = Vec::with_capacity(len);
-        let mut radius_inv = Vec::with_capacity(len);
-        let mut radius_sq = Vec::with_capacity(len);
-        let mut material = Vec::with_capacity(len);
+        let num_spheres = sphere_materials.len();
+        let num_chunks = align_to(num_spheres, F32XN_LANES) / F32XN_LANES;
+        let mut centre_x = Vec::with_capacity(num_chunks);
+        let mut centre_y = Vec::with_capacity(num_chunks);
+        let mut centre_z = Vec::with_capacity(num_chunks);
+        let mut radius_inv = Vec::with_capacity(num_chunks);
+        let mut radius_sq = Vec::with_capacity(num_chunks);
+        let mut material = Vec::with_capacity(num_chunks);
         for chunk in sphere_materials.chunks(F32XN_LANES) {
             let mut chunk_x = ArrayF32xN::zero();
             let mut chunk_y = ArrayF32xN::zero();
@@ -87,7 +87,7 @@ impl SpheresSoA {
             material.push(chunk_mat);
         }
         SpheresSoA {
-            len,
+            num_spheres,
             centre_x,
             centre_y,
             centre_z,
@@ -174,8 +174,8 @@ impl SpheresSoA {
         let rd_y = _mm_set_ps1(ray.direction.y);
         let rd_z = _mm_set_ps1(ray.direction.z);
         // current indices being processed (little endian ordering)
+        // TODO: generate this based on width
         let mut index = _mm_set_epi32(3, 2, 1, 0);
-        // loop over 4 spheres at a time
         for (((centre_x, centre_y), centre_z), radius_sq) in self
             .centre_x
             .iter()
@@ -206,8 +206,8 @@ impl SpheresSoA {
             // let discriminant = nb * nb - c;
             let discr = _mm_sub_ps(_mm_mul_ps(nb, nb), c);
             // if discr > 0.0
-            let pos_discr = _mm_cmpgt_ps(discr, _mm_set_ps1(0.0));
-            if _mm_movemask_ps(pos_discr) != 0 {
+            let ptve_discr = _mm_cmpgt_ps(discr, _mm_set_ps1(0.0));
+            if _mm_movemask_ps(ptve_discr) != 0 {
                 // let discr_sqrt = discr.sqrt();
                 let discr_sqrt = _mm_sqrt_ps(discr);
                 // let t0 = nb - discr_sqrt;
@@ -219,7 +219,7 @@ impl SpheresSoA {
                 // from rygs opts
                 // bool4 msk = discrPos & (t > tMin4) & (t < hitT);
                 let mask = _mm_and_ps(
-                    pos_discr,
+                    ptve_discr,
                     _mm_and_ps(_mm_cmpgt_ps(t, t_min), _mm_cmplt_ps(t, hit_t)),
                 );
                 // hit_index = mask ? index : hit_index;
@@ -228,14 +228,14 @@ impl SpheresSoA {
                 hit_t = _mm_blendv_ps(hit_t, t, mask);
             }
             // increment indices
-            index = _mm_add_epi32(index, _mm_set1_epi32(4));
+            index = _mm_add_epi32(index, _mm_set1_epi32(F32XN_LANES as i32));
         }
 
         // copy results out into scalar code to get return value (if any)
         let mut hit_t_array = [t_max; F32XN_LANES];
         _mm_store_ps(hit_t_array.as_mut_ptr() as *mut f32, hit_t);
         let (hit_t_lane, hit_t_scalar) = hit_t_array.iter().enumerate().fold(
-            (self.len, t_max),
+            (self.num_spheres, t_max),
             |result, t| if *t.1 < result.1 { (t.0, *t.1) } else { result },
         );
         // .min_by(|x, y| {
@@ -257,15 +257,16 @@ impl SpheresSoA {
             let hit_index_scalar = hit_index_array[hit_t_lane] as usize;
             // TODO: does compiler turn this into a bit shift?
             let array_index = hit_index_scalar / F32XN_LANES;
-            let lane_index = hit_index_scalar - array_index;
-            debug_assert!(hit_index_scalar < self.len);
+            let lane_index = hit_index_scalar - (array_index * F32XN_LANES);
+            debug_assert!(array_index < self.num_spheres);
+            debug_assert!(lane_index < F32XN_LANES);
             let point = ray.point_at_parameter(hit_t_scalar);
             let normal = vec3(
-                point.x - self.centre_x.get_unchecked(array_index).0.get_unchecked(lane_index),
-                point.y - self.centre_y.get_unchecked(array_index).0.get_unchecked(lane_index),
-                point.z - self.centre_z.get_unchecked(array_index).0.get_unchecked(lane_index),
-            ) * *self.radius_inv.get_unchecked(array_index).0.get_unchecked(lane_index);
-            let material = &self.material.get_unchecked(array_index).get_unchecked(lane_index);
+                point.x - self.centre_x[array_index].0[lane_index],
+                point.y - self.centre_y[array_index].0[lane_index],
+                point.z - self.centre_z[array_index].0[lane_index],
+            ) * self.radius_inv[array_index].0[lane_index];
+            let material = &self.material[array_index][lane_index];
             Some((RayHit { point, normal }, material))
         } else {
             None

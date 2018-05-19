@@ -5,9 +5,13 @@
 use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
-// use std::cmp::Ordering;
-// use std::ops::{Index, IndexMut};
-// use std::slice;
+
+// #define _MM_SHUFFLE(z, y, x, w) (((z) << 6) | ((y) << 4) | ((x) << 2) | (w))
+macro_rules! _mm_shuffle {
+    ( $z:expr, $y:expr, $x:expr, $w:expr ) => {
+        ($z << 6) | ($y << 4) | ($x << 2) | $w
+    };
+}
 
 // Idea is to determine width at compile time
 // Need to manually enable avx with `cargo rustc -- -C target-feature=+avx`
@@ -58,51 +62,6 @@ pub struct F32xN(pub f32);
 #[derive(Copy, Clone, Debug)]
 pub struct ArrayF32xN(pub [f32; F32XN_LANES]);
 
-/*
-impl From<f32> for AlignedF32  {
-    fn from(f: f32) -> AlignedF32 {
-        AlignedF32(f)
-    }
-}
-
-impl From<AlignedF32> for f32 {
-    fn from(f: AlignedF32) -> f32 {
-        f.0
-    }
-}
-
-// HACK: work around f32's lack of Ord
-impl Ord for AlignedF32 {
-    fn cmp(&self, other: &Self) -> Ordering {
-        if self.0 < other.0 {
-            Ordering::Less
-        } else if self.0 > other.0 {
-            Ordering::Greater
-        } else {
-            Ordering::Equal
-        }
-    }
-}
-
-impl PartialOrd for AlignedF32 {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl PartialEq for AlignedF32 {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-*/
-
-// impl Into<AlignedF32> for f32 {
-//     fn into(self) -> AlignedF32 {
-//         AlignedF32(self)
-//     }
-// }
-
 impl ArrayF32xN {
     #[inline]
     pub fn new(v: [f32; F32XN_LANES]) -> ArrayF32xN {
@@ -113,38 +72,17 @@ impl ArrayF32xN {
     pub fn zero() -> ArrayF32xN {
         ArrayF32xN([0.0; F32XN_LANES])
     }
-    
-    /*
-    #[inline]
-    pub fn as_ptr(&self) -> *const f32 {
-        self.0.as_ptr()
-    }
-
-    #[inline]
-    pub fn as_mut_ptr(&self) -> *mut f32 {
-        self.0.as_mut_ptr()
-    }
-
-    #[inline]
-    pub fn iter(&self) -> slice::Iter<'_, f32> {
-        self.0.iter()
-    }
-    */
 }
 
-/*
-impl Index<usize> for ArrayF32xN {
-    type Output = f32;
-    #[inline]
-    fn index(&self, idx: usize) -> &Self::Output {
-        &self.0[idx]
-    }
+#[cfg(target_feature = "avx")]
+fn horizontal_min(v: __m256) -> f32 {
+    panic!("Not implemented");
 }
 
-impl IndexMut<usize> for ArrayF32xN {
-    #[inline]
-    fn index_mut(&mut self, idx: usize) -> &mut Self::Output {
-        &mut self.0[idx]
-    }
+#[cfg(all(target_feature = "sse2", not(target_feature = "avx")))]
+pub unsafe fn horizontal_min(v: __m128) -> f32 {
+    let v = _mm_min_ps(v, _mm_shuffle_ps(v, v, _mm_shuffle!(0, 0, 3, 2)));
+    let v = _mm_min_ps(v, _mm_shuffle_ps(v, v, _mm_shuffle!(0, 0, 0, 1)));
+    _mm_cvtss_f32(v)
 }
-*/
+

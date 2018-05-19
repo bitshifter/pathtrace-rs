@@ -90,7 +90,11 @@ impl Material {
             Material::Dielectric { ref_idx } => {
                 Material::scatter_dielectric(ref_idx, ray, ray_hit, rng)
             }
-            Material::Invalid => panic!("Invalid material found")
+            Material::Invalid => {
+                // TODO: this is being hit sometimes, find out why
+                println!("Inavalid material found for ray {:?} hit {:?}", ray, ray_hit);
+                None
+            }
         }
     }
 }
