@@ -34,7 +34,14 @@ impl Scene {
         unsafe { self.spheres.hit_sse4_1(ray, t_min, t_max) }
     }
 
-    fn ray_trace(&self, ray_in: &Ray, depth: u32, max_depth: u32, rng: &mut XorShiftRng, ray_count: &mut usize) -> Vec3 {
+    fn ray_trace(
+        &self,
+        ray_in: &Ray,
+        depth: u32,
+        max_depth: u32,
+        rng: &mut XorShiftRng,
+        ray_count: &mut usize,
+    ) -> Vec3 {
         const MAX_T: f32 = f32::MAX;
         const MIN_T: f32 = 0.001;
         *ray_count += 1;
@@ -43,7 +50,8 @@ impl Scene {
         if let Some((ray_hit, material)) = self.ray_hit(ray_in, MIN_T, MAX_T) {
             if depth < max_depth {
                 if let Some((attenuation, scattered)) = material.scatter(ray_in, &ray_hit, rng) {
-                    return attenuation * self.ray_trace(&scattered, depth + 1, max_depth, rng, ray_count);
+                    return attenuation
+                        * self.ray_trace(&scattered, depth + 1, max_depth, rng, ray_count);
                 }
             }
             return Vec3::zero();
