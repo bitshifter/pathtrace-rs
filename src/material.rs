@@ -8,6 +8,7 @@ pub enum Material {
     Lambertian { albedo: Vec3 },
     Metal { albedo: Vec3, fuzz: f32 },
     Dielectric { ref_idx: f32 },
+    Invalid, // this means something bad has happened
 }
 
 impl Material {
@@ -89,6 +90,7 @@ impl Material {
             Material::Dielectric { ref_idx } => {
                 Material::scatter_dielectric(ref_idx, ray, ray_hit, rng)
             }
+            Material::Invalid => panic!("Invalid material found")
         }
     }
 }

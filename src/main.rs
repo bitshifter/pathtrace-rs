@@ -21,6 +21,7 @@ mod math;
 mod offline;
 mod presets;
 mod scene;
+mod simd;
 mod vmath;
 
 use clap::{App, Arg};

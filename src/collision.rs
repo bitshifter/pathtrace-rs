@@ -1,6 +1,7 @@
 use material::Material;
 use math::align_to;
-use vmath::{dot, vec3, Vec3};
+use simd::{F32XN_LANES, ArrayF32xN};
+use vmath::{vec3, Vec3};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Ray {
@@ -45,44 +46,45 @@ pub fn sphere(centre: Vec3, radius: f32, material: Material) -> (Sphere, Materia
 #[derive(Debug)]
 pub struct SpheresSoA {
     len: usize,
-    centre_x: Vec<f32>,
-    centre_y: Vec<f32>,
-    centre_z: Vec<f32>,
-    radius_sq: Vec<f32>,
-    radius_inv: Vec<f32>,
-    material: Vec<Material>,
+    centre_x: Vec<ArrayF32xN>,
+    centre_y: Vec<ArrayF32xN>,
+    centre_z: Vec<ArrayF32xN>,
+    radius_sq: Vec<ArrayF32xN>,
+    radius_inv: Vec<ArrayF32xN>,
+    material: Vec<[Material; F32XN_LANES]>,
 }
 
 impl SpheresSoA {
     pub fn new(sphere_materials: &[(Sphere, Material)]) -> SpheresSoA {
-        // HACK: make sure there's enough entries for SIMD
-        // TODO: conditionally compile this
         let unaligned_len = sphere_materials.len();
-        let len = align_to(unaligned_len, 4);
+        let len = align_to(unaligned_len, F32XN_LANES) / F32XN_LANES;
         let mut centre_x = Vec::with_capacity(len);
         let mut centre_y = Vec::with_capacity(len);
         let mut centre_z = Vec::with_capacity(len);
         let mut radius_inv = Vec::with_capacity(len);
         let mut radius_sq = Vec::with_capacity(len);
         let mut material = Vec::with_capacity(len);
-        for (sphere, mat) in sphere_materials {
-            centre_x.push(sphere.centre.x);
-            centre_y.push(sphere.centre.y);
-            centre_z.push(sphere.centre.z);
-            radius_sq.push(sphere.radius * sphere.radius);
-            radius_inv.push(1.0 / sphere.radius);
-            material.push(*mat);
-        }
-        let padding = len - unaligned_len;
-        for _ in 0..padding {
-            centre_x.push(0.0);
-            centre_y.push(0.0);
-            centre_z.push(0.0);
-            radius_sq.push(0.0);
-            radius_inv.push(1.0);
-            material.push(Material::Lambertian {
-                albedo: vec3(0.0, 0.0, 0.0),
-            });
+        for chunk in sphere_materials.chunks(F32XN_LANES) {
+            let mut chunk_x = ArrayF32xN::zero();
+            let mut chunk_y = ArrayF32xN::zero();
+            let mut chunk_z = ArrayF32xN::zero();
+            let mut chunk_rsq = ArrayF32xN::zero();
+            let mut chunk_rinv = ArrayF32xN::zero();
+            let mut chunk_mat = [Material::Invalid; F32XN_LANES];
+            for (index, (sphere, mat)) in chunk.iter().enumerate() {
+                chunk_x.0[index] = sphere.centre.x;
+                chunk_y.0[index] = sphere.centre.y;
+                chunk_z.0[index] = sphere.centre.z;
+                chunk_rsq.0[index] = sphere.radius * sphere.radius;
+                chunk_rinv.0[index] = 1.0 / sphere.radius;
+                chunk_mat[index] = *mat;
+            }
+            centre_x.push(chunk_x);
+            centre_y.push(chunk_y);
+            centre_z.push(chunk_z);
+            radius_sq.push(chunk_rsq);
+            radius_inv.push(chunk_rinv);
+            material.push(chunk_mat);
         }
         SpheresSoA {
             len,
@@ -101,11 +103,13 @@ impl SpheresSoA {
             if is_x86_feature_detected!("sse4.1") {
                 return unsafe { self.hit_sse4_1(ray, t_min, t_max) };
             }
+            panic!("No implementation");
         }
 
-        self.hit_scalar(ray, t_min, t_max)
+        // self.hit_scalar(ray, t_min, t_max)
     }
 
+    /*
     fn hit_scalar(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
         let mut hit_t = t_max;
         let mut hit_index = self.len;
@@ -150,6 +154,7 @@ impl SpheresSoA {
             None
         }
     }
+    */
 
     #[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "sse4.1"))]
     unsafe fn hit_sse4_1(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
@@ -173,18 +178,17 @@ impl SpheresSoA {
         // loop over 4 spheres at a time
         for (((centre_x, centre_y), centre_z), radius_sq) in self
             .centre_x
-            .chunks(4)
-            .zip(self.centre_y.chunks(4))
-            .zip(self.centre_z.chunks(4))
-            .zip(self.radius_sq.chunks(4))
+            .iter()
+            .zip(self.centre_y.iter())
+            .zip(self.centre_z.iter())
+            .zip(self.radius_sq.iter())
         {
             // load sphere centres
-            // TODO: align memory
-            let c_x = _mm_loadu_ps(centre_x.as_ptr());
-            let c_y = _mm_loadu_ps(centre_y.as_ptr());
-            let c_z = _mm_loadu_ps(centre_z.as_ptr());
+            let c_x = _mm_load_ps(centre_x.0.as_ptr());
+            let c_y = _mm_load_ps(centre_y.0.as_ptr());
+            let c_z = _mm_load_ps(centre_z.0.as_ptr());
             // load radius_sq
-            let r_sq = _mm_loadu_ps(radius_sq.as_ptr());
+            let r_sq = _mm_load_ps(radius_sq.0.as_ptr());
             // let co = centre - ray.origin
             let co_x = _mm_sub_ps(c_x, ro_x);
             let co_y = _mm_sub_ps(c_y, ro_y);
@@ -228,8 +232,8 @@ impl SpheresSoA {
         }
 
         // copy results out into scalar code to get return value (if any)
-        let mut hit_t_array = [t_max, t_max, t_max, t_max];
-        _mm_storeu_ps(hit_t_array.as_mut_ptr(), hit_t);
+        let mut hit_t_array = [t_max; F32XN_LANES];
+        _mm_store_ps(hit_t_array.as_mut_ptr() as *mut f32, hit_t);
         let (hit_t_lane, hit_t_scalar) = hit_t_array.iter().enumerate().fold(
             (self.len, t_max),
             |result, t| if *t.1 < result.1 { (t.0, *t.1) } else { result },
@@ -248,17 +252,20 @@ impl SpheresSoA {
         // .unwrap();
         // let hit_t_scalar = *hit_t_scalar;
         if hit_t_scalar < t_max {
-            let mut hit_index_array = [-1i32, -1, -1, -1];
+            let mut hit_index_array = [-1i32; F32XN_LANES];
             _mm_storeu_si128(hit_index_array.as_mut_ptr() as *mut __m128i, hit_index);
             let hit_index_scalar = hit_index_array[hit_t_lane] as usize;
+            // TODO: does compiler turn this into a bit shift?
+            let array_index = hit_index_scalar / F32XN_LANES;
+            let lane_index = hit_index_scalar - array_index;
             debug_assert!(hit_index_scalar < self.len);
             let point = ray.point_at_parameter(hit_t_scalar);
             let normal = vec3(
-                point.x - self.centre_x.get_unchecked(hit_index_scalar),
-                point.y - self.centre_y.get_unchecked(hit_index_scalar),
-                point.z - self.centre_z.get_unchecked(hit_index_scalar),
-            ) * *self.radius_inv.get_unchecked(hit_index_scalar);
-            let material = &self.material.get_unchecked(hit_index_scalar);
+                point.x - self.centre_x.get_unchecked(array_index).0.get_unchecked(lane_index),
+                point.y - self.centre_y.get_unchecked(array_index).0.get_unchecked(lane_index),
+                point.z - self.centre_z.get_unchecked(array_index).0.get_unchecked(lane_index),
+            ) * *self.radius_inv.get_unchecked(array_index).0.get_unchecked(lane_index);
+            let material = &self.material.get_unchecked(array_index).get_unchecked(lane_index);
             Some((RayHit { point, normal }, material))
         } else {
             None
