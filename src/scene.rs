@@ -45,14 +45,14 @@ impl Scene {
         result
     }
 
-    fn ray_trace(&self, ray_in: &Ray, depth: u32, max_depth: u32, rng: &mut XorShiftRng) -> Vec3 {
+    fn ray_trace(&self, ray_in: &Ray, depth: u32, max_depth: u32, rng: &mut XorShiftRng, ray_count: &mut usize) -> Vec3 {
         const MAX_T: f32 = f32::MAX;
         const MIN_T: f32 = 0.001;
-        self.ray_count.fetch_add(1, Ordering::SeqCst);
+        *ray_count += 1;
         if let Some((ray_hit, material)) = self.ray_hit(ray_in, MIN_T, MAX_T) {
             if depth < max_depth {
                 if let Some((attenuation, scattered)) = material.scatter(ray_in, &ray_hit, rng) {
-                    return attenuation * self.ray_trace(&scattered, depth + 1, max_depth, rng);
+                    return attenuation * self.ray_trace(&scattered, depth + 1, max_depth, rng, ray_count);
                 }
             }
             return Vec3::zero();
@@ -84,6 +84,7 @@ impl Scene {
             .par_chunks_mut(params.width as usize)
             .enumerate()
             .for_each(|(j, row)| {
+                let mut ray_count = 0;
                 let mut rng = if params.random_seed {
                     weak_rng()
                 } else {
@@ -96,13 +97,14 @@ impl Scene {
                         let u = (i as f32 + rng.next_f32()) * inv_nx;
                         let v = (j as f32 + rng.next_f32()) * inv_ny;
                         let ray = camera.get_ray(u, v, &mut rng);
-                        col += self.ray_trace(&ray, 0, params.max_depth, &mut rng);
+                        col += self.ray_trace(&ray, 0, params.max_depth, &mut rng, &mut ray_count);
                     }
                     col *= inv_ns;
                     color_out.0 = color_out.0 * mix_prev + col.x * mix_new;
                     color_out.1 = color_out.1 * mix_prev + col.y * mix_new;
                     color_out.2 = color_out.2 * mix_prev + col.z * mix_new;
                 });
+                self.ray_count.fetch_add(ray_count, Ordering::Relaxed);
             });
         self.ray_count.load(Ordering::Relaxed)
     }
