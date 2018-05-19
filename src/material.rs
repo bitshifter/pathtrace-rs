@@ -92,7 +92,10 @@ impl Material {
             }
             Material::Invalid => {
                 // TODO: this is being hit sometimes, find out why
-                println!("Inavalid material found for ray {:?} hit {:?}", ray, ray_hit);
+                println!(
+                    "Inavalid material found for ray {:?} hit {:?}",
+                    ray, ray_hit
+                );
                 None
             }
         }

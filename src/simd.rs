@@ -6,9 +6,9 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-// #define _MM_SHUFFLE(z, y, x, w) (((z) << 6) | ((y) << 4) | ((x) << 2) | (w))
+#[macro_export]
 macro_rules! _mm_shuffle {
-    ( $z:expr, $y:expr, $x:expr, $w:expr ) => {
+    ($z:expr, $y:expr, $x:expr, $w:expr) => {
         ($z << 6) | ($y << 4) | ($x << 2) | $w
     };
 }
@@ -85,4 +85,3 @@ pub unsafe fn horizontal_min(v: __m128) -> f32 {
     let v = _mm_min_ps(v, _mm_shuffle_ps(v, v, _mm_shuffle!(0, 0, 0, 1)));
     _mm_cvtss_f32(v)
 }
-

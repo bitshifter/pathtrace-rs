@@ -1,3 +1,4 @@
+#![feature(core_intrinsics)]
 // for bench
 #![feature(test)]
 extern crate test;
@@ -21,6 +22,7 @@ mod math;
 mod offline;
 mod presets;
 mod scene;
+#[macro_use]
 mod simd;
 mod vmath;
 

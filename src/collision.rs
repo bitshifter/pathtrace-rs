@@ -1,6 +1,7 @@
 use material::Material;
 use math::align_to;
-use simd::{F32XN_LANES, ArrayF32xN};
+use simd::{horizontal_min, ArrayF32xN, F32XN_LANES};
+use std::intrinsics::cttz;
 use vmath::{vec3, Vec3};
 
 #[derive(Clone, Copy, Debug)]
@@ -69,7 +70,7 @@ impl SpheresSoA {
             let mut chunk_y = ArrayF32xN::zero();
             let mut chunk_z = ArrayF32xN::zero();
             let mut chunk_rsq = ArrayF32xN::zero();
-            let mut chunk_rinv = ArrayF32xN::zero();
+            let mut chunk_rinv = ArrayF32xN::new([1.0; F32XN_LANES]);
             let mut chunk_mat = [Material::Invalid; F32XN_LANES];
             for (index, (sphere, mat)) in chunk.iter().enumerate() {
                 chunk_x.0[index] = sphere.centre.x;
@@ -231,45 +232,60 @@ impl SpheresSoA {
             index = _mm_add_epi32(index, _mm_set1_epi32(F32XN_LANES as i32));
         }
 
-        // copy results out into scalar code to get return value (if any)
-        let mut hit_t_array = [t_max; F32XN_LANES];
-        _mm_store_ps(hit_t_array.as_mut_ptr() as *mut f32, hit_t);
-        let (hit_t_lane, hit_t_scalar) = hit_t_array.iter().enumerate().fold(
-            (self.num_spheres, t_max),
-            |result, t| if *t.1 < result.1 { (t.0, *t.1) } else { result },
-        );
-        // .min_by(|x, y| {
-        //     // PartialOrd strikes again
-        //     use std::cmp::Ordering;
-        //     if x.1 < y.1 {
-        //         Ordering::Less
-        //     } else if x.1 > y.1 {
-        //         Ordering::Greater
-        //     } else {
-        //         Ordering::Equal
-        //     }
-        // })
-        // .unwrap();
-        // let hit_t_scalar = *hit_t_scalar;
-        if hit_t_scalar < t_max {
-            let mut hit_index_array = [-1i32; F32XN_LANES];
-            _mm_storeu_si128(hit_index_array.as_mut_ptr() as *mut __m128i, hit_index);
-            let hit_index_scalar = hit_index_array[hit_t_lane] as usize;
-            // TODO: does compiler turn this into a bit shift?
-            let array_index = hit_index_scalar / F32XN_LANES;
-            let lane_index = hit_index_scalar - (array_index * F32XN_LANES);
-            debug_assert!(array_index < self.num_spheres);
-            debug_assert!(lane_index < F32XN_LANES);
-            let point = ray.point_at_parameter(hit_t_scalar);
-            let normal = vec3(
-                point.x - self.centre_x[array_index].0[lane_index],
-                point.y - self.centre_y[array_index].0[lane_index],
-                point.z - self.centre_z[array_index].0[lane_index],
-            ) * self.radius_inv[array_index].0[lane_index];
-            let material = &self.material[array_index][lane_index];
-            Some((RayHit { point, normal }, material))
-        } else {
-            None
+        let min_hit_t = horizontal_min(hit_t);
+        if min_hit_t < t_max {
+            let min_mask = _mm_movemask_ps(_mm_cmpeq_ps(hit_t, _mm_set_ps1(min_hit_t)));
+            if min_mask != 0 {
+                let hit_t_lane = cttz(min_mask) as usize;
+
+                // store hit_index and hit_t back to scalar
+                // TODO: use aligned structures
+                let mut hit_index_array = [-1i32; F32XN_LANES];
+                let mut hit_t_array = ArrayF32xN::new([t_max; F32XN_LANES]);
+                _mm_storeu_si128(hit_index_array.as_mut_ptr() as *mut __m128i, hit_index);
+                _mm_store_ps(hit_t_array.0.as_mut_ptr(), hit_t);
+
+                let hit_index_scalar = hit_index_array[hit_t_lane as usize] as usize;
+                let hit_t_scalar = hit_t_array.0[hit_t_lane];
+
+                // TODO: does compiler turn this into a bit shift?
+                let array_index = hit_index_scalar >> 2;
+                let lane_index = hit_index_scalar - (array_index << 2);
+                debug_assert!(array_index < self.num_spheres);
+                debug_assert!(lane_index < F32XN_LANES);
+                let point = ray.point_at_parameter(hit_t_scalar);
+                let normal = vec3(
+                    point.x
+                        - self
+                            .centre_x
+                            .get_unchecked(array_index)
+                            .0
+                            .get_unchecked(lane_index),
+                    point.y
+                        - self
+                            .centre_y
+                            .get_unchecked(array_index)
+                            .0
+                            .get_unchecked(lane_index),
+                    point.z
+                        - self
+                            .centre_z
+                            .get_unchecked(array_index)
+                            .0
+                            .get_unchecked(lane_index),
+                )
+                    * *self
+                        .radius_inv
+                        .get_unchecked(array_index)
+                        .0
+                        .get_unchecked(lane_index);
+                let material = &self
+                    .material
+                    .get_unchecked(array_index)
+                    .get_unchecked(lane_index);
+                return Some((RayHit { point, normal }, material));
+            }
         }
+        None
     }
 }
