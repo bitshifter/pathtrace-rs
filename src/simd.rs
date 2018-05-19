@@ -26,6 +26,7 @@ pub const F32XN_BITS: usize = 128;
 pub const F32XN_BITS: usize = 32;
 
 pub const F32XN_LANES: usize = F32XN_BITS / 32;
+pub const F32XN_LANES_LOG2: usize = F32XN_LANES >> 1; // I think this is right...
 
 // unaligned F32xN storage
 // type UnalignedArrayF32xN = [f32; F32XN_LANES];

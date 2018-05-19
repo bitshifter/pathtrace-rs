@@ -1,6 +1,7 @@
 use material::Material;
 use math::align_to;
-use simd::{horizontal_min, ArrayF32xN, F32XN_LANES};
+use simd::{horizontal_min, ArrayF32xN, F32XN_LANES, F32XN_LANES_LOG2};
+use std::f32;
 use std::intrinsics::cttz;
 use vmath::{vec3, Vec3};
 
@@ -66,11 +67,11 @@ impl SpheresSoA {
         let mut radius_sq = Vec::with_capacity(num_chunks);
         let mut material = Vec::with_capacity(num_chunks);
         for chunk in sphere_materials.chunks(F32XN_LANES) {
-            let mut chunk_x = ArrayF32xN::zero();
-            let mut chunk_y = ArrayF32xN::zero();
-            let mut chunk_z = ArrayF32xN::zero();
-            let mut chunk_rsq = ArrayF32xN::zero();
-            let mut chunk_rinv = ArrayF32xN::new([1.0; F32XN_LANES]);
+            let mut chunk_x = ArrayF32xN::new([f32::MAX; F32XN_LANES]);
+            let mut chunk_y = ArrayF32xN::new([f32::MAX; F32XN_LANES]);
+            let mut chunk_z = ArrayF32xN::new([f32::MAX; F32XN_LANES]);
+            let mut chunk_rsq = ArrayF32xN::new([0.0; F32XN_LANES]);
+            let mut chunk_rinv = ArrayF32xN::new([0.0; F32XN_LANES]);
             let mut chunk_mat = [Material::Invalid; F32XN_LANES];
             for (index, (sphere, mat)) in chunk.iter().enumerate() {
                 chunk_x.0[index] = sphere.centre.x;
@@ -245,14 +246,19 @@ impl SpheresSoA {
                 _mm_storeu_si128(hit_index_array.as_mut_ptr() as *mut __m128i, hit_index);
                 _mm_store_ps(hit_t_array.0.as_mut_ptr(), hit_t);
 
-                let hit_index_scalar = hit_index_array[hit_t_lane as usize] as usize;
-                let hit_t_scalar = hit_t_array.0[hit_t_lane];
+                debug_assert!(hit_t_lane < hit_index_array.len());
+                debug_assert!(hit_t_lane < hit_t_array.0.len());
+
+                let hit_index_scalar = *hit_index_array.get_unchecked(hit_t_lane) as usize;
+                let hit_t_scalar = *hit_t_array.0.get_unchecked(hit_t_lane);
 
                 // TODO: does compiler turn this into a bit shift?
-                let array_index = hit_index_scalar >> 2;
-                let lane_index = hit_index_scalar - (array_index << 2);
+                let array_index = hit_index_scalar >> F32XN_LANES_LOG2;
+                let lane_index = hit_index_scalar - (array_index << F32XN_LANES_LOG2);
+
                 debug_assert!(array_index < self.num_spheres);
                 debug_assert!(lane_index < F32XN_LANES);
+
                 let point = ray.point_at_parameter(hit_t_scalar);
                 let normal = vec3(
                     point.x
