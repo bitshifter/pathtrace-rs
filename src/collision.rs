@@ -1,6 +1,8 @@
 use material::Material;
 use math::align_to;
-use simd::{horizontal_min, ArrayF32xN, F32XN_LANES, F32XN_LANES_LOG2};
+use simd::{
+    dot3, f32xN, i32xN, ArrayF32xN, ArrayI32xN, VECTOR_WIDTH_DWORDS_LOG2, VECTOR_WIDTH_DWORDS,
+};
 use std::f32;
 use std::intrinsics::cttz;
 use vmath::{vec3, Vec3};
@@ -52,7 +54,7 @@ pub struct SpheresSoA {
     centre_z: Vec<ArrayF32xN>,
     radius_sq: Vec<ArrayF32xN>,
     radius_inv: Vec<ArrayF32xN>,
-    material: Vec<[Material; F32XN_LANES]>,
+    material: Vec<[Material; VECTOR_WIDTH_DWORDS]>,
     num_chunks: u32,
     num_spheres: u32,
 }
@@ -60,22 +62,22 @@ pub struct SpheresSoA {
 impl SpheresSoA {
     pub fn new(sphere_materials: &[(Sphere, Material)]) -> SpheresSoA {
         let num_spheres = sphere_materials.len();
-        let num_chunks = align_to(num_spheres, F32XN_LANES) / F32XN_LANES;
+        let num_chunks = align_to(num_spheres, VECTOR_WIDTH_DWORDS) / VECTOR_WIDTH_DWORDS;
         let mut centre_x = Vec::with_capacity(num_chunks);
         let mut centre_y = Vec::with_capacity(num_chunks);
         let mut centre_z = Vec::with_capacity(num_chunks);
         let mut radius_inv = Vec::with_capacity(num_chunks);
         let mut radius_sq = Vec::with_capacity(num_chunks);
         let mut material = Vec::with_capacity(num_chunks);
-        for chunk in sphere_materials.chunks(F32XN_LANES) {
+        for chunk in sphere_materials.chunks(VECTOR_WIDTH_DWORDS) {
             // this is so if we have a final chunk that is smaller than the chunk size it will be
             // initialised to impossible to hit data.
-            let mut chunk_x = ArrayF32xN::new([f32::MAX; F32XN_LANES]);
-            let mut chunk_y = ArrayF32xN::new([f32::MAX; F32XN_LANES]);
-            let mut chunk_z = ArrayF32xN::new([f32::MAX; F32XN_LANES]);
-            let mut chunk_rsq = ArrayF32xN::new([0.0; F32XN_LANES]);
-            let mut chunk_rinv = ArrayF32xN::new([0.0; F32XN_LANES]);
-            let mut chunk_mat = [Material::Invalid; F32XN_LANES];
+            let mut chunk_x = ArrayF32xN::new([f32::MAX; VECTOR_WIDTH_DWORDS]);
+            let mut chunk_y = ArrayF32xN::new([f32::MAX; VECTOR_WIDTH_DWORDS]);
+            let mut chunk_z = ArrayF32xN::new([f32::MAX; VECTOR_WIDTH_DWORDS]);
+            let mut chunk_rsq = ArrayF32xN::new([0.0; VECTOR_WIDTH_DWORDS]);
+            let mut chunk_rinv = ArrayF32xN::new([0.0; VECTOR_WIDTH_DWORDS]);
+            let mut chunk_mat = [Material::Invalid; VECTOR_WIDTH_DWORDS];
             for (index, (sphere, mat)) in chunk.iter().enumerate() {
                 chunk_x.0[index] = sphere.centre.x;
                 chunk_y.0[index] = sphere.centre.y;
@@ -169,25 +171,20 @@ impl SpheresSoA {
         t_min: f32,
         t_max: f32,
     ) -> Option<(RayHit, &Material)> {
-        #[cfg(target_arch = "x86")]
-        use std::arch::x86::*;
-        #[cfg(target_arch = "x86_64")]
-        use std::arch::x86_64::*;
-        let t_min = _mm_set_ps1(t_min);
-        let mut hit_t = _mm_set_ps1(t_max);
-        // TODO: generate based on width
-        let mut hit_index = _mm_set_epi32(-1, -1, -1, -1);
+        let t_min = f32xN::from(t_min);
+        let mut hit_t = f32xN::from(t_max);
+        let mut hit_index = i32xN::from(-1);
         // load ray origin
-        let ro_x = _mm_set_ps1(ray.origin.x);
-        let ro_y = _mm_set_ps1(ray.origin.y);
-        let ro_z = _mm_set_ps1(ray.origin.z);
+        let ro_x = f32xN::from(ray.origin.x);
+        let ro_y = f32xN::from(ray.origin.y);
+        let ro_z = f32xN::from(ray.origin.z);
         // load ray direction
-        let rd_x = _mm_set_ps1(ray.direction.x);
-        let rd_y = _mm_set_ps1(ray.direction.y);
-        let rd_z = _mm_set_ps1(ray.direction.z);
+        let rd_x = f32xN::from(ray.direction.x);
+        let rd_y = f32xN::from(ray.direction.y);
+        let rd_z = f32xN::from(ray.direction.z);
         // current indices being processed (little endian ordering)
         // TODO: generate this based on width
-        let mut sphere_index = _mm_set_epi32(3, 2, 1, 0);
+        let mut sphere_index = i32xN::indices();
         for (((centre_x, centre_y), centre_z), radius_sq) in self
             .centre_x
             .iter()
@@ -196,77 +193,68 @@ impl SpheresSoA {
             .zip(self.radius_sq.iter())
         {
             // load sphere centres
-            let c_x = _mm_load_ps(centre_x.0.as_ptr());
-            let c_y = _mm_load_ps(centre_y.0.as_ptr());
-            let c_z = _mm_load_ps(centre_z.0.as_ptr());
+            let c_x = f32xN::from(centre_x);
+            let c_y = f32xN::from(centre_y);
+            let c_z = f32xN::from(centre_z);
             // load radius_sq
-            let r_sq = _mm_load_ps(radius_sq.0.as_ptr());
+            let r_sq = f32xN::from(radius_sq);
             // let co = centre - ray.origin
-            let co_x = _mm_sub_ps(c_x, ro_x);
-            let co_y = _mm_sub_ps(c_y, ro_y);
-            let co_z = _mm_sub_ps(c_z, ro_z);
-            // TODO: write a dot product helper
+            let co_x = c_x - ro_x;
+            let co_y = c_y - ro_y;
+            let co_z = c_z - ro_z;
             // let nb = dot(co, ray.direction);
-            let nb = _mm_mul_ps(co_x, rd_x);
-            let nb = _mm_add_ps(nb, _mm_mul_ps(co_y, rd_y));
-            let nb = _mm_add_ps(nb, _mm_mul_ps(co_z, rd_z));
+            let nb = dot3(co_x, rd_x, co_y, rd_y, co_z, rd_z);
             // let c = dot(co, co) - radius_sq;
-            let c = _mm_mul_ps(co_x, co_x);
-            let c = _mm_add_ps(c, _mm_mul_ps(co_y, co_y));
-            let c = _mm_add_ps(c, _mm_mul_ps(co_z, co_z));
-            let c = _mm_sub_ps(c, r_sq);
+            let c = dot3(co_x, co_x, co_y, co_y, co_z, co_z) - r_sq;
             // let discriminant = nb * nb - c;
-            let discr = _mm_sub_ps(_mm_mul_ps(nb, nb), c);
+            let discr = nb * nb - c;
             // if discr > 0.0
-            let ptve_discr = _mm_cmpgt_ps(discr, _mm_set_ps1(0.0));
-            if _mm_movemask_ps(ptve_discr) != 0 {
+            let ptve_discr = discr.gt(f32xN::from(0.0));
+            if i32::from(ptve_discr) != 0 {
                 // let discr_sqrt = discr.sqrt();
-                let discr_sqrt = _mm_sqrt_ps(discr);
+                let discr_sqrt = discr.sqrt();
                 // let t0 = nb - discr_sqrt;
                 // let t1 = nb + discr_sqrt;
-                let t0 = _mm_sub_ps(nb, discr_sqrt);
-                let t1 = _mm_add_ps(nb, discr_sqrt);
+                let t0 = nb - discr_sqrt;
+                let t1 = nb + discr_sqrt;
                 // let t = if t0 > t_min { t0 } else { t1 };
-                let t = _mm_blendv_ps(t1, t0, _mm_cmpgt_ps(t0, t_min));
+                let t = t1.blend(t0, t0.gt(t_min));
                 // from rygs opts
                 // bool4 msk = discrPos & (t > tMin4) & (t < hitT);
-                let mask = _mm_and_ps(
-                    ptve_discr,
-                    _mm_and_ps(_mm_cmpgt_ps(t, t_min), _mm_cmplt_ps(t, hit_t)),
-                );
+                let mask = ptve_discr & t.gt(t_min) & t.lt(hit_t);
                 // hit_index = mask ? sphere_index : hit_index;
-                hit_index = _mm_blendv_epi8(hit_index, sphere_index, _mm_castps_si128(mask));
+                hit_index = hit_index.blend(sphere_index, mask);
                 // hit_t = mask ? t : hit_t;
-                hit_t = _mm_blendv_ps(hit_t, t, mask);
+                hit_t = hit_t.blend(t, mask);
             }
             // increment indices
-            sphere_index = _mm_add_epi32(sphere_index, _mm_set1_epi32(F32XN_LANES as i32));
+            sphere_index = sphere_index + i32xN::from(VECTOR_WIDTH_DWORDS as i32);
         }
 
-        let min_hit_t = horizontal_min(hit_t);
+        let min_hit_t = hit_t.hmin();
         if min_hit_t < t_max {
-            let min_mask = _mm_movemask_ps(_mm_cmpeq_ps(hit_t, _mm_set_ps1(min_hit_t)));
+            let min_mask = i32::from(hit_t.eq(f32xN::from(min_hit_t)));
             if min_mask != 0 {
                 let hit_t_lane = cttz(min_mask) as usize;
 
                 // store hit_index and hit_t back to scalar
                 // TODO: use aligned structures
-                let mut hit_index_array = [-1i32; F32XN_LANES];
-                let mut hit_t_array = ArrayF32xN::new([t_max; F32XN_LANES]);
-                _mm_storeu_si128(hit_index_array.as_mut_ptr() as *mut __m128i, hit_index);
-                _mm_store_ps(hit_t_array.0.as_mut_ptr(), hit_t);
+                let mut hit_index_array = ArrayI32xN::new([-1; VECTOR_WIDTH_DWORDS]);
+                let mut hit_t_array = ArrayF32xN::new([t_max; VECTOR_WIDTH_DWORDS]);
+                hit_index_array.store(hit_index);
+                hit_t_array.store(hit_t);
 
-                debug_assert!(hit_t_lane < hit_index_array.len());
+                debug_assert!(hit_t_lane < hit_index_array.0.len());
                 debug_assert!(hit_t_lane < hit_t_array.0.len());
 
-                let hit_index_scalar = *hit_index_array.get_unchecked(hit_t_lane) as usize;
+                let hit_index_scalar = *hit_index_array.0.get_unchecked(hit_t_lane) as usize;
                 let hit_t_scalar = *hit_t_array.0.get_unchecked(hit_t_lane);
 
-                let chunk_index = hit_index_scalar >> F32XN_LANES_LOG2;
-                let lane_index = hit_index_scalar - (chunk_index << F32XN_LANES_LOG2);
+                let chunk_index = hit_index_scalar >> VECTOR_WIDTH_DWORDS_LOG2;
+                let lane_index = hit_index_scalar - (chunk_index << VECTOR_WIDTH_DWORDS_LOG2);
 
                 debug_assert!(chunk_index < self.num_spheres as usize);
-                debug_assert!(lane_index < F32XN_LANES);
+                debug_assert!(lane_index < VECTOR_WIDTH_DWORDS);
 
                 let point = ray.point_at_parameter(hit_t_scalar);
                 let normal = vec3(
