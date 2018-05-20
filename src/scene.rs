@@ -45,8 +45,6 @@ impl Scene {
         const MAX_T: f32 = f32::MAX;
         const MIN_T: f32 = 0.001;
         *ray_count += 1;
-        // TODO: This atomic add is killing performance - find another way!
-        // self.ray_count.fetch_add(1, Ordering::Relaxed);
         if let Some((ray_hit, material)) = self.ray_hit(ray_in, MIN_T, MAX_T) {
             if depth < max_depth {
                 if let Some((attenuation, scattered)) = material.scatter(ray_in, &ray_hit, rng) {
