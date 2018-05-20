@@ -12,8 +12,6 @@ pub use self::m128::*;
 #[cfg(target_feature = "avx")]
 pub use self::m256::*;
 
-pub const VECTOR_WIDTH_DWORDS_LOG2: usize = VECTOR_WIDTH_DWORDS >> 1; // I think this is right...
-
 impl ArrayF32xN {
     #[inline]
     pub fn new(v: [f32; VECTOR_WIDTH_DWORDS]) -> ArrayF32xN {
@@ -67,6 +65,7 @@ mod m128 {
 
     pub const VECTOR_WIDTH_BITS: usize = 128;
     pub const VECTOR_WIDTH_DWORDS: usize = VECTOR_WIDTH_BITS / 32;
+    pub const VECTOR_WIDTH_DWORDS_LOG2: usize = 2;
 
     #[repr(C, align(16))]
     #[derive(Copy, Clone, Debug)]
@@ -95,34 +94,14 @@ mod m128 {
         }
 
         #[inline]
-        pub fn lanes() -> usize {
-            VECTOR_WIDTH_DWORDS
-        }
-
-        #[inline]
         pub fn splat(i: i32) -> Self {
             unsafe { i32xN(_mm_set1_epi32(i)) }
         }
-
-        // #[inline]
-        // pub fn load_unaligned(a: &[i32; VECTOR_WIDTH_DWORDS]) -> Self {
-        //     unsafe { i32xN(_mm_loadu_si128(a.as_ptr())) }
-        // }
 
         #[inline]
         pub fn load_aligned(a: &ArrayI32xN) -> Self {
             unsafe { i32xN(_mm_load_si128(a.0.as_ptr() as *const __m128i)) }
         }
-
-        // #[inline]
-        // pub unsafe fn load_aligned_raw(a: &[i32; VECTOR_WIDTH_DWORDS]) -> Self {
-        //     i32xN(_mm_load_si128(a.as_ptr()))
-        // }
-
-        // #[inline]
-        // pub fn store_unaligned(self, a: &mut [i32; VECTOR_WIDTH_DWORDS]) {
-        //     unsafe { _mm_storeu_si128(a.as_mut_ptr(), self.0) }
-        // }
 
         #[inline]
         pub fn store_aligned(self, a: &mut ArrayI32xN) {
@@ -177,11 +156,6 @@ mod m128 {
     }
 
     impl b32xN {
-        #[inline]
-        pub fn lanes() -> usize {
-            VECTOR_WIDTH_DWORDS
-        }
-
         pub fn to_mask(self) -> i32 {
             unsafe { _mm_movemask_ps(self.0) }
         }
@@ -219,28 +193,8 @@ mod m128 {
         }
 
         #[inline]
-        pub fn lanes() -> usize {
-            VECTOR_WIDTH_DWORDS
-        }
-
-        #[inline]
-        pub fn load_unaligned(a: &[f32; VECTOR_WIDTH_DWORDS]) -> Self {
-            unsafe { f32xN(_mm_loadu_ps(a.as_ptr())) }
-        }
-
-        #[inline]
         pub fn load_aligned(a: &ArrayF32xN) -> Self {
             unsafe { f32xN(_mm_load_ps(a.0.as_ptr())) }
-        }
-
-        #[inline]
-        pub unsafe fn load_aligned_raw(a: &[f32; VECTOR_WIDTH_DWORDS]) -> Self {
-            f32xN(_mm_load_ps(a.as_ptr()))
-        }
-
-        #[inline]
-        pub fn store_unaligned(self, a: &mut [f32; VECTOR_WIDTH_DWORDS]) {
-            unsafe { _mm_storeu_ps(a.as_mut_ptr(), self.0) }
         }
 
         #[inline]
@@ -349,30 +303,247 @@ mod m256 {
     use std::arch::x86::*;
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::*;
+    use std::convert::From;
+    use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
 
     pub const VECTOR_WIDTH_BITS: usize = 256;
     pub const VECTOR_WIDTH_DWORDS: usize = VECTOR_WIDTH_BITS / 32;
+    pub const VECTOR_WIDTH_DWORDS_LOG2: usize = 3;
 
     #[repr(C, align(32))]
     #[derive(Copy, Clone, Debug)]
     pub struct ArrayF32xN(pub [f32; VECTOR_WIDTH_DWORDS]);
 
+    #[repr(C, align(32))]
+    #[derive(Copy, Clone, Debug)]
+    pub struct ArrayI32xN(pub [i32; VECTOR_WIDTH_DWORDS]);
+
     #[repr(C)]
     #[derive(Copy, Clone, Debug)]
     pub struct f32xN(pub __m256);
 
-    impl f32xN {
-        fn loadu_ps(a: &[f32; VECTOR_WIDTH_DWORDS]) -> Self {
-            unsafe { f32xN(_mm256_loadu_ps(a.as_ptr())) }
+    #[repr(C)]
+    #[derive(Copy, Clone, Debug)]
+    pub struct i32xN(pub __m256i);
+
+    #[repr(C)]
+    #[derive(Copy, Clone, Debug)]
+    pub struct b32xN(pub __m256);
+
+    impl i32xN {
+        #[inline]
+        pub fn new(e7: i32, e6: i32, e5: i32, e4: i32, e3: i32, e2: i32, e1: i32, e0: i32) -> Self {
+            unsafe { i32xN(_mm256_set_epi32(e7, e6, e5, e4, e3, e2, e1, e0)) }
         }
 
-        fn load_ps(a: &[f32; VECTOR_WIDTH_DWORDS]) -> Self {
-            unsafe { f32xN(_mm256_load_ps(a.as_ptr())) }
+        #[inline]
+        pub fn splat(i: i32) -> Self {
+            unsafe { i32xN(_mm256_set1_epi32(i)) }
+        }
+
+        #[inline]
+        pub fn load_aligned(a: &ArrayI32xN) -> Self {
+            unsafe { i32xN(_mm256_load_si256(a.0.as_ptr() as *const __m256i)) }
+        }
+
+        #[inline]
+        pub fn store_aligned(self, a: &mut ArrayI32xN) {
+            unsafe { _mm256_store_si256(a.0.as_mut_ptr() as *mut __m256i, self.0) }
+        }
+
+        #[inline]
+        // returns an i32xN with each lane set to it's index number
+        // TODO: maybe there is a better way to do this...
+        pub fn indices() -> Self {
+            Self::new(7, 6, 5, 4, 3, 2, 1, 0)
+        }
+
+        #[inline]
+        // TODO: might feel better as a free function
+        pub fn blend(self: Self, rhs: Self, cond: b32xN) -> Self {
+            unsafe { i32xN(_mm256_blendv_epi8(self.0, rhs.0, _mm256_castps_si256(cond.0))) }
         }
     }
 
-    pub fn horizontal_min(v: __m256) -> f32 {
-        panic!("Not implemented");
+    impl From<i32> for i32xN {
+        #[inline]
+        fn from(i: i32) -> i32xN {
+            i32xN::splat(i)
+        }
+    }
+
+    impl Add for i32xN {
+        type Output = i32xN;
+        #[inline]
+        fn add(self, rhs: i32xN) -> i32xN {
+            unsafe { i32xN(_mm256_add_epi32(self.0, rhs.0)) }
+        }
+    }
+
+    impl Mul<i32xN> for i32xN {
+        type Output = i32xN;
+        #[inline]
+        fn mul(self, rhs: i32xN) -> i32xN {
+            unsafe { i32xN(_mm256_mul_epi32(self.0, rhs.0)) }
+        }
+    }
+
+    impl Sub for i32xN {
+        type Output = i32xN;
+        #[inline]
+        fn sub(self, rhs: i32xN) -> i32xN {
+            unsafe { i32xN(_mm256_sub_epi32(self.0, rhs.0)) }
+        }
+    }
+
+    impl b32xN {
+        pub fn to_mask(self) -> i32 {
+            unsafe { _mm256_movemask_ps(self.0) }
+        }
+    }
+
+    impl BitAnd for b32xN {
+        type Output = Self;
+        fn bitand(self, rhs: Self) -> Self::Output {
+            unsafe { b32xN(_mm256_and_ps(self.0, rhs.0)) }
+        }
+    }
+
+    impl BitOr for b32xN {
+        type Output = Self;
+        fn bitor(self, rhs: Self) -> Self::Output {
+            unsafe { b32xN(_mm256_or_ps(self.0, rhs.0)) }
+        }
+    }
+
+    impl From<b32xN> for i32 {
+        fn from(b: b32xN) -> i32 {
+            unsafe { _mm256_movemask_ps(b.0) }
+        }
+    }
+
+    impl f32xN {
+        #[inline]
+        pub fn new(e7: f32, e6: f32, e5: f32, e4: f32, e3: f32, e2: f32, e1: f32, e0: f32) -> Self {
+            unsafe { f32xN(_mm256_set_ps(e7, e6, e5, e4, e3, e2, e1, e0)) }
+        }
+
+        #[inline]
+        pub fn splat(s: f32) -> Self {
+            unsafe { f32xN(_mm256_set1_ps(s)) }
+        }
+
+        #[inline]
+        pub fn load_aligned(a: &ArrayF32xN) -> Self {
+            unsafe { f32xN(_mm256_load_ps(a.0.as_ptr())) }
+        }
+
+        #[inline]
+        pub fn store_aligned(self, a: &mut ArrayF32xN) {
+            unsafe { _mm256_store_ps(a.0.as_mut_ptr(), self.0) }
+        }
+
+        #[inline]
+        pub fn sqrt(self) -> Self {
+            unsafe { f32xN(_mm256_sqrt_ps(self.0)) }
+        }
+
+        #[inline]
+        pub fn hmin(self) -> f32 {
+            // TODO: write an AVX hmin
+            use std::f32;
+            let mut min = f32::MAX;
+            let mut data = ArrayF32xN::new([f32::MAX;VECTOR_WIDTH_DWORDS]);
+            data.store(self);
+            for val in data.0.iter() {
+                if *val < min {
+                    min = *val;
+                }
+            }
+            min
+        }
+
+        #[inline]
+        pub fn eq(self, rhs: Self) -> b32xN {
+            // _CMP_EQ_OQ    0x00 /* Equal (ordered, non-signaling)  */
+            const CMP_EQ_OQ: i32 = 0x00;
+            unsafe { b32xN(_mm256_cmp_ps(self.0, rhs.0, CMP_EQ_OQ)) }
+        }
+        #[inline]
+        pub fn gt(self, rhs: Self) -> b32xN {
+            // _CMP_GT_OQ    0x1e /* Greater-than (ordered, non-signaling)  */
+            const CMP_GT_OQ: i32 = 0x1e;
+            unsafe { b32xN(_mm256_cmp_ps(self.0, rhs.0, CMP_GT_OQ)) }
+        }
+
+        #[inline]
+        pub fn lt(self, rhs: Self) -> b32xN {
+            // _CMP_LT_OQ    0x11 /* Less-than (ordered, non-signaling)  */
+            const CMP_LT_OQ: i32 = 0x11;
+            unsafe { b32xN(_mm256_cmp_ps(self.0, rhs.0, CMP_LT_OQ)) }
+        }
+
+        #[inline]
+        // TODO: might feel better as a free function
+        pub fn blend(self: f32xN, rhs: f32xN, cond: b32xN) -> f32xN {
+            unsafe { f32xN(_mm256_blendv_ps(self.0, rhs.0, cond.0)) }
+        }
+    }
+
+    impl From<f32> for f32xN {
+        #[inline]
+        fn from(f: f32) -> Self {
+            f32xN::splat(f)
+        }
+    }
+
+    impl<'a> From<&'a ArrayF32xN> for f32xN {
+        #[inline]
+        fn from(a: &'a ArrayF32xN) -> Self {
+            f32xN::load_aligned(&a)
+        }
+    }
+
+    #[inline]
+    pub fn dot3(x0: f32xN, x1: f32xN, y0: f32xN, y1: f32xN, z0: f32xN, z1: f32xN) -> f32xN {
+        unsafe {
+            let mut dot = _mm256_mul_ps(x0.0, x1.0);
+            dot = _mm256_add_ps(dot, _mm256_mul_ps(y0.0, y1.0));
+            dot = _mm256_add_ps(dot, _mm256_mul_ps(z0.0, z1.0));
+            f32xN(dot)
+        }
+    }
+
+    impl Add for f32xN {
+        type Output = f32xN;
+        #[inline]
+        fn add(self, rhs: f32xN) -> f32xN {
+            unsafe { f32xN(_mm256_add_ps(self.0, rhs.0)) }
+        }
+    }
+
+    impl Div<f32xN> for f32xN {
+        type Output = f32xN;
+        #[inline]
+        fn div(self, rhs: f32xN) -> f32xN {
+            unsafe { f32xN(_mm256_div_ps(self.0, rhs.0)) }
+        }
+    }
+
+    impl Mul<f32xN> for f32xN {
+        type Output = f32xN;
+        #[inline]
+        fn mul(self, rhs: f32xN) -> f32xN {
+            unsafe { f32xN(_mm256_mul_ps(self.0, rhs.0)) }
+        }
+    }
+
+    impl Sub for f32xN {
+        type Output = f32xN;
+        #[inline]
+        fn sub(self, rhs: f32xN) -> f32xN {
+            unsafe { f32xN(_mm256_sub_ps(self.0, rhs.0)) }
+        }
     }
 }
 
