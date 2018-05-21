@@ -1,15 +1,15 @@
 #![allow(dead_code)]
 
 // re-export fallback scalar code
-#[cfg(not(target_feature = "sse4_1"))]
+#[cfg(not(any(target_feature = "sse4.1", target_feature = "avx2")))]
 pub use self::m32::*;
 
-// re-export sse4_1 if no avx
-#[cfg(all(target_feature = "sse4_1", not(target_feature = "avx")))]
+// re-export sse4.1 if no avx2
+#[cfg(all(target_feature = "sse4.1", not(target_feature = "avx2")))]
 pub use self::m128::*;
 
-// re-export avx
-#[cfg(target_feature = "avx")]
+// re-export avx2
+#[cfg(target_feature = "avx2")]
 pub use self::m256::*;
 
 impl ArrayF32xN {
@@ -47,7 +47,7 @@ impl ArrayI32xN {
 }
 
 // 128 bit wide simd
-#[cfg(all(target_feature = "sse4_1", not(target_feature = "avx")))]
+#[cfg(target_feature = "sse4.1")]
 mod m128 {
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
@@ -86,6 +86,10 @@ mod m128 {
     #[repr(C)]
     #[derive(Copy, Clone, Debug)]
     pub struct b32xN(pub __m128);
+
+    pub fn print_version() {
+        println!("Using SSE4.1 SIMD");
+    }
 
     impl i32xN {
         #[inline]
@@ -297,7 +301,7 @@ mod m128 {
 }
 
 // 256 bit wide simd
-#[cfg(target_feature = "avx")]
+#[cfg(target_feature = "avx2")]
 mod m256 {
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
@@ -330,6 +334,10 @@ mod m256 {
     #[derive(Copy, Clone, Debug)]
     pub struct b32xN(pub __m256);
 
+    pub fn print_version() {
+        println!("Using AVX2 SIMD");
+    }
+
     impl i32xN {
         #[inline]
         pub fn new(e7: i32, e6: i32, e5: i32, e4: i32, e3: i32, e2: i32, e1: i32, e0: i32) -> Self {
@@ -361,7 +369,13 @@ mod m256 {
         #[inline]
         // TODO: might feel better as a free function
         pub fn blend(self: Self, rhs: Self, cond: b32xN) -> Self {
-            unsafe { i32xN(_mm256_blendv_epi8(self.0, rhs.0, _mm256_castps_si256(cond.0))) }
+            unsafe {
+                i32xN(_mm256_blendv_epi8(
+                    self.0,
+                    rhs.0,
+                    _mm256_castps_si256(cond.0),
+                ))
+            }
         }
     }
 
@@ -450,10 +464,10 @@ mod m256 {
 
         #[inline]
         pub fn hmin(self) -> f32 {
-            // TODO: write an AVX hmin
+            // TODO: write an avx2 hmin
             use std::f32;
             let mut min = f32::MAX;
-            let mut data = ArrayF32xN::new([f32::MAX;VECTOR_WIDTH_DWORDS]);
+            let mut data = ArrayF32xN::new([f32::MAX; VECTOR_WIDTH_DWORDS]);
             data.store(self);
             for val in data.0.iter() {
                 if *val < min {
@@ -547,7 +561,6 @@ mod m256 {
     }
 }
 
-#[cfg(not(target_feature = "sse4_1"))]
 mod m32 {
     use std::intrinsics::{fadd_fast, fdiv_fast, fmul_fast, fsub_fast};
     use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
@@ -575,6 +588,10 @@ mod m32 {
     #[repr(C)]
     #[derive(Copy, Clone, Debug)]
     pub struct b32xN(pub bool);
+
+    pub fn print_version() {
+        println!("Using scalar fallback version");
+    }
 
     impl i32xN {
         #[inline]

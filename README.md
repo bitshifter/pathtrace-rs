@@ -12,6 +12,21 @@ The easiest way to build and run the path tracer use the command:
 cargo run --release
 ```
 
+To compile and run with SSE4.1 use:
+
+```
+RUSTFLAGS="-C target-feature=+sse4.1" cargo run --release
+```
+
+And to compile and run with AVX2 use:
+
+```
+RUSTFLAGS="-C target-feature=+avx2" cargo run --release
+```
+
+Note that if your CPU doesn't support SSE4.1 or AVX2 the problem will crash if you try and use them.
+
+
 If you build without the `--release` flag the application will be very slow!
 
 ## License

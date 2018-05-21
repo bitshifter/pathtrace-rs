@@ -1,7 +1,7 @@
 use material::Material;
 use math::align_to;
 use simd::{
-    dot3, f32xN, i32xN, ArrayF32xN, ArrayI32xN, VECTOR_WIDTH_DWORDS_LOG2, VECTOR_WIDTH_DWORDS,
+    self, dot3, f32xN, i32xN, ArrayF32xN, ArrayI32xN, VECTOR_WIDTH_DWORDS_LOG2, VECTOR_WIDTH_DWORDS,
 };
 use std::f32;
 use std::intrinsics::cttz;
@@ -61,6 +61,7 @@ pub struct SpheresSoA {
 
 impl SpheresSoA {
     pub fn new(sphere_materials: &[(Sphere, Material)]) -> SpheresSoA {
+        simd::print_version();
         let num_spheres = sphere_materials.len();
         let num_chunks = align_to(num_spheres, VECTOR_WIDTH_DWORDS) / VECTOR_WIDTH_DWORDS;
         let mut centre_x = Vec::with_capacity(num_chunks);
@@ -105,66 +106,8 @@ impl SpheresSoA {
         }
     }
 
-    /*
-    pub fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
-        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-        {
-            if is_x86_feature_detected!("sse4.1") {
-                return unsafe { self.hit_sse4_1(ray, t_min, t_max) };
-            }
-            panic!("No implementation");
-        }
-
-        // self.hit_scalar(ray, t_min, t_max)
-    }
-
-    fn hit_scalar(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
-        let mut hit_t = t_max;
-        let mut hit_index = self.len;
-        for ((((index, centre_x), centre_y), centre_z), radius_sq) in self
-            .centre_x
-            .iter()
-            .enumerate()
-            .zip(self.centre_y.iter())
-            .zip(self.centre_z.iter())
-            .zip(self.radius_sq.iter())
-        {
-            let co = vec3(
-                centre_x - ray.origin.x,
-                centre_y - ray.origin.y,
-                centre_z - ray.origin.z,
-            );
-            let nb = dot(co, ray.direction);
-            let c = dot(co, co) - radius_sq;
-            let discriminant = nb * nb - c;
-            if discriminant > 0.0 {
-                let discriminant_sqrt = discriminant.sqrt();
-                let mut t = nb - discriminant_sqrt;
-                if t < t_min {
-                    t = nb + discriminant_sqrt;
-                }
-                if t > t_min && t < hit_t {
-                    hit_t = t;
-                    hit_index = index;
-                }
-            }
-        }
-        if hit_index < self.len {
-            let point = ray.point_at_parameter(hit_t);
-            let normal = vec3(
-                point.x - self.centre_x[hit_index],
-                point.y - self.centre_y[hit_index],
-                point.z - self.centre_z[hit_index],
-            ) * self.radius_inv[hit_index];
-            let material = &self.material[hit_index];
-            Some((RayHit { point, normal }, material))
-        } else {
-            None
-        }
-    }
-    */
-
-    pub fn hit(
+    #[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "avx2"))]
+    pub unsafe fn hit_simd(
         &self,
         ray: &Ray,
         t_min: f32,
@@ -234,7 +177,7 @@ impl SpheresSoA {
         if min_hit_t < t_max {
             let min_mask = i32::from(hit_t.eq(f32xN::from(min_hit_t)));
             if min_mask != 0 {
-                let hit_t_lane = unsafe { cttz(min_mask) } as usize;
+                let hit_t_lane = cttz(min_mask) as usize;
 
                 // store hit_index and hit_t back to scalar
                 // TODO: use aligned structures
@@ -246,8 +189,8 @@ impl SpheresSoA {
                 debug_assert!(hit_t_lane < hit_index_array.0.len());
                 debug_assert!(hit_t_lane < hit_t_array.0.len());
 
-                let hit_index_scalar = unsafe { *hit_index_array.0.get_unchecked(hit_t_lane) as usize };
-                let hit_t_scalar = unsafe { *hit_t_array.0.get_unchecked(hit_t_lane) };
+                let hit_index_scalar = *hit_index_array.0.get_unchecked(hit_t_lane) as usize;
+                let hit_t_scalar = *hit_t_array.0.get_unchecked(hit_t_lane);
 
                 let chunk_index = hit_index_scalar >> VECTOR_WIDTH_DWORDS_LOG2;
                 let lane_index = hit_index_scalar - (chunk_index << VECTOR_WIDTH_DWORDS_LOG2);
@@ -256,8 +199,7 @@ impl SpheresSoA {
                 debug_assert!(lane_index < VECTOR_WIDTH_DWORDS);
 
                 let point = ray.point_at_parameter(hit_t_scalar);
-                let normal = unsafe {
-                    vec3(
+                let normal = vec3(
                     point.x
                         - self
                             .centre_x
@@ -281,14 +223,11 @@ impl SpheresSoA {
                         .radius_inv
                         .get_unchecked(chunk_index)
                         .0
-                        .get_unchecked(lane_index)
-                };
-                let material = unsafe {
-                    &self
+                        .get_unchecked(lane_index);
+                let material = &self
                     .material
                     .get_unchecked(chunk_index)
-                    .get_unchecked(lane_index)
-                };
+                    .get_unchecked(lane_index);
                 return Some((RayHit { point, normal }, material));
             }
         }

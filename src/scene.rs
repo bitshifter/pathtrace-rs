@@ -30,7 +30,7 @@ impl Scene {
     }
 
     fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
-        self.spheres.hit(ray, t_min, t_max) 
+        unsafe { self.spheres.hit_simd(ray, t_min, t_max) }
     }
 
     fn ray_trace(
