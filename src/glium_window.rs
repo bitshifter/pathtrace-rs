@@ -77,27 +77,36 @@ pub fn start_loop(params: Params, camera: Camera, scene: Scene, max_frames: Opti
 
     thread::spawn(move || {
         let mut frame_num = 0;
+        let mut elapsed_secs = 0.0;
+        let mut ray_count = 0;
         loop {
             let rgb_buffer = worker_recv.recv().unwrap();
             if let Some(mut rgb_buffer) = rgb_buffer {
                 let start_time = SystemTime::now();
-                let ray_count = scene.update(&params, &camera, frame_num, &mut rgb_buffer);
+                ray_count += scene.update(&params, &camera, frame_num, &mut rgb_buffer);
                 frame_num += 1;
 
                 let elapsed = start_time
                     .elapsed()
                     .expect("SystemTime elapsed time failed");
-                let elapsed_secs =
+                elapsed_secs +=
                     elapsed.as_secs() as f64 + f64::from(elapsed.subsec_nanos()) / 1_000_000_000.0;
-                let ray_count = ray_count as f64 / 1_000_000.0;
 
-                println!(
-                    "{:.2}secs {:.2}Mrays/s {:.2}Mrays/frame {}frames",
-                    elapsed_secs,
-                    ray_count / elapsed_secs,
-                    ray_count,
-                    frame_num
-                );
+                const RATE: u32 = 10;
+                if frame_num % RATE == 0 {
+                    let million_ray_count = ray_count as f64 / 1_000_000.0;
+
+                    println!(
+                        "{:.2}secs {:.2}Mrays/s {:.2}Mrays/frame {} frames",
+                        elapsed_secs / RATE as f64,
+                        million_ray_count / elapsed_secs,
+                        million_ray_count / RATE as f64,
+                        frame_num
+                    );
+
+                    elapsed_secs = 0.0;
+                    ray_count = 0;
+                }
 
                 worker_send.send(rgb_buffer).unwrap();
             } else {
