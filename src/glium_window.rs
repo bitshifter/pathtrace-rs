@@ -117,16 +117,22 @@ pub fn start_loop(params: Params, camera: Camera, scene: Scene, max_frames: Opti
 
     let mut frame_num = 0;
     let mut quit = false;
+    let mut save = false;
     while !quit {
         events_loop.poll_events(|event| {
             use glium::glutin::{ElementState, Event, VirtualKeyCode, WindowEvent};
             if let Event::WindowEvent { event, .. } = event {
                 match event {
+                    // TODO: glutin 0.15 support this which is needed so we can save on exit
+                    // Until then we only get a message when the window is already closed and the
+                    // GL context is dead, so we can't save the frame buffer.
+                    // WindowEvent::CloseRequested => quit = true,
                     WindowEvent::Closed => quit = true,
                     WindowEvent::KeyboardInput { input, .. } => {
                         if let ElementState::Released = input.state {
                             if let Some(VirtualKeyCode::Escape) = input.virtual_keycode {
                                 quit = true;
+                                save = true;
                             }
                         }
                     }
@@ -188,14 +194,16 @@ pub fn start_loop(params: Params, camera: Camera, scene: Scene, max_frames: Opti
         };
     }
 
-    // reading the front rgb_buffer into an image
-    let image: glium::texture::RawImage2d<u8> = display.read_front_buffer();
-    let image =
-        image::ImageBuffer::from_raw(image.width, image.height, image.data.into_owned()).unwrap();
-    let image = image::DynamicImage::ImageRgba8(image).flipv().to_rgb();
-    image
-        .save("output.png")
-        .expect("Failed to save output image");
+    if save {
+        // reading the front rgb_buffer into an image
+        let image: glium::texture::RawImage2d<u8> = display.read_front_buffer();
+        let image =
+            image::ImageBuffer::from_raw(image.width, image.height, image.data.into_owned()).unwrap();
+        let image = image::DynamicImage::ImageRgba8(image).flipv().to_rgb();
+        image
+            .save("output.png")
+            .expect("Failed to save output image");
+    }
 
     // tell the worker to exit
     main_send.send(None).unwrap();
