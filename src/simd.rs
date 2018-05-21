@@ -1,11 +1,11 @@
 #![allow(dead_code)]
 
-// re-export fallback code if no sse2
-// #[cfg(not(target_feature = "sse2"))]
-// pub use self::m32::*;
+// re-export fallback scalar code
+#[cfg(not(target_feature = "sse4_1"))]
+pub use self::m32::*;
 
-// re-export sse2 if no avx
-#[cfg(all(target_feature = "sse2", not(target_feature = "avx")))]
+// re-export sse4_1 if no avx
+#[cfg(all(target_feature = "sse4_1", not(target_feature = "avx")))]
 pub use self::m128::*;
 
 // re-export avx
@@ -47,7 +47,7 @@ impl ArrayI32xN {
 }
 
 // 128 bit wide simd
-#[cfg(all(target_feature = "sse2", not(target_feature = "avx")))]
+#[cfg(all(target_feature = "sse4_1", not(target_feature = "avx")))]
 mod m128 {
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
@@ -547,23 +547,235 @@ mod m256 {
     }
 }
 
-/*
-// fallback scalar version
-#[cfg(not(target_feature = "sse2"))]
+#[cfg(not(target_feature = "sse4_1"))]
 mod m32 {
+    use std::intrinsics::{fadd_fast, fdiv_fast, fmul_fast, fsub_fast};
+    use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
+
     pub const VECTOR_WIDTH_BITS: usize = 32;
-    pub const VECTOR_WIDTH_DWORDS: usize = VECTOR_WIDTH_BITS / 32;
+    pub const VECTOR_WIDTH_DWORDS: usize = 1;
+    pub const VECTOR_WIDTH_DWORDS_LOG2: usize = 0;
 
-    #[repr(C, align(4))]
-    #[derive(Copy, Clone, Debug)]
-    pub struct f32xN(pub f32);
-
-    #[repr(C, align(4))]
+    #[repr(C)]
     #[derive(Copy, Clone, Debug)]
     pub struct ArrayF32xN(pub [f32; VECTOR_WIDTH_DWORDS]);
 
-    pub fn horizontal_min(v: [f32; 1]) -> f32 {
-        panic!("Not implemented");
+    #[repr(C)]
+    #[derive(Copy, Clone, Debug)]
+    pub struct ArrayI32xN(pub [i32; VECTOR_WIDTH_DWORDS]);
+
+    #[repr(C)]
+    #[derive(Copy, Clone, Debug)]
+    pub struct f32xN(pub f32);
+
+    #[repr(C)]
+    #[derive(Copy, Clone, Debug)]
+    pub struct i32xN(pub i32);
+
+    #[repr(C)]
+    #[derive(Copy, Clone, Debug)]
+    pub struct b32xN(pub bool);
+
+    impl i32xN {
+        #[inline]
+        pub fn new(e0: i32) -> Self {
+            i32xN(e0)
+        }
+
+        #[inline]
+        pub fn splat(i: i32) -> Self {
+            i32xN(i)
+        }
+
+        #[inline]
+        pub fn load_aligned(a: &ArrayI32xN) -> Self {
+            i32xN(a.0[0])
+        }
+
+        #[inline]
+        pub fn store_aligned(self, a: &mut ArrayI32xN) {
+            a.0[0] = self.0
+        }
+
+        #[inline]
+        // returns an i32xN with each lane set to it's index number
+        // TODO: maybe there is a better way to do this...
+        pub fn indices() -> Self {
+            Self::new(0)
+        }
+
+        #[inline]
+        // TODO: might feel better as a free function
+        pub fn blend(self: Self, rhs: Self, cond: b32xN) -> Self {
+            if cond.0 {
+                rhs
+            } else {
+                self
+            }
+        }
+    }
+
+    impl From<i32> for i32xN {
+        #[inline]
+        fn from(i: i32) -> i32xN {
+            i32xN::splat(i)
+        }
+    }
+
+    impl Add for i32xN {
+        type Output = i32xN;
+        #[inline]
+        fn add(self, rhs: i32xN) -> i32xN {
+            i32xN(self.0 + rhs.0)
+        }
+    }
+
+    impl Mul<i32xN> for i32xN {
+        type Output = i32xN;
+        #[inline]
+        fn mul(self, rhs: i32xN) -> i32xN {
+            i32xN(self.0 * rhs.0)
+        }
+    }
+
+    impl Sub for i32xN {
+        type Output = i32xN;
+        #[inline]
+        fn sub(self, rhs: i32xN) -> i32xN {
+            i32xN(self.0 - rhs.0)
+        }
+    }
+
+    impl b32xN {
+        pub fn to_mask(self) -> i32 {
+            self.0 as i32
+        }
+    }
+
+    impl BitAnd for b32xN {
+        type Output = Self;
+        fn bitand(self, rhs: Self) -> Self::Output {
+            b32xN(self.0 && rhs.0)
+        }
+    }
+
+    impl BitOr for b32xN {
+        type Output = Self;
+        fn bitor(self, rhs: Self) -> Self::Output {
+            b32xN(self.0 || rhs.0)
+        }
+    }
+
+    impl From<b32xN> for i32 {
+        fn from(b: b32xN) -> i32 {
+            b.to_mask()
+        }
+    }
+
+    impl f32xN {
+        #[inline]
+        pub fn new(e0: f32) -> Self {
+            f32xN(e0)
+        }
+
+        #[inline]
+        pub fn splat(s: f32) -> Self {
+            f32xN(s)
+        }
+
+        #[inline]
+        pub fn load_aligned(a: &ArrayF32xN) -> Self {
+            f32xN(a.0[0])
+        }
+
+        #[inline]
+        pub fn store_aligned(self, a: &mut ArrayF32xN) {
+            a.0[0] = self.0
+        }
+
+        #[inline]
+        pub fn sqrt(self) -> Self {
+            f32xN(self.0.sqrt())
+        }
+
+        #[inline]
+        pub fn hmin(self) -> f32 {
+            self.0
+        }
+
+        #[inline]
+        pub fn eq(self, rhs: Self) -> b32xN {
+            b32xN(self.0 == rhs.0)
+        }
+        #[inline]
+        pub fn gt(self, rhs: Self) -> b32xN {
+            b32xN(self.0 > rhs.0)
+        }
+
+        #[inline]
+        pub fn lt(self, rhs: Self) -> b32xN {
+            b32xN(self.0 < rhs.0)
+        }
+
+        #[inline]
+        // TODO: might feel better as a free function
+        pub fn blend(self: f32xN, rhs: f32xN, cond: b32xN) -> f32xN {
+            if cond.0 {
+                f32xN(rhs.0)
+            } else {
+                f32xN(self.0)
+            }
+        }
+    }
+
+    impl From<f32> for f32xN {
+        #[inline]
+        fn from(f: f32) -> Self {
+            f32xN::splat(f)
+        }
+    }
+
+    impl<'a> From<&'a ArrayF32xN> for f32xN {
+        #[inline]
+        fn from(a: &'a ArrayF32xN) -> Self {
+            f32xN::load_aligned(&a)
+        }
+    }
+
+    #[inline]
+    pub fn dot3(x0: f32xN, x1: f32xN, y0: f32xN, y1: f32xN, z0: f32xN, z1: f32xN) -> f32xN {
+        x0 * x1 + y0 * y1 + z0 * z1
+    }
+
+    impl Add for f32xN {
+        type Output = f32xN;
+        #[inline]
+        fn add(self, rhs: f32xN) -> f32xN {
+            unsafe { f32xN(fadd_fast(self.0, rhs.0)) }
+        }
+    }
+
+    impl Div<f32xN> for f32xN {
+        type Output = f32xN;
+        #[inline]
+        fn div(self, rhs: f32xN) -> f32xN {
+            unsafe { f32xN(fdiv_fast(self.0, rhs.0)) }
+        }
+    }
+
+    impl Mul<f32xN> for f32xN {
+        type Output = f32xN;
+        #[inline]
+        fn mul(self, rhs: f32xN) -> f32xN {
+            unsafe { f32xN(fmul_fast(self.0, rhs.0)) }
+        }
+    }
+
+    impl Sub for f32xN {
+        type Output = f32xN;
+        #[inline]
+        fn sub(self, rhs: f32xN) -> f32xN {
+            unsafe { f32xN(fsub_fast(self.0, rhs.0)) }
+        }
     }
 }
-*/

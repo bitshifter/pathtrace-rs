@@ -30,8 +30,7 @@ impl Scene {
     }
 
     fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
-        // TODO: for now this will crash if sse4.1 is not available
-        unsafe { self.spheres.hit_sse4_1(ray, t_min, t_max) }
+        self.spheres.hit(ray, t_min, t_max) 
     }
 
     fn ray_trace(

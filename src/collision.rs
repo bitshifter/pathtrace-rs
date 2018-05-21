@@ -164,8 +164,7 @@ impl SpheresSoA {
     }
     */
 
-    #[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "sse4.1"))]
-    pub unsafe fn hit_sse4_1(
+    pub fn hit(
         &self,
         ray: &Ray,
         t_min: f32,
@@ -235,7 +234,7 @@ impl SpheresSoA {
         if min_hit_t < t_max {
             let min_mask = i32::from(hit_t.eq(f32xN::from(min_hit_t)));
             if min_mask != 0 {
-                let hit_t_lane = cttz(min_mask) as usize;
+                let hit_t_lane = unsafe { cttz(min_mask) } as usize;
 
                 // store hit_index and hit_t back to scalar
                 // TODO: use aligned structures
@@ -247,8 +246,8 @@ impl SpheresSoA {
                 debug_assert!(hit_t_lane < hit_index_array.0.len());
                 debug_assert!(hit_t_lane < hit_t_array.0.len());
 
-                let hit_index_scalar = *hit_index_array.0.get_unchecked(hit_t_lane) as usize;
-                let hit_t_scalar = *hit_t_array.0.get_unchecked(hit_t_lane);
+                let hit_index_scalar = unsafe { *hit_index_array.0.get_unchecked(hit_t_lane) as usize };
+                let hit_t_scalar = unsafe { *hit_t_array.0.get_unchecked(hit_t_lane) };
 
                 let chunk_index = hit_index_scalar >> VECTOR_WIDTH_DWORDS_LOG2;
                 let lane_index = hit_index_scalar - (chunk_index << VECTOR_WIDTH_DWORDS_LOG2);
@@ -257,7 +256,8 @@ impl SpheresSoA {
                 debug_assert!(lane_index < VECTOR_WIDTH_DWORDS);
 
                 let point = ray.point_at_parameter(hit_t_scalar);
-                let normal = vec3(
+                let normal = unsafe {
+                    vec3(
                     point.x
                         - self
                             .centre_x
@@ -281,11 +281,14 @@ impl SpheresSoA {
                         .radius_inv
                         .get_unchecked(chunk_index)
                         .0
-                        .get_unchecked(lane_index);
-                let material = &self
+                        .get_unchecked(lane_index)
+                };
+                let material = unsafe {
+                    &self
                     .material
                     .get_unchecked(chunk_index)
-                    .get_unchecked(lane_index);
+                    .get_unchecked(lane_index)
+                };
                 return Some((RayHit { point, normal }, material));
             }
         }
