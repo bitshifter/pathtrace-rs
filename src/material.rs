@@ -3,7 +3,8 @@ use math::{random_in_unit_sphere, random_unit_vector, reflect, refract, schlick}
 use rand::{Rng, XorShiftRng};
 use vmath::{dot, normalize, vec3, Length, Vec3};
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+// #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug)]
 pub enum Material {
     Lambertian { albedo: Vec3 },
     Metal { albedo: Vec3, fuzz: f32 },

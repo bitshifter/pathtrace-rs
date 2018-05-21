@@ -5,9 +5,9 @@ extern crate glium;
 extern crate image;
 extern crate rand;
 extern crate rayon;
-#[macro_use]
-extern crate serde_derive;
-extern crate serde_json;
+// #[macro_use]
+// extern crate serde_derive;
+// extern crate serde_json;
 
 mod camera;
 mod collision;
