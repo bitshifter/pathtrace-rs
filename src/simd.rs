@@ -64,16 +64,16 @@ mod m128 {
     }
 
     pub const VECTOR_WIDTH_BITS: usize = 128;
-    pub const VECTOR_WIDTH_DWORDS: usize = VECTOR_WIDTH_BITS / 32;
+    pub const VECTOR_WIDTH_DWORDS: usize = 4;
     pub const VECTOR_WIDTH_DWORDS_LOG2: usize = 2;
 
     #[repr(C, align(16))]
     #[derive(Copy, Clone, Debug)]
-    pub struct ArrayF32xN(pub [f32; VECTOR_WIDTH_DWORDS]);
+    pub struct ArrayF32xN(pub [f32; 4]);
 
     #[repr(C, align(16))]
     #[derive(Copy, Clone, Debug)]
-    pub struct ArrayI32xN(pub [i32; VECTOR_WIDTH_DWORDS]);
+    pub struct ArrayI32xN(pub [i32; 4]);
 
     #[repr(C)]
     #[derive(Copy, Clone, Debug)]
@@ -108,8 +108,18 @@ mod m128 {
         }
 
         #[inline]
+        pub fn load_unaligned(a: &[i32; 4]) -> Self {
+            unsafe { i32xN(_mm_loadu_si128(a.as_ptr() as *const __m128i)) }
+        }
+
+        #[inline]
         pub fn store_aligned(self, a: &mut ArrayI32xN) {
             unsafe { _mm_store_si128(a.0.as_mut_ptr() as *mut __m128i, self.0) }
+        }
+
+        #[inline]
+        pub fn store_unaligned(self, a: &mut [i32; 4]) {
+            unsafe { _mm_storeu_si128(a.as_mut_ptr() as *mut __m128i, self.0) }
         }
 
         #[inline]
@@ -123,13 +133,18 @@ mod m128 {
         // TODO: might feel better as a free function
         // TODO: sse2 implementation
         pub fn blend(self: Self, rhs: Self, cond: b32xN) -> Self {
-            #[cfg(target_feature = "sse4.1")] {
+            #[cfg(target_feature = "sse4.1")]
+            {
                 unsafe { i32xN(_mm_blendv_epi8(self.0, rhs.0, _mm_castps_si128(cond.0))) }
             }
-            #[cfg(not(target_feature = "sse4.1"))] {
+            #[cfg(not(target_feature = "sse4.1"))]
+            {
                 unsafe {
                     let d = _mm_srai_epi32(_mm_castps_si128(cond.0), 31);
-                    i32xN(_mm_or_si128(_mm_and_si128(d, rhs.0), _mm_andnot_si128(d, self.0)))
+                    i32xN(_mm_or_si128(
+                        _mm_and_si128(d, rhs.0),
+                        _mm_andnot_si128(d, self.0),
+                    ))
                 }
             }
         }
@@ -209,8 +224,18 @@ mod m128 {
         }
 
         #[inline]
+        pub fn load_unaligned(a: &[f32; 4]) -> Self {
+            unsafe { f32xN(_mm_loadu_ps(a.as_ptr())) }
+        }
+
+        #[inline]
         pub fn store_aligned(self, a: &mut ArrayF32xN) {
             unsafe { _mm_store_ps(a.0.as_mut_ptr(), self.0) }
+        }
+
+        #[inline]
+        pub fn store_unaligned(self, a: &mut [f32; 4]) {
+            unsafe { _mm_storeu_ps(a.as_mut_ptr(), self.0) }
         }
 
         #[inline]
@@ -245,10 +270,12 @@ mod m128 {
         #[inline]
         // TODO: might feel better as a free function
         pub fn blend(self: f32xN, rhs: f32xN, cond: b32xN) -> f32xN {
-            #[cfg(target_feature = "sse4.1")] {
+            #[cfg(target_feature = "sse4.1")]
+            {
                 unsafe { f32xN(_mm_blendv_ps(self.0, rhs.0, cond.0)) }
             }
-            #[cfg(not(target_feature = "sse4.1"))] {
+            #[cfg(not(target_feature = "sse4.1"))]
+            {
                 unsafe {
                     let d = _mm_castsi128_ps(_mm_srai_epi32(_mm_castps_si128(cond.0), 31));
                     f32xN(_mm_or_ps(_mm_and_ps(d, rhs.0), _mm_andnot_ps(d, self.0)))
@@ -325,16 +352,16 @@ mod m256 {
     use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
 
     pub const VECTOR_WIDTH_BITS: usize = 256;
-    pub const VECTOR_WIDTH_DWORDS: usize = VECTOR_WIDTH_BITS / 32;
+    pub const VECTOR_WIDTH_DWORDS: usize = 8;
     pub const VECTOR_WIDTH_DWORDS_LOG2: usize = 3;
 
     #[repr(C, align(32))]
     #[derive(Copy, Clone, Debug)]
-    pub struct ArrayF32xN(pub [f32; VECTOR_WIDTH_DWORDS]);
+    pub struct ArrayF32xN(pub [f32; 8]);
 
     #[repr(C, align(32))]
     #[derive(Copy, Clone, Debug)]
-    pub struct ArrayI32xN(pub [i32; VECTOR_WIDTH_DWORDS]);
+    pub struct ArrayI32xN(pub [i32; 8]);
 
     #[repr(C)]
     #[derive(Copy, Clone, Debug)]
@@ -369,8 +396,18 @@ mod m256 {
         }
 
         #[inline]
+        pub fn load_unaligned(a: &[i32; 8]) -> Self {
+            unsafe { i32xN(_mm256_loadu_si256(a.as_ptr() as *const __m256i)) }
+        }
+
+        #[inline]
         pub fn store_aligned(self, a: &mut ArrayI32xN) {
             unsafe { _mm256_store_si256(a.0.as_mut_ptr() as *mut __m256i, self.0) }
+        }
+
+        #[inline]
+        pub fn store_unaligned(self, a: &mut [i32; 8]) {
+            unsafe { _mm256_storeu_si256(a.as_mut_ptr() as *mut __m256i, self.0) }
         }
 
         #[inline]
@@ -467,8 +504,18 @@ mod m256 {
         }
 
         #[inline]
+        pub fn load_unaligned(a: &[f32; 8]) -> Self {
+            unsafe { f32xN(_mm256_loadu_ps(a.as_ptr())) }
+        }
+
+        #[inline]
         pub fn store_aligned(self, a: &mut ArrayF32xN) {
             unsafe { _mm256_store_ps(a.0.as_mut_ptr(), self.0) }
+        }
+
+        #[inline]
+        pub fn store_unaligned(self, a: &mut [f32; 8]) {
+            unsafe { _mm256_storeu_ps(a.as_mut_ptr(), self.0) }
         }
 
         #[inline]
@@ -585,11 +632,11 @@ mod m32 {
 
     #[repr(C)]
     #[derive(Copy, Clone, Debug)]
-    pub struct ArrayF32xN(pub [f32; VECTOR_WIDTH_DWORDS]);
+    pub struct ArrayF32xN(pub [f32; 1]);
 
     #[repr(C)]
     #[derive(Copy, Clone, Debug)]
-    pub struct ArrayI32xN(pub [i32; VECTOR_WIDTH_DWORDS]);
+    pub struct ArrayI32xN(pub [i32; 1]);
 
     #[repr(C)]
     #[derive(Copy, Clone, Debug)]
@@ -624,7 +671,17 @@ mod m32 {
         }
 
         #[inline]
+        pub fn load_unaligned(a: &ArrayI32xN) -> Self {
+            i32xN(a.0[0])
+        }
+
+        #[inline]
         pub fn store_aligned(self, a: &mut ArrayI32xN) {
+            a.0[0] = self.0
+        }
+
+        #[inline]
+        pub fn store_unaligned(self, a: &mut ArrayI32xN) {
             a.0[0] = self.0
         }
 
@@ -720,7 +777,17 @@ mod m32 {
         }
 
         #[inline]
+        pub fn load_unaligned(a: &ArrayF32xN) -> Self {
+            f32xN(a.0[0])
+        }
+
+        #[inline]
         pub fn store_aligned(self, a: &mut ArrayF32xN) {
+            a.0[0] = self.0
+        }
+
+        #[inline]
+        pub fn store_unaligned(self, a: &mut ArrayF32xN) {
             a.0[0] = self.0
         }
 
@@ -815,6 +882,7 @@ mod m32 {
 mod tests {
     #[cfg(target_feature = "sse2")]
     mod m128 {
+        use test::{black_box, Bencher};
         use simd::m128::*;
         #[test]
         fn test_hmin() {
@@ -823,21 +891,66 @@ mod tests {
             assert_eq!(1.0, f32xN::new(3.0, 4.0, 1.0, 2.0).hmin());
             assert_eq!(1.0, f32xN::new(4.0, 1.0, 2.0, 3.0).hmin());
         }
+
+        #[bench]
+        fn bench_hmin(b: &mut Bencher) {
+            use rand::{weak_rng, Rng};
+            let mut rng = black_box(weak_rng());
+            b.iter(|| {
+                let r = f32xN::load_unaligned(&rng.gen::<[f32;4]>());
+                r.hmin()
+            });
+        }
     }
 
     #[cfg(target_feature = "avx2")]
     mod m256 {
+        use test::{black_box, Bencher};
         use simd::m256::*;
         #[test]
         fn test_hmin() {
-            assert_eq!(1.0, f32xN::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0).hmin());
-            assert_eq!(1.0, f32xN::new(2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 1.0).hmin());
-            assert_eq!(1.0, f32xN::new(3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 1.0, 2.0).hmin());
-            assert_eq!(1.0, f32xN::new(4.0, 5.0, 6.0, 7.0, 8.0, 1.0, 2.0, 3.0).hmin());
-            assert_eq!(1.0, f32xN::new(5.0, 6.0, 7.0, 8.0, 1.0, 2.0, 3.0, 4.0).hmin());
-            assert_eq!(1.0, f32xN::new(6.0, 7.0, 8.0, 1.0, 2.0, 3.0, 4.0, 5.0).hmin());
-            assert_eq!(1.0, f32xN::new(7.0, 8.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0).hmin());
-            assert_eq!(1.0, f32xN::new(8.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0).hmin());
+            assert_eq!(
+                1.0,
+                f32xN::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0).hmin()
+            );
+            assert_eq!(
+                1.0,
+                f32xN::new(2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 1.0).hmin()
+            );
+            assert_eq!(
+                1.0,
+                f32xN::new(3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 1.0, 2.0).hmin()
+            );
+            assert_eq!(
+                1.0,
+                f32xN::new(4.0, 5.0, 6.0, 7.0, 8.0, 1.0, 2.0, 3.0).hmin()
+            );
+            assert_eq!(
+                1.0,
+                f32xN::new(5.0, 6.0, 7.0, 8.0, 1.0, 2.0, 3.0, 4.0).hmin()
+            );
+            assert_eq!(
+                1.0,
+                f32xN::new(6.0, 7.0, 8.0, 1.0, 2.0, 3.0, 4.0, 5.0).hmin()
+            );
+            assert_eq!(
+                1.0,
+                f32xN::new(7.0, 8.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0).hmin()
+            );
+            assert_eq!(
+                1.0,
+                f32xN::new(8.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0).hmin()
+            );
+        }
+
+        #[bench]
+        fn bench_hmin(b: &mut Bencher) {
+            use rand::{weak_rng, Rng};
+            let mut rng = black_box(weak_rng());
+            b.iter(|| {
+                let r = f32xN::load_unaligned(&rng.gen::<[f32;8]>());
+                r.hmin()
+            });
         }
     }
 }
