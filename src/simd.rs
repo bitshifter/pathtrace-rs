@@ -1,11 +1,11 @@
 #![allow(dead_code)]
 
 // re-export fallback scalar code
-#[cfg(not(any(target_feature = "sse4.1", target_feature = "avx2")))]
+#[cfg(not(any(target_feature = "sse2", target_feature = "avx2")))]
 pub use self::m32::*;
 
-// re-export sse4.1 if no avx2
-#[cfg(all(target_feature = "sse4.1", not(target_feature = "avx2")))]
+// re-export sse2 if no avx2
+#[cfg(all(target_feature = "sse2", not(target_feature = "avx2")))]
 pub use self::m128::*;
 
 // re-export avx2
@@ -47,7 +47,7 @@ impl ArrayI32xN {
 }
 
 // 128 bit wide simd
-#[cfg(target_feature = "sse4.1")]
+#[cfg(target_feature = "sse2")]
 mod m128 {
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
@@ -88,7 +88,7 @@ mod m128 {
     pub struct b32xN(pub __m128);
 
     pub fn print_version() {
-        println!("Using SSE4.1 SIMD");
+        println!("Using SSE2 SIMD");
     }
 
     impl i32xN {
@@ -123,8 +123,15 @@ mod m128 {
         // TODO: might feel better as a free function
         // TODO: sse2 implementation
         pub fn blend(self: Self, rhs: Self, cond: b32xN) -> Self {
-            // _mm_castps_si128(mask.0)
-            unsafe { i32xN(_mm_blendv_epi8(self.0, rhs.0, _mm_castps_si128(cond.0))) }
+            #[cfg(target_feature = "sse4.1")] {
+                unsafe { i32xN(_mm_blendv_epi8(self.0, rhs.0, _mm_castps_si128(cond.0))) }
+            }
+            #[cfg(not(target_feature = "sse4.1"))] {
+                unsafe {
+                    let d = _mm_srai_epi32(_mm_castps_si128(cond.0), 31);
+                    i32xN(_mm_or_si128(_mm_and_si128(d, rhs.0), _mm_andnot_si128(d, self.0)))
+                }
+            }
         }
     }
 
@@ -237,9 +244,16 @@ mod m128 {
 
         #[inline]
         // TODO: might feel better as a free function
-        // TODO: sse2 implementation
         pub fn blend(self: f32xN, rhs: f32xN, cond: b32xN) -> f32xN {
-            unsafe { f32xN(_mm_blendv_ps(self.0, rhs.0, cond.0)) }
+            #[cfg(target_feature = "sse4.1")] {
+                unsafe { f32xN(_mm_blendv_ps(self.0, rhs.0, cond.0)) }
+            }
+            #[cfg(not(target_feature = "sse4.1"))] {
+                unsafe {
+                    let d = _mm_castsi128_ps(_mm_srai_epi32(_mm_castps_si128(cond.0), 31));
+                    f32xN(_mm_or_ps(_mm_and_ps(d, rhs.0), _mm_andnot_ps(d, self.0)))
+                }
+            }
         }
     }
 
@@ -793,6 +807,37 @@ mod m32 {
         #[inline]
         fn sub(self, rhs: f32xN) -> f32xN {
             unsafe { f32xN(fsub_fast(self.0, rhs.0)) }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[cfg(target_feature = "sse2")]
+    mod m128 {
+        use simd::m128::*;
+        #[test]
+        fn test_hmin() {
+            assert_eq!(1.0, f32xN::new(1.0, 2.0, 3.0, 4.0).hmin());
+            assert_eq!(1.0, f32xN::new(2.0, 3.0, 4.0, 1.0).hmin());
+            assert_eq!(1.0, f32xN::new(3.0, 4.0, 1.0, 2.0).hmin());
+            assert_eq!(1.0, f32xN::new(4.0, 1.0, 2.0, 3.0).hmin());
+        }
+    }
+
+    #[cfg(target_feature = "avx2")]
+    mod m256 {
+        use simd::m256::*;
+        #[test]
+        fn test_hmin() {
+            assert_eq!(1.0, f32xN::new(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0).hmin());
+            assert_eq!(1.0, f32xN::new(2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 1.0).hmin());
+            assert_eq!(1.0, f32xN::new(3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 1.0, 2.0).hmin());
+            assert_eq!(1.0, f32xN::new(4.0, 5.0, 6.0, 7.0, 8.0, 1.0, 2.0, 3.0).hmin());
+            assert_eq!(1.0, f32xN::new(5.0, 6.0, 7.0, 8.0, 1.0, 2.0, 3.0, 4.0).hmin());
+            assert_eq!(1.0, f32xN::new(6.0, 7.0, 8.0, 1.0, 2.0, 3.0, 4.0, 5.0).hmin());
+            assert_eq!(1.0, f32xN::new(7.0, 8.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0).hmin());
+            assert_eq!(1.0, f32xN::new(8.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0).hmin());
         }
     }
 }
