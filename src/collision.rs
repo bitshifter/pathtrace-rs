@@ -31,6 +31,7 @@ pub struct RayHit {
     pub normal: Vec3,
 }
 
+// #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[derive(Clone, Copy, Debug)]
 pub struct Sphere {
     pub centre: Vec3,
