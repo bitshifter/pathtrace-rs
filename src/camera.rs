@@ -4,7 +4,8 @@ use rand::Rng;
 use std::f32;
 use vmath::{cross, normalize, Vec3};
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+// #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug)]
 pub struct Camera {
     origin: Vec3,
     lower_left_corner: Vec3,
