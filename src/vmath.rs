@@ -30,7 +30,8 @@ pub use self::sse2::*;
 #[cfg(not(target_feature = "sse2"))]
 pub use self::scalar::*;
 
-mod sse2 {
+pub mod sse2 {
+    use simd::m128::f32xN;
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
     #[cfg(target_arch = "x86_64")]
@@ -52,6 +53,13 @@ mod sse2 {
     #[inline]
     pub fn vec3(x: f32, y: f32, z: f32) -> Vec3 {
         Vec3::new(x, y, z)
+    }
+
+    impl Into<f32xN> for Vec3 {
+        #[inline]
+        fn into(self: Vec3) -> f32xN {
+            f32xN(self.0)
+        }
     }
 
     impl Vec3 {
@@ -251,7 +259,7 @@ mod sse2 {
     }
 }
 
-mod scalar {
+pub mod scalar {
     use std::f32;
     use std::fmt;
     use std::ops::*;

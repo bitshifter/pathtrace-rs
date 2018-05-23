@@ -118,13 +118,13 @@ impl SpheresSoA {
         let mut hit_t = f32xN::from(t_max);
         let mut hit_index = i32xN::from(-1);
         // load ray origin
-        let ro_x = f32xN::from(ray.origin.get_x());
-        let ro_y = f32xN::from(ray.origin.get_y());
-        let ro_z = f32xN::from(ray.origin.get_z());
+        let ro_x = f32xN::from_x(ray.origin);
+        let ro_y = f32xN::from_y(ray.origin);
+        let ro_z = f32xN::from_z(ray.origin);
         // load ray direction
-        let rd_x = f32xN::from(ray.direction.get_x());
-        let rd_y = f32xN::from(ray.direction.get_y());
-        let rd_z = f32xN::from(ray.direction.get_z());
+        let rd_x = f32xN::from_x(ray.direction);
+        let rd_y = f32xN::from_y(ray.direction);
+        let rd_z = f32xN::from_z(ray.direction);
         // current indices being processed (little endian ordering)
         let mut sphere_index = i32xN::indices();
         for (((centre_x, centre_y), centre_z), radius_sq) in self

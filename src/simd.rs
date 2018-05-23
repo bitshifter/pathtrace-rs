@@ -55,13 +55,14 @@ impl ArrayI32xN {
 
 // 128 bit wide simd
 #[cfg(target_feature = "sse2")]
-mod m128 {
+pub mod m128 {
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::*;
     use std::convert::From;
     use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
+    use vmath::sse2::Vec3;
 
     pub const VECTOR_WIDTH_BITS: usize = 128;
     pub const VECTOR_WIDTH_DWORDS: usize = 4;
@@ -219,6 +220,24 @@ mod m128 {
         }
 
         #[inline]
+        pub fn from_x(v: Vec3) -> Self {
+            let m: Self = v.into();
+            unsafe { f32xN(_mm_shuffle_ps(m.0, m.0, _mm_shuffle!(0, 0, 0, 0))) }
+        }
+
+        #[inline]
+        pub fn from_y(v: Vec3) -> Self {
+            let m: Self = v.into();
+            unsafe { f32xN(_mm_shuffle_ps(m.0, m.0, _mm_shuffle!(1, 1, 1, 1))) }
+        }
+
+        #[inline]
+        pub fn from_z(v: Vec3) -> Self {
+            let m: Self = v.into();
+            unsafe { f32xN(_mm_shuffle_ps(m.0, m.0, _mm_shuffle!(2, 2, 2, 2))) }
+        }
+
+        #[inline]
         pub fn load_aligned(a: &ArrayF32xN) -> Self {
             unsafe { f32xN(_mm_load_ps(a.0.as_ptr())) }
         }
@@ -343,13 +362,15 @@ mod m128 {
 
 // 256 bit wide simd
 #[cfg(target_feature = "avx2")]
-mod m256 {
+pub mod m256 {
+    use simd::m128;
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
     #[cfg(target_arch = "x86_64")]
     use std::arch::x86_64::*;
     use std::convert::From;
     use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
+    use vmath::Vec3;
 
     pub const VECTOR_WIDTH_BITS: usize = 256;
     pub const VECTOR_WIDTH_DWORDS: usize = 8;
@@ -499,6 +520,24 @@ mod m256 {
         }
 
         #[inline]
+        pub fn from_x(v: Vec3) -> Self {
+            let m = m128::f32xN::from_x(v);
+            unsafe { f32xN(_mm256_set_m128(m.0, m.0)) }
+        }
+
+        #[inline]
+        pub fn from_y(v: Vec3) -> Self {
+            let m = m128::f32xN::from_y(v);
+            unsafe { f32xN(_mm256_set_m128(m.0, m.0)) }
+        }
+
+        #[inline]
+        pub fn from_z(v: Vec3) -> Self {
+            let m = m128::f32xN::from_z(v);
+            unsafe { f32xN(_mm256_set_m128(m.0, m.0)) }
+        }
+
+        #[inline]
         pub fn load_aligned(a: &ArrayF32xN) -> Self {
             unsafe { f32xN(_mm256_load_ps(a.0.as_ptr())) }
         }
@@ -619,9 +658,10 @@ mod m256 {
     }
 }
 
-mod m32 {
+pub mod m32 {
     use std::intrinsics::{fadd_fast, fdiv_fast, fmul_fast, fsub_fast};
     use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
+    use vmath::Vec3;
 
     pub const VECTOR_WIDTH_BITS: usize = 32;
     pub const VECTOR_WIDTH_DWORDS: usize = 1;
@@ -766,6 +806,21 @@ mod m32 {
         #[inline]
         pub fn splat(s: f32) -> Self {
             f32xN(s)
+        }
+
+        #[inline]
+        pub fn from_x(v: Vec3) -> Self {
+            f32xN::splat(v.get_x())
+        }
+
+        #[inline]
+        pub fn from_y(v: Vec3) -> Self {
+            f32xN::splat(v.get_y())
+        }
+
+        #[inline]
+        pub fn from_z(v: Vec3) -> Self {
+            f32xN::splat(v.get_z())
         }
 
         #[inline]
