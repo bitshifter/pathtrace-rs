@@ -1,5 +1,5 @@
 use material::Material;
-use vmath::{dot, Vec3};
+use vmath::Vec3;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Ray {
@@ -46,9 +46,9 @@ pub fn sphere(centre: Vec3, radius: f32, material: Material) -> (Sphere, Materia
 impl Sphere {
     pub fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<RayHit> {
         let oc = ray.origin - self.centre;
-        let a = dot(ray.direction, ray.direction);
-        let b = dot(oc, ray.direction);
-        let c = dot(oc, oc) - self.radius * self.radius;
+        let a = ray.direction.dot(ray.direction);
+        let b = oc.dot(ray.direction);
+        let c = oc.dot(oc) - self.radius * self.radius;
         let discriminant = b * b - a * c;
         if discriminant > 0.0 {
             let discriminant_sqrt = discriminant.sqrt();
