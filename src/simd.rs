@@ -528,8 +528,8 @@ mod m256 {
             // TODO: write an avx2 hmin
             unsafe {
                 let mut v = self.0;
-                v = _mm256_min_ps(v, _mm256_shuffle_ps(v, v, _mm_shuffle!(0, 0, 3, 2)));
-                v = _mm256_min_ps(v, _mm256_shuffle_ps(v, v, _mm_shuffle!(0, 0, 0, 1)));
+                v = _mm256_min_ps(v, _mm256_permute_ps(v, _mm_shuffle!(0, 0, 3, 2)));
+                v = _mm256_min_ps(v, _mm256_permute_ps(v, _mm_shuffle!(0, 0, 0, 1)));
                 v = _mm256_min_ps(v, _mm256_permute2f128_ps(v, v, 1));
                 _mm256_cvtss_f32(v)
             }
