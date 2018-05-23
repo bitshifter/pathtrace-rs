@@ -5,7 +5,7 @@ use collision::sphere;
 use material::Material;
 use rand::{Rng, SeedableRng, XorShiftRng};
 use scene::{Params, Scene};
-use vmath::{vec3, Length};
+use vmath::vec3;
 
 pub fn from_name(name: &str, params: &Params) -> Option<(Scene, Camera)> {
     match name {

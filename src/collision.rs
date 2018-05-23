@@ -1,6 +1,6 @@
 use material::Material;
 use math::align_to;
-use vmath::{dot, vec3, Vec3};
+use vmath::{vec3, Vec3};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Ray {
@@ -67,9 +67,9 @@ impl SpheresSoA {
         let mut radius_sq = Vec::with_capacity(len);
         let mut material = Vec::with_capacity(len);
         for (sphere, mat) in sphere_materials {
-            centre_x.push(sphere.centre.x);
-            centre_y.push(sphere.centre.y);
-            centre_z.push(sphere.centre.z);
+            centre_x.push(sphere.centre.get_x());
+            centre_y.push(sphere.centre.get_y());
+            centre_z.push(sphere.centre.get_z());
             radius_sq.push(sphere.radius * sphere.radius);
             radius_inv.push(1.0 / sphere.radius);
             material.push(*mat);
@@ -118,13 +118,9 @@ impl SpheresSoA {
             .zip(self.centre_z.iter())
             .zip(self.radius_sq.iter())
         {
-            let co = vec3(
-                centre_x - ray.origin.x,
-                centre_y - ray.origin.y,
-                centre_z - ray.origin.z,
-            );
-            let nb = dot(co, ray.direction);
-            let c = dot(co, co) - radius_sq;
+            let co = vec3(*centre_x, *centre_y, *centre_z) - ray.origin;
+            let nb = co.dot(ray.direction);
+            let c = co.dot(co) - radius_sq;
             let discriminant = nb * nb - c;
             if discriminant > 0.0 {
                 let discriminant_sqrt = discriminant.sqrt();
@@ -140,11 +136,12 @@ impl SpheresSoA {
         }
         if hit_index < self.len {
             let point = ray.point_at_parameter(hit_t);
-            let normal = vec3(
-                point.x - self.centre_x[hit_index],
-                point.y - self.centre_y[hit_index],
-                point.z - self.centre_z[hit_index],
-            ) * self.radius_inv[hit_index];
+            let normal = (point
+                - vec3(
+                    self.centre_x[hit_index],
+                    self.centre_y[hit_index],
+                    self.centre_z[hit_index],
+                )) * self.radius_inv[hit_index];
             let material = &self.material[hit_index];
             Some((RayHit { point, normal }, material))
         } else {
@@ -162,13 +159,13 @@ impl SpheresSoA {
         let mut hit_t = _mm_set_ps1(t_max);
         let mut hit_index = _mm_set_epi32(-1, -1, -1, -1);
         // load ray origin
-        let ro_x = _mm_set_ps1(ray.origin.x);
-        let ro_y = _mm_set_ps1(ray.origin.y);
-        let ro_z = _mm_set_ps1(ray.origin.z);
+        let ro_x = _mm_set_ps1(ray.origin.get_x());
+        let ro_y = _mm_set_ps1(ray.origin.get_y());
+        let ro_z = _mm_set_ps1(ray.origin.get_z());
         // load ray direction
-        let rd_x = _mm_set_ps1(ray.direction.x);
-        let rd_y = _mm_set_ps1(ray.direction.y);
-        let rd_z = _mm_set_ps1(ray.direction.z);
+        let rd_x = _mm_set_ps1(ray.direction.get_x());
+        let rd_y = _mm_set_ps1(ray.direction.get_y());
+        let rd_z = _mm_set_ps1(ray.direction.get_z());
         // current indices being processed (little endian ordering)
         let mut index = _mm_set_epi32(3, 2, 1, 0);
         // loop over 4 spheres at a time
@@ -254,11 +251,12 @@ impl SpheresSoA {
             let hit_index_scalar = hit_index_array[hit_t_lane] as usize;
             debug_assert!(hit_index_scalar < self.len);
             let point = ray.point_at_parameter(hit_t_scalar);
-            let normal = vec3(
-                point.x - self.centre_x.get_unchecked(hit_index_scalar),
-                point.y - self.centre_y.get_unchecked(hit_index_scalar),
-                point.z - self.centre_z.get_unchecked(hit_index_scalar),
-            ) * *self.radius_inv.get_unchecked(hit_index_scalar);
+            let normal = (point
+                - vec3(
+                    *self.centre_x.get_unchecked(hit_index_scalar),
+                    *self.centre_y.get_unchecked(hit_index_scalar),
+                    *self.centre_z.get_unchecked(hit_index_scalar),
+                )) * *self.radius_inv.get_unchecked(hit_index_scalar);
             let material = &self.material.get_unchecked(hit_index_scalar);
             Some((RayHit { point, normal }, material))
         } else {

@@ -33,19 +33,27 @@ impl Scene {
         self.spheres.hit(ray, t_min, t_max)
     }
 
-    fn ray_trace(&self, ray_in: &Ray, depth: u32, max_depth: u32, rng: &mut XorShiftRng, ray_count: &mut usize) -> Vec3 {
+    fn ray_trace(
+        &self,
+        ray_in: &Ray,
+        depth: u32,
+        max_depth: u32,
+        rng: &mut XorShiftRng,
+        ray_count: &mut usize,
+    ) -> Vec3 {
         const MAX_T: f32 = f32::MAX;
         const MIN_T: f32 = 0.001;
         *ray_count += 1;
         if let Some((ray_hit, material)) = self.ray_hit(ray_in, MIN_T, MAX_T) {
             if depth < max_depth {
                 if let Some((attenuation, scattered)) = material.scatter(ray_in, &ray_hit, rng) {
-                    return attenuation * self.ray_trace(&scattered, depth + 1, max_depth, rng, ray_count);
+                    return attenuation
+                        * self.ray_trace(&scattered, depth + 1, max_depth, rng, ray_count);
                 }
             }
             return Vec3::zero();
         } else {
-            let t = 0.5 * (ray_in.direction.y + 1.0);
+            let t = 0.5 * (ray_in.direction.get_y() + 1.0);
             (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0)
         }
     }
@@ -87,9 +95,9 @@ impl Scene {
                         col += self.ray_trace(&ray, 0, params.max_depth, &mut rng, &mut ray_count);
                     }
                     col *= inv_ns;
-                    color_out.0 = color_out.0 * mix_prev + col.x * mix_new;
-                    color_out.1 = color_out.1 * mix_prev + col.y * mix_new;
-                    color_out.2 = color_out.2 * mix_prev + col.z * mix_new;
+                    color_out.0 = color_out.0 * mix_prev + col.get_x() * mix_new;
+                    color_out.1 = color_out.1 * mix_prev + col.get_y() * mix_new;
+                    color_out.2 = color_out.2 * mix_prev + col.get_z() * mix_new;
                 });
                 self.ray_count.fetch_add(ray_count, Ordering::Relaxed);
             });
