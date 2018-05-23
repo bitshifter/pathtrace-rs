@@ -1,5 +1,12 @@
 #![allow(dead_code)]
 
+#[macro_export]
+macro_rules! _mm_shuffle {
+    ($z:expr, $y:expr, $x:expr, $w:expr) => {
+        ($z << 6) | ($y << 4) | ($x << 2) | $w
+    };
+}
+
 // re-export fallback scalar code
 #[cfg(not(any(target_feature = "sse2", target_feature = "avx2")))]
 pub use self::m32::*;
@@ -55,13 +62,6 @@ mod m128 {
     use std::arch::x86_64::*;
     use std::convert::From;
     use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
-
-    #[macro_export]
-    macro_rules! _mm_shuffle {
-        ($z:expr, $y:expr, $x:expr, $w:expr) => {
-            ($z << 6) | ($y << 4) | ($x << 2) | $w
-        };
-    }
 
     pub const VECTOR_WIDTH_BITS: usize = 128;
     pub const VECTOR_WIDTH_DWORDS: usize = 4;
@@ -526,16 +526,13 @@ mod m256 {
         #[inline]
         pub fn hmin(self) -> f32 {
             // TODO: write an avx2 hmin
-            use std::f32;
-            let mut min = f32::MAX;
-            let mut data = ArrayF32xN::new([f32::MAX; VECTOR_WIDTH_DWORDS]);
-            data.store(self);
-            for val in data.0.iter() {
-                if *val < min {
-                    min = *val;
-                }
+            unsafe {
+                let mut v = self.0;
+                v = _mm256_min_ps(v, _mm256_shuffle_ps(v, v, _mm_shuffle!(0, 0, 3, 2)));
+                v = _mm256_min_ps(v, _mm256_shuffle_ps(v, v, _mm_shuffle!(0, 0, 0, 1)));
+                v = _mm256_min_ps(v, _mm256_permute2f128_ps(v, v, 1));
+                _mm256_cvtss_f32(v)
             }
-            min
         }
 
         #[inline]
@@ -891,16 +888,6 @@ mod tests {
             assert_eq!(1.0, f32xN::new(3.0, 4.0, 1.0, 2.0).hmin());
             assert_eq!(1.0, f32xN::new(4.0, 1.0, 2.0, 3.0).hmin());
         }
-
-        #[bench]
-        fn bench_hmin(b: &mut Bencher) {
-            use rand::{weak_rng, Rng};
-            let mut rng = black_box(weak_rng());
-            b.iter(|| {
-                let r = f32xN::load_unaligned(&rng.gen::<[f32;4]>());
-                r.hmin()
-            });
-        }
     }
 
     #[cfg(target_feature = "avx2")]
@@ -941,16 +928,6 @@ mod tests {
                 1.0,
                 f32xN::new(8.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0).hmin()
             );
-        }
-
-        #[bench]
-        fn bench_hmin(b: &mut Bencher) {
-            use rand::{weak_rng, Rng};
-            let mut rng = black_box(weak_rng());
-            b.iter(|| {
-                let r = f32xN::load_unaligned(&rng.gen::<[f32;8]>());
-                r.hmin()
-            });
         }
     }
 }

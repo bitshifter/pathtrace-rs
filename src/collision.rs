@@ -126,7 +126,6 @@ impl SpheresSoA {
         let rd_y = f32xN::from(ray.direction.y);
         let rd_z = f32xN::from(ray.direction.z);
         // current indices being processed (little endian ordering)
-        // TODO: generate this based on width
         let mut sphere_index = i32xN::indices();
         for (((centre_x, centre_y), centre_z), radius_sq) in self
             .centre_x
@@ -149,21 +148,16 @@ impl SpheresSoA {
             let nb = dot3(co_x, rd_x, co_y, rd_y, co_z, rd_z);
             // let c = dot(co, co) - radius_sq;
             let c = dot3(co_x, co_x, co_y, co_y, co_z, co_z) - r_sq;
-            // let discriminant = nb * nb - c;
             let discr = nb * nb - c;
             // if discr > 0.0
             let ptve_discr = discr.gt(f32xN::from(0.0));
             if i32::from(ptve_discr) != 0 {
-                // let discr_sqrt = discr.sqrt();
                 let discr_sqrt = discr.sqrt();
-                // let t0 = nb - discr_sqrt;
-                // let t1 = nb + discr_sqrt;
                 let t0 = nb - discr_sqrt;
                 let t1 = nb + discr_sqrt;
                 // let t = if t0 > t_min { t0 } else { t1 };
                 let t = t1.blend(t0, t0.gt(t_min));
                 // from rygs opts
-                // bool4 msk = discrPos & (t > tMin4) & (t < hitT);
                 let mask = ptve_discr & t.gt(t_min) & t.lt(hit_t);
                 // hit_index = mask ? sphere_index : hit_index;
                 hit_index = hit_index.blend(sphere_index, mask);
