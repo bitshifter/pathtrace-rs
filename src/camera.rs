@@ -2,7 +2,7 @@ use collision::{ray, Ray};
 use math::random_in_unit_disk;
 use rand::Rng;
 use std::f32;
-use vmath::{cross, normalize, Vec3};
+use vmath::Vec3;
 
 // #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 #[derive(Copy, Clone, Debug)]
@@ -29,9 +29,9 @@ impl Camera {
         let theta = vfov * f32::consts::PI / 180.0;
         let half_height = (theta * 0.5).tan();
         let half_width = aspect * half_height;
-        let w = normalize(lookfrom - lookat);
-        let u = normalize(cross(vup, w));
-        let v = cross(w, u);
+        let w = (lookfrom - lookat).normalize();
+        let u = vup.cross(w).normalize();
+        let v = w.cross(u);
         Camera {
             origin: lookfrom,
             lower_left_corner: lookfrom
@@ -48,14 +48,13 @@ impl Camera {
 
     pub fn get_ray<T: Rng>(&self, s: f32, t: f32, rng: &mut T) -> Ray {
         let rd = self.lens_radius * random_in_unit_disk(rng);
-        let offset = self.u * rd.x + self.v * rd.y;
+        let offset = self.u * rd.get_x() + self.v * rd.get_y();
         ray(
             self.origin + offset,
-            normalize(
-                self.lower_left_corner + s * self.horizontal + t * self.vertical
-                    - self.origin
-                    - offset,
-            ),
+            (self.lower_left_corner + s * self.horizontal + t * self.vertical
+                - self.origin
+                - offset)
+                .normalize(),
         )
     }
 }

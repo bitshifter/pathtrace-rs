@@ -879,8 +879,8 @@ mod m32 {
 mod tests {
     #[cfg(target_feature = "sse2")]
     mod m128 {
-        use test::{black_box, Bencher};
         use simd::m128::*;
+        use test::{black_box, Bencher};
         #[test]
         fn test_hmin() {
             assert_eq!(1.0, f32xN::new(1.0, 2.0, 3.0, 4.0).hmin());
@@ -892,8 +892,8 @@ mod tests {
 
     #[cfg(target_feature = "avx2")]
     mod m256 {
-        use test::{black_box, Bencher};
         use simd::m256::*;
+        use test::{black_box, Bencher};
         #[test]
         fn test_hmin() {
             assert_eq!(

@@ -1,11 +1,11 @@
 use rand::Rng;
 use std::f32;
-use vmath::{dot, vec3, Length, Vec3};
+use vmath::{vec3, Vec3};
 
 pub fn random_in_unit_disk<T: Rng>(rng: &mut T) -> Vec3 {
     loop {
         let p = 2.0 * vec3(rng.next_f32(), rng.next_f32(), 0.0) - vec3(1.0, 1.0, 0.0);
-        if dot(p, p) < 1.0 {
+        if p.dot(p) < 1.0 {
             return p;
         }
     }
@@ -48,11 +48,11 @@ pub fn linear_to_srgb(rgb: (f32, f32, f32)) -> (u8, u8, u8) {
 
 #[inline]
 pub fn reflect(v: Vec3, n: Vec3) -> Vec3 {
-    v - 2.0 * dot(v, n) * n
+    v - 2.0 * v.dot(n) * n
 }
 
 pub fn refract(v: Vec3, n: Vec3, ni_over_nt: f32) -> Option<Vec3> {
-    let dt = dot(v, n);
+    let dt = v.dot(n);
     let discriminant = 1.0 - (ni_over_nt * ni_over_nt) * (1.0 - (dt * dt));
     if discriminant > 0.0 {
         Some(ni_over_nt * (v - n * dt) - n * discriminant.sqrt())

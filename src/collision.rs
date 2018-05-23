@@ -81,9 +81,9 @@ impl SpheresSoA {
             let mut chunk_rinv = ArrayF32xN::new([0.0; VECTOR_WIDTH_DWORDS]);
             let mut chunk_mat = [Material::Invalid; VECTOR_WIDTH_DWORDS];
             for (index, (sphere, mat)) in chunk.iter().enumerate() {
-                chunk_x.0[index] = sphere.centre.x;
-                chunk_y.0[index] = sphere.centre.y;
-                chunk_z.0[index] = sphere.centre.z;
+                chunk_x.0[index] = sphere.centre.get_x();
+                chunk_y.0[index] = sphere.centre.get_y();
+                chunk_z.0[index] = sphere.centre.get_z();
                 chunk_rsq.0[index] = sphere.radius * sphere.radius;
                 chunk_rinv.0[index] = 1.0 / sphere.radius;
                 chunk_mat[index] = *mat;
@@ -118,13 +118,13 @@ impl SpheresSoA {
         let mut hit_t = f32xN::from(t_max);
         let mut hit_index = i32xN::from(-1);
         // load ray origin
-        let ro_x = f32xN::from(ray.origin.x);
-        let ro_y = f32xN::from(ray.origin.y);
-        let ro_z = f32xN::from(ray.origin.z);
+        let ro_x = f32xN::from(ray.origin.get_x());
+        let ro_y = f32xN::from(ray.origin.get_y());
+        let ro_z = f32xN::from(ray.origin.get_z());
         // load ray direction
-        let rd_x = f32xN::from(ray.direction.x);
-        let rd_y = f32xN::from(ray.direction.y);
-        let rd_z = f32xN::from(ray.direction.z);
+        let rd_x = f32xN::from(ray.direction.get_x());
+        let rd_y = f32xN::from(ray.direction.get_y());
+        let rd_z = f32xN::from(ray.direction.get_z());
         // current indices being processed (little endian ordering)
         let mut sphere_index = i32xN::indices();
         for (((centre_x, centre_y), centre_z), radius_sq) in self
@@ -194,26 +194,24 @@ impl SpheresSoA {
                 debug_assert!(lane_index < VECTOR_WIDTH_DWORDS);
 
                 let point = ray.point_at_parameter(hit_t_scalar);
-                let normal = vec3(
-                    point.x
-                        - self
+                let normal = (point
+                    - vec3(
+                        *self
                             .centre_x
                             .get_unchecked(chunk_index)
                             .0
                             .get_unchecked(lane_index),
-                    point.y
-                        - self
+                        *self
                             .centre_y
                             .get_unchecked(chunk_index)
                             .0
                             .get_unchecked(lane_index),
-                    point.z
-                        - self
+                        *self
                             .centre_z
                             .get_unchecked(chunk_index)
                             .0
                             .get_unchecked(lane_index),
-                )
+                    ))
                     * *self
                         .radius_inv
                         .get_unchecked(chunk_index)
