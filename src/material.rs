@@ -54,12 +54,11 @@ impl Material {
         let attenuation = vec3(1.0, 1.0, 1.0);
         let rdotn = ray_in.direction.dot(ray_hit.normal);
         let (outward_normal, ni_over_nt, cosine) = if rdotn > 0.0 {
-            let cosine = rdotn / ray_in.direction.length();
-            let cosine = (1.0 - ref_idx * ref_idx * (1.0 - cosine * cosine)).sqrt();
-            (-ray_hit.normal, ref_idx, cosine)
+            // TODO: do I actually need this?
+            let rdotn = (1.0 - ref_idx * ref_idx * (1.0 - rdotn * rdotn)).sqrt();
+            (-ray_hit.normal, ref_idx, rdotn)
         } else {
-            let cosine = -rdotn / ray_in.direction.length();
-            (ray_hit.normal, 1.0 / ref_idx, cosine)
+            (ray_hit.normal, 1.0 / ref_idx, -rdotn)
         };
         if let Some(refracted) = refract(ray_in.direction, outward_normal, ni_over_nt) {
             let reflect_prob = schlick(cosine, ref_idx);
