@@ -257,59 +257,51 @@ mod scalar {
     use std::ops::*;
     #[derive(Clone, Copy, Debug)]
     #[repr(C)]
-    pub struct Vec3 {
-        x: f32,
-        y: f32,
-        z: f32,
-    }
+    pub struct Vec3(f32, f32, f32);
 
     #[inline]
     pub fn vec3(x: f32, y: f32, z: f32) -> Vec3 {
-        Vec3 { x, y, z }
+        Vec3(x, y, z)
     }
 
     impl Vec3 {
         #[inline]
         pub fn zero() -> Vec3 {
-            Vec3 {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            }
+            Vec3(0.0, 0.0, 0.0)
         }
 
         #[inline]
         pub fn new(x: f32, y: f32, z: f32) -> Vec3 {
-            Vec3 { x, y, z }
+            Vec3(x, y, z)
         }
 
         #[inline]
         pub fn get_x(self) -> f32 {
-            self.x
+            self.0
         }
 
         #[inline]
         pub fn get_y(self) -> f32 {
-            self.y
+            self.1
         }
 
         #[inline]
         pub fn get_z(self) -> f32 {
-            self.z
+            self.2
         }
 
         #[inline]
         pub fn dot(self, rhs: Vec3) -> f32 {
-            (self.x * rhs.x) + (self.y * rhs.y) + (self.z * rhs.z)
+            (self.0 * rhs.0) + (self.1 * rhs.1) + (self.2 * rhs.2)
         }
 
         #[inline]
         pub fn cross(self, rhs: Vec3) -> Vec3 {
-            Vec3 {
-                x: self.y * rhs.z - rhs.y * self.z,
-                y: self.z * rhs.x - rhs.z * self.x,
-                z: self.x * rhs.y - rhs.x * self.y,
-            }
+            Vec3(
+                self.1 * rhs.2 - rhs.1 * self.2,
+                self.2 * rhs.0 - rhs.2 * self.0,
+                self.0 * rhs.1 - rhs.0 * self.1,
+            )
         }
 
         #[inline]
@@ -331,7 +323,7 @@ mod scalar {
 
     impl fmt::Display for Vec3 {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f, "[{}, {}, {}]", self.x, self.y, self.z)
+            write!(f, "[{}, {}, {}]", self.0, self.1, self.2)
         }
     }
 
@@ -339,22 +331,14 @@ mod scalar {
         type Output = Vec3;
         #[inline]
         fn div(self, rhs: f32) -> Vec3 {
-            Vec3 {
-                x: self.x / rhs,
-                y: self.y / rhs,
-                z: self.z / rhs,
-            }
+            Vec3(self.0 / rhs, self.1 / rhs, self.2 / rhs)
         }
     }
 
     impl DivAssign<f32> for Vec3 {
         #[inline]
         fn div_assign(&mut self, rhs: f32) {
-            *self = Vec3 {
-                x: self.x / rhs,
-                y: self.y / rhs,
-                z: self.z / rhs,
-            }
+            *self = Vec3(self.0 / rhs, self.1 / rhs, self.2 / rhs)
         }
     }
 
@@ -362,22 +346,14 @@ mod scalar {
         type Output = Vec3;
         #[inline]
         fn mul(self, rhs: Vec3) -> Vec3 {
-            Vec3 {
-                x: self.x * rhs.x,
-                y: self.y * rhs.y,
-                z: self.z * rhs.z,
-            }
+            Vec3(self.0 * rhs.0, self.1 * rhs.1, self.2 * rhs.2)
         }
     }
 
     impl MulAssign<Vec3> for Vec3 {
         #[inline]
         fn mul_assign(&mut self, rhs: Vec3) {
-            *self = Vec3 {
-                x: self.x * rhs.x,
-                y: self.y * rhs.y,
-                z: self.z * rhs.z,
-            }
+            *self = Vec3(self.0 * rhs.0, self.1 * rhs.1, self.2 * rhs.2)
         }
     }
 
@@ -385,22 +361,14 @@ mod scalar {
         type Output = Vec3;
         #[inline]
         fn mul(self, rhs: f32) -> Vec3 {
-            Vec3 {
-                x: self.x * rhs,
-                y: self.y * rhs,
-                z: self.z * rhs,
-            }
+            Vec3(self.0 * rhs, self.1 * rhs, self.2 * rhs)
         }
     }
 
     impl MulAssign<f32> for Vec3 {
         #[inline]
         fn mul_assign(&mut self, rhs: f32) {
-            *self = Vec3 {
-                x: self.x * rhs,
-                y: self.y * rhs,
-                z: self.z * rhs,
-            }
+            *self = Vec3(self.0 * rhs, self.1 * rhs, self.2 * rhs)
         }
     }
 
@@ -408,11 +376,7 @@ mod scalar {
         type Output = Vec3;
         #[inline]
         fn mul(self, rhs: Vec3) -> Vec3 {
-            Vec3 {
-                x: self * rhs.x,
-                y: self * rhs.y,
-                z: self * rhs.z,
-            }
+            Vec3(self * rhs.0, self * rhs.1, self * rhs.2)
         }
     }
 
@@ -420,22 +384,14 @@ mod scalar {
         type Output = Vec3;
         #[inline]
         fn add(self, rhs: Vec3) -> Vec3 {
-            Vec3 {
-                x: self.x + rhs.x,
-                y: self.y + rhs.y,
-                z: self.z + rhs.z,
-            }
+            Vec3(self.0 + rhs.0, self.1 + rhs.1, self.2 + rhs.2)
         }
     }
 
     impl AddAssign for Vec3 {
         #[inline]
         fn add_assign(&mut self, rhs: Vec3) {
-            *self = Vec3 {
-                x: self.x + rhs.x,
-                y: self.y + rhs.y,
-                z: self.z + rhs.z,
-            }
+            *self = Vec3(self.0 + rhs.0, self.1 + rhs.1, self.2 + rhs.2)
         }
     }
 
@@ -443,22 +399,14 @@ mod scalar {
         type Output = Vec3;
         #[inline]
         fn sub(self, rhs: Vec3) -> Vec3 {
-            Vec3 {
-                x: self.x - rhs.x,
-                y: self.y - rhs.y,
-                z: self.z - rhs.z,
-            }
+            Vec3(self.0 - rhs.0, self.1 - rhs.1, self.2 - rhs.2)
         }
     }
 
     impl SubAssign for Vec3 {
         #[inline]
         fn sub_assign(&mut self, rhs: Vec3) {
-            *self = Vec3 {
-                x: self.x - rhs.x,
-                y: self.y - rhs.y,
-                z: self.z - rhs.z,
-            }
+            *self = Vec3(self.0 - rhs.0, self.1 - rhs.1, self.2 - rhs.2)
         }
     }
 
@@ -466,11 +414,7 @@ mod scalar {
         type Output = Vec3;
         #[inline]
         fn neg(self) -> Vec3 {
-            Vec3 {
-                x: -self.x,
-                y: -self.y,
-                z: -self.z,
-            }
+            Vec3(-self.0, -self.1, -self.2)
         }
     }
 }
