@@ -187,7 +187,7 @@ impl Scene {
                     XorShiftRng::from_seed([state, state, state, state])
                 };
                 row.iter_mut().enumerate().for_each(|(i, color_out)| {
-                    let mut col = vec3(0.0, 0.0, 0.0);
+                    let mut col = Vec3::zero();
                     for _ in 0..params.samples {
                         let u = (i as f32 + rng.next_f32()) * inv_nx;
                         let v = (j as f32 + rng.next_f32()) * inv_ny;
