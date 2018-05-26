@@ -35,9 +35,9 @@ pub fn random_unit_vector<T: Rng>(rng: &mut T) -> Vec3 {
 pub fn linear_to_srgb(rgb: (f32, f32, f32)) -> (u8, u8, u8) {
     let rgb = (rgb.0.max(0.0), rgb.1.max(0.0), rgb.2.max(0.0));
     let srgb = (
-        (1.055 * rgb.0.powf(0.416_666_66) - 0.055).max(0.0),
-        (1.055 * rgb.1.powf(0.416_666_66) - 0.055).max(0.0),
-        (1.055 * rgb.2.powf(0.416_666_66) - 0.055).max(0.0),
+        (1.055 * rgb.0.powf(0.416_666_66) - 0.055).max(0.0).min(1.0),
+        (1.055 * rgb.1.powf(0.416_666_66) - 0.055).max(0.0).min(1.0),
+        (1.055 * rgb.2.powf(0.416_666_66) - 0.055).max(0.0).min(1.0),
     );
     (
         (srgb.0 * 255.99) as u8,
