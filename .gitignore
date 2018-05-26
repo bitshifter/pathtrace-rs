@@ -1,9 +1,9 @@
+**/*.rs.bk
 *.orig
 *.out.*
 *.png
 *.sw[a-z]
-.cargo
+/.cargo
 /target
-**/*.rs.bk
-perf.*
 Session.vim
+perf.*

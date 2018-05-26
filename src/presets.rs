@@ -2,7 +2,7 @@ extern crate rand;
 
 use camera::Camera;
 use collision::sphere;
-use material::Material;
+use material::MaterialKind;
 use rand::{Rng, SeedableRng, XorShiftRng};
 use scene::{Params, Scene};
 use vmath::vec3;
@@ -43,9 +43,10 @@ pub fn random(params: &Params) -> (Scene, Camera) {
     spheres.push(sphere(
         vec3(0.0, -1000.0, 0.0),
         1000.0,
-        Material::Lambertian {
+        MaterialKind::Lambertian {
             albedo: vec3(0.5, 0.5, 0.5),
         },
+        None,
     ));
     for a in -11..11 {
         for b in -11..11 {
@@ -59,19 +60,20 @@ pub fn random(params: &Params) -> (Scene, Camera) {
                 spheres.push(sphere(
                     centre,
                     0.2,
-                    Material::Lambertian {
+                    MaterialKind::Lambertian {
                         albedo: vec3(
                             rng.next_f32() * rng.next_f32(),
                             rng.next_f32() * rng.next_f32(),
                             rng.next_f32() * rng.next_f32(),
                         ),
                     },
+                    None,
                 ));
             } else if choose_material < 0.95 {
                 spheres.push(sphere(
                     centre,
                     0.2,
-                    Material::Metal {
+                    MaterialKind::Metal {
                         albedo: vec3(
                             0.5 * (1.0 + rng.next_f32()),
                             0.5 * (1.0 + rng.next_f32()),
@@ -79,31 +81,40 @@ pub fn random(params: &Params) -> (Scene, Camera) {
                         ),
                         fuzz: 0.5 * rng.next_f32(),
                     },
+                    None,
                 ));
             } else {
-                spheres.push(sphere(centre, 0.2, Material::Dielectric { ref_idx: 1.5 }));
+                spheres.push(sphere(
+                    centre,
+                    0.2,
+                    MaterialKind::Dielectric { ref_idx: 1.5 },
+                    None,
+                ));
             }
         }
     }
     spheres.push(sphere(
         vec3(0.0, 1.0, 0.0),
         1.0,
-        Material::Dielectric { ref_idx: 1.5 },
+        MaterialKind::Dielectric { ref_idx: 1.5 },
+        None,
     ));
     spheres.push(sphere(
         vec3(-4.0, 1.0, 0.0),
         1.0,
-        Material::Lambertian {
+        MaterialKind::Lambertian {
             albedo: vec3(0.4, 0.2, 0.1),
         },
+        None,
     ));
     spheres.push(sphere(
         vec3(4.0, 1.0, 0.0),
         1.0,
-        Material::Metal {
+        MaterialKind::Metal {
             albedo: vec3(0.7, 0.6, 0.5),
             fuzz: 0.0,
         },
+        None,
     ));
 
     let scene = Scene::new(&spheres);
@@ -129,34 +140,39 @@ pub fn small(params: &Params) -> (Scene, Camera) {
         sphere(
             vec3(0.0, 0.0, -1.0),
             0.5,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.1, 0.2, 0.5),
             },
+            None,
         ),
         sphere(
             vec3(0.0, -100.5, -1.0),
             100.0,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.8, 0.8, 0.0),
             },
+            None,
         ),
         sphere(
             vec3(1.0, 0.0, -1.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.8, 0.6, 0.2),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(-1.0, 0.0, -1.0),
             0.5,
-            Material::Dielectric { ref_idx: 1.5 },
+            MaterialKind::Dielectric { ref_idx: 1.5 },
+            None,
         ),
         sphere(
             vec3(-1.0, 0.0, -1.0),
             -0.45,
-            Material::Dielectric { ref_idx: 1.5 },
+            MaterialKind::Dielectric { ref_idx: 1.5 },
+            None,
         ),
     ];
 
@@ -183,345 +199,391 @@ pub fn aras_p(params: &Params) -> (Scene, Camera) {
         sphere(
             vec3(0.0, -100.5, -1.0),
             100.0,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.8, 0.8, 0.8),
             },
+            None,
         ),
         sphere(
             vec3(2.0, 0.0, -1.0),
             0.5,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.8, 0.4, 0.4),
             },
+            None,
         ),
         sphere(
             vec3(0.0, 0.0, -1.0),
             0.5,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.4, 0.8, 0.4),
             },
+            None,
         ),
         sphere(
             vec3(-2.0, 0.0, -1.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.4, 0.4, 0.8),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(2.0, 0.0, 1.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.4, 0.8, 0.4),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(0.0, 0.0, 1.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.4, 0.8, 0.4),
                 fuzz: 0.2,
             },
+            None,
         ),
         sphere(
             vec3(-2.0, 0.0, 1.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.4, 0.8, 0.4),
                 fuzz: 0.6,
             },
+            None,
         ),
         sphere(
             vec3(0.5, 1.0, 0.5),
             0.5,
-            Material::Dielectric { ref_idx: 1.5 },
+            MaterialKind::Dielectric { ref_idx: 1.5 },
+            None,
         ),
         sphere(
             vec3(-1.5, 1.5, 0.0),
             0.3,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.8, 0.6, 0.2),
-            }, // TODO: emissive vec3(30,25,15)
+            },
+            Some(vec3(30.0, 25.0, 15.0)),
         ),
         sphere(
             vec3(4.0, 0.0, -3.0),
             0.5,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.1, 0.1, 0.1),
             },
+            None,
         ),
         sphere(
             vec3(3.0, 0.0, -3.0),
             0.5,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.2, 0.2, 0.2),
             },
+            None,
         ),
         sphere(
             vec3(2.0, 0.0, -3.0),
             0.5,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.3, 0.3, 0.3),
             },
+            None,
         ),
         sphere(
             vec3(1.0, 0.0, -3.0),
             0.5,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.4, 0.4, 0.4),
             },
+            None,
         ),
         sphere(
             vec3(0.0, 0.0, -3.0),
             0.5,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.5, 0.5, 0.5),
             },
+            None,
         ),
         sphere(
             vec3(-1.0, 0.0, -3.0),
             0.5,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.6, 0.6, 0.6),
             },
+            None,
         ),
         sphere(
             vec3(-2.0, 0.0, -3.0),
             0.5,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.7, 0.7, 0.7),
             },
+            None,
         ),
         sphere(
             vec3(-3.0, 0.0, -3.0),
             0.5,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.8, 0.8, 0.8),
             },
+            None,
         ),
         sphere(
             vec3(-4.0, 0.0, -3.0),
             0.5,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.9, 0.9, 0.9),
             },
+            None,
         ),
         sphere(
             vec3(4.0, 0.0, -4.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.1, 0.1, 0.1),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(3.0, 0.0, -4.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.2, 0.2, 0.2),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(2.0, 0.0, -4.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.3, 0.3, 0.3),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(1.0, 0.0, -4.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.4, 0.4, 0.4),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(0.0, 0.0, -4.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.5, 0.5, 0.5),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(-1.0, 0.0, -4.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.6, 0.6, 0.6),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(-2.0, 0.0, -4.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.7, 0.7, 0.7),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(-3.0, 0.0, -4.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.8, 0.8, 0.8),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(-4.0, 0.0, -4.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.9, 0.9, 0.9),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(4.0, 0.0, -5.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.8, 0.1, 0.1),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(3.0, 0.0, -5.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.8, 0.5, 0.1),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(2.0, 0.0, -5.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.8, 0.8, 0.1),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(1.0, 0.0, -5.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.4, 0.8, 0.1),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(0.0, 0.0, -5.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.1, 0.8, 0.1),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(-1.0, 0.0, -5.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.1, 0.8, 0.5),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(-2.0, 0.0, -5.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.1, 0.8, 0.8),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(-3.0, 0.0, -5.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.1, 0.1, 0.8),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(-4.0, 0.0, -5.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.5, 0.1, 0.8),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(4.0, 0.0, -6.0),
             0.5,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.8, 0.1, 0.1),
             },
+            None,
         ),
         sphere(
             vec3(3.0, 0.0, -6.0),
             0.5,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.8, 0.5, 0.1),
             },
+            None,
         ),
         sphere(
             vec3(2.0, 0.0, -6.0),
             0.5,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.8, 0.8, 0.1),
             },
+            None,
         ),
         sphere(
             vec3(1.0, 0.0, -6.0),
             0.5,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.4, 0.8, 0.1),
             },
+            None,
         ),
         sphere(
             vec3(0.0, 0.0, -6.0),
             0.5,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.1, 0.8, 0.1),
             },
+            None,
         ),
         sphere(
             vec3(-1.0, 0.0, -6.0),
             0.5,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.1, 0.8, 0.5),
             },
+            None,
         ),
         sphere(
             vec3(-2.0, 0.0, -6.0),
             0.5,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.1, 0.8, 0.8),
             },
+            None,
         ),
         sphere(
             vec3(-3.0, 0.0, -6.0),
             0.5,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.1, 0.1, 0.8),
             },
+            None,
         ),
         sphere(
             vec3(-4.0, 0.0, -6.0),
             0.5,
-            Material::Metal {
+            MaterialKind::Metal {
                 albedo: vec3(0.5, 0.1, 0.8),
                 fuzz: 0.0,
             },
+            None,
         ),
         sphere(
             vec3(1.5, 1.5, -2.0),
             0.3,
-            Material::Lambertian {
+            MaterialKind::Lambertian {
                 albedo: vec3(0.1, 0.2, 0.5),
-            }, // TODO: emissive vec3(3,10,20)
+            },
+            Some(vec3(3.0, 10.0, 20.0)),
         ),
     ];
 

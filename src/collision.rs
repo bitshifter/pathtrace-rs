@@ -1,4 +1,4 @@
-use material::Material;
+use material::{Material, MaterialKind};
 use math::align_to;
 use simd::{
     self, dot3, f32xN, i32xN, ArrayF32xN, ArrayI32xN, VECTOR_WIDTH_DWORDS_LOG2, VECTOR_WIDTH_DWORDS,
@@ -44,8 +44,19 @@ pub struct Sphere {
 }
 
 #[inline]
-pub fn sphere(centre: Vec3, radius: f32, material: Material) -> (Sphere, Material) {
-    (Sphere { centre, radius }, material)
+pub fn sphere(
+    centre: Vec3,
+    radius: f32,
+    kind: MaterialKind,
+    emissive: Option<Vec3>,
+) -> (Sphere, Material) {
+    (
+        Sphere { centre, radius },
+        Material {
+            kind,
+            emissive: emissive.unwrap_or(Vec3::zero()),
+        },
+    )
 }
 
 #[derive(Debug)]
@@ -55,23 +66,21 @@ pub struct SpheresSoA {
     centre_z: Vec<ArrayF32xN>,
     radius_sq: Vec<ArrayF32xN>,
     radius_inv: Vec<ArrayF32xN>,
-    material: Vec<[Material; VECTOR_WIDTH_DWORDS]>,
     num_chunks: u32,
     num_spheres: u32,
 }
 
 impl SpheresSoA {
-    pub fn new(sphere_materials: &[(Sphere, Material)]) -> SpheresSoA {
+    pub fn new(spheres: &[Sphere]) -> SpheresSoA {
         simd::print_version();
-        let num_spheres = sphere_materials.len();
+        let num_spheres = spheres.len();
         let num_chunks = align_to(num_spheres, VECTOR_WIDTH_DWORDS) / VECTOR_WIDTH_DWORDS;
         let mut centre_x = Vec::with_capacity(num_chunks);
         let mut centre_y = Vec::with_capacity(num_chunks);
         let mut centre_z = Vec::with_capacity(num_chunks);
         let mut radius_inv = Vec::with_capacity(num_chunks);
         let mut radius_sq = Vec::with_capacity(num_chunks);
-        let mut material = Vec::with_capacity(num_chunks);
-        for chunk in sphere_materials.chunks(VECTOR_WIDTH_DWORDS) {
+        for chunk in spheres.chunks(VECTOR_WIDTH_DWORDS) {
             // this is so if we have a final chunk that is smaller than the chunk size it will be
             // initialised to impossible to hit data.
             let mut chunk_x = ArrayF32xN::new([f32::MAX; VECTOR_WIDTH_DWORDS]);
@@ -79,21 +88,18 @@ impl SpheresSoA {
             let mut chunk_z = ArrayF32xN::new([f32::MAX; VECTOR_WIDTH_DWORDS]);
             let mut chunk_rsq = ArrayF32xN::new([0.0; VECTOR_WIDTH_DWORDS]);
             let mut chunk_rinv = ArrayF32xN::new([0.0; VECTOR_WIDTH_DWORDS]);
-            let mut chunk_mat = [Material::Invalid; VECTOR_WIDTH_DWORDS];
-            for (index, (sphere, mat)) in chunk.iter().enumerate() {
+            for (index, sphere) in chunk.iter().enumerate() {
                 chunk_x.0[index] = sphere.centre.get_x();
                 chunk_y.0[index] = sphere.centre.get_y();
                 chunk_z.0[index] = sphere.centre.get_z();
                 chunk_rsq.0[index] = sphere.radius * sphere.radius;
                 chunk_rinv.0[index] = 1.0 / sphere.radius;
-                chunk_mat[index] = *mat;
             }
             centre_x.push(chunk_x);
             centre_y.push(chunk_y);
             centre_z.push(chunk_z);
             radius_sq.push(chunk_rsq);
             radius_inv.push(chunk_rinv);
-            material.push(chunk_mat);
         }
         SpheresSoA {
             num_spheres: num_spheres as u32,
@@ -103,17 +109,52 @@ impl SpheresSoA {
             centre_z,
             radius_sq,
             radius_inv,
-            material,
         }
     }
 
+    pub fn centre(&self, sphere_index: u32) -> Vec3 {
+        let (chunk_index, lane_index) = self.get_indices(sphere_index as usize);
+        unsafe {
+            vec3(
+                *self
+                    .centre_x
+                    .get_unchecked(chunk_index)
+                    .0
+                    .get_unchecked(lane_index),
+                *self
+                    .centre_y
+                    .get_unchecked(chunk_index)
+                    .0
+                    .get_unchecked(lane_index),
+                *self
+                    .centre_z
+                    .get_unchecked(chunk_index)
+                    .0
+                    .get_unchecked(lane_index),
+            )
+        }
+    }
+
+    pub fn radius_sq(&self, sphere_index: u32) -> f32 {
+        let (chunk_index, lane_index) = self.get_indices(sphere_index as usize);
+        unsafe {
+            *self
+                .radius_sq
+                .get_unchecked(chunk_index)
+                .0
+                .get_unchecked(lane_index)
+        }
+    }
+
+    fn get_indices(&self, sphere_index: usize) -> (usize, usize) {
+        assert!(sphere_index < self.num_spheres as usize);
+        let chunk_index = sphere_index >> VECTOR_WIDTH_DWORDS_LOG2;
+        let lane_index = sphere_index - (chunk_index << VECTOR_WIDTH_DWORDS_LOG2);
+        (chunk_index, lane_index)
+    }
+
     #[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "avx2"))]
-    pub unsafe fn hit_simd(
-        &self,
-        ray: &Ray,
-        t_min: f32,
-        t_max: f32,
-    ) -> Option<(RayHit, &Material)> {
+    pub unsafe fn hit_simd(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
         let t_min = f32xN::from(t_min);
         let mut hit_t = f32xN::from(t_max);
         let mut hit_index = i32xN::from(-1);
@@ -217,11 +258,7 @@ impl SpheresSoA {
                         .get_unchecked(chunk_index)
                         .0
                         .get_unchecked(lane_index);
-                let material = &self
-                    .material
-                    .get_unchecked(chunk_index)
-                    .get_unchecked(lane_index);
-                return Some((RayHit { point, normal }, material));
+                return Some((RayHit { point, normal }, hit_index_scalar as u32));
             }
         }
         None
