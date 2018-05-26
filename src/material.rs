@@ -5,13 +5,19 @@ use vmath::{dot, normalize, vec3, Length, Vec3};
 
 // #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[derive(Clone, Copy, Debug)]
-pub enum Material {
+pub enum MaterialKind {
     Lambertian { albedo: Vec3 },
     Metal { albedo: Vec3, fuzz: f32 },
     Dielectric { ref_idx: f32 },
 }
 
-impl Material {
+#[derive(Clone, Copy, Debug)]
+pub struct Material {
+    pub kind: MaterialKind,
+    pub emissive: Vec3,
+}
+
+impl MaterialKind {
     fn scatter_lambertian(
         albedo: Vec3,
         _: &Ray,
@@ -65,21 +71,24 @@ impl Material {
             ray(ray_hit.point, reflect(ray_in.direction, ray_hit.normal)),
         ))
     }
+}
+
+impl Material {
     pub fn scatter(
         &self,
         ray: &Ray,
         ray_hit: &RayHit,
         rng: &mut XorShiftRng,
     ) -> Option<(Vec3, Ray)> {
-        match *self {
-            Material::Lambertian { albedo } => {
-                Material::scatter_lambertian(albedo, ray, ray_hit, rng)
+        match self.kind {
+            MaterialKind::Lambertian { albedo } => {
+                MaterialKind::scatter_lambertian(albedo, ray, ray_hit, rng)
             }
-            Material::Metal { albedo, fuzz } => {
-                Material::scatter_metal(albedo, fuzz, ray, ray_hit, rng)
+            MaterialKind::Metal { albedo, fuzz } => {
+                MaterialKind::scatter_metal(albedo, fuzz, ray, ray_hit, rng)
             }
-            Material::Dielectric { ref_idx } => {
-                Material::scatter_dielectric(ref_idx, ray, ray_hit, rng)
+            MaterialKind::Dielectric { ref_idx } => {
+                MaterialKind::scatter_dielectric(ref_idx, ray, ray_hit, rng)
             }
         }
     }

@@ -1,5 +1,5 @@
-use material::Material;
-use vmath::{dot, Vec3};
+use material::{Material, MaterialKind};
+use vmath::{dot, vec3, Vec3};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Ray {
@@ -39,8 +39,19 @@ pub struct Sphere {
 }
 
 #[inline]
-pub fn sphere(centre: Vec3, radius: f32, material: Material) -> (Sphere, Material) {
-    (Sphere { centre, radius }, material)
+pub fn sphere(
+    centre: Vec3,
+    radius: f32,
+    kind: MaterialKind,
+    emissive: Option<Vec3>,
+) -> (Sphere, Material) {
+    (
+        Sphere { centre, radius },
+        Material {
+            kind,
+            emissive: emissive.unwrap_or(vec3(0.0, 0.0, 0.0)),
+        },
+    )
 }
 
 impl Sphere {
