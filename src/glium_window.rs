@@ -159,9 +159,9 @@ pub fn start_loop(params: Params, camera: Camera, scene: Scene, max_frames: Opti
                     let mut mapping = buffer_texture.map();
                     for (texel, rgb) in mapping.iter_mut().zip(rgb_buffer.iter()) {
                         *texel = (
-                            (255.99 * rgb.0) as u8,
-                            (255.99 * rgb.1) as u8,
-                            (255.99 * rgb.2) as u8,
+                            (255.99 * rgb.0).max(0.0) as u8,
+                            (255.99 * rgb.1).max(0.0) as u8,
+                            (255.99 * rgb.2).max(0.0) as u8,
                             255,
                         );
                     }
