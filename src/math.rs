@@ -47,6 +47,15 @@ pub fn linear_to_srgb(rgb: (f32, f32, f32)) -> (u8, u8, u8) {
 }
 
 #[inline]
+pub fn maxf(a: f32, b: f32) -> f32 {
+    if a > b {
+        a
+    } else {
+        b
+    }
+}
+
+#[inline]
 pub fn reflect(v: Vec3, n: Vec3) -> Vec3 {
     v - 2.0 * dot(v, n) * n
 }

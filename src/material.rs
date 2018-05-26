@@ -23,9 +23,9 @@ impl MaterialKind {
         _: &Ray,
         ray_hit: &RayHit,
         rng: &mut XorShiftRng,
-    ) -> Option<(Vec3, Ray)> {
+    ) -> Option<(Vec3, Ray, bool)> {
         let target = ray_hit.point + ray_hit.normal + random_unit_vector(rng);
-        Some((albedo, ray(ray_hit.point, target - ray_hit.point)))
+        Some((albedo, ray(ray_hit.point, target - ray_hit.point), true))
     }
     fn scatter_metal(
         albedo: Vec3,
@@ -33,12 +33,13 @@ impl MaterialKind {
         ray_in: &Ray,
         ray_hit: &RayHit,
         rng: &mut XorShiftRng,
-    ) -> Option<(Vec3, Ray)> {
+    ) -> Option<(Vec3, Ray, bool)> {
         let reflected = reflect(normalize(ray_in.direction), ray_hit.normal);
         if dot(reflected, ray_hit.normal) > 0.0 {
             Some((
                 albedo,
                 ray(ray_hit.point, reflected + fuzz * random_in_unit_sphere(rng)),
+                false,
             ))
         } else {
             None
@@ -49,7 +50,7 @@ impl MaterialKind {
         ray_in: &Ray,
         ray_hit: &RayHit,
         rng: &mut XorShiftRng,
-    ) -> Option<(Vec3, Ray)> {
+    ) -> Option<(Vec3, Ray, bool)> {
         let attenuation = vec3(1.0, 1.0, 1.0);
         let rdotn = dot(ray_in.direction, ray_hit.normal);
         let (outward_normal, ni_over_nt, cosine) = if rdotn > 0.0 {
@@ -63,12 +64,13 @@ impl MaterialKind {
         if let Some(refracted) = refract(ray_in.direction, outward_normal, ni_over_nt) {
             let reflect_prob = schlick(cosine, ref_idx);
             if rng.next_f32() > reflect_prob {
-                return Some((attenuation, ray(ray_hit.point, refracted)));
+                return Some((attenuation, ray(ray_hit.point, refracted), false));
             }
         }
         Some((
             attenuation,
             ray(ray_hit.point, reflect(ray_in.direction, ray_hit.normal)),
+            false,
         ))
     }
 }
@@ -79,7 +81,7 @@ impl Material {
         ray: &Ray,
         ray_hit: &RayHit,
         rng: &mut XorShiftRng,
-    ) -> Option<(Vec3, Ray)> {
+    ) -> Option<(Vec3, Ray, bool)> {
         match self.kind {
             MaterialKind::Lambertian { albedo } => {
                 MaterialKind::scatter_lambertian(albedo, ray, ray_hit, rng)
