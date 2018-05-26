@@ -34,7 +34,9 @@ impl Camera {
         let v = cross(w, u);
         Camera {
             origin: lookfrom,
-            lower_left_corner: lookfrom - half_width * focus_dist * u - half_height * focus_dist * v
+            lower_left_corner: lookfrom
+                - half_width * focus_dist * u
+                - half_height * focus_dist * v
                 - focus_dist * w,
             horizontal: 2.0 * half_width * focus_dist * u,
             vertical: 2.0 * half_height * focus_dist * v,

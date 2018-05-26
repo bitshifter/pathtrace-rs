@@ -198,7 +198,8 @@ pub fn start_loop(params: Params, camera: Camera, scene: Scene, max_frames: Opti
         // reading the front rgb_buffer into an image
         let image: glium::texture::RawImage2d<u8> = display.read_front_buffer();
         let image =
-            image::ImageBuffer::from_raw(image.width, image.height, image.data.into_owned()).unwrap();
+            image::ImageBuffer::from_raw(image.width, image.height, image.data.into_owned())
+                .unwrap();
         let image = image::DynamicImage::ImageRgba8(image).flipv().to_rgb();
         image
             .save("output.png")
