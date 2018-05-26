@@ -675,9 +675,9 @@ pub fn smallpt(params: &Params) -> (Scene, Camera) {
         ), //Glas
         sphere(
             vec3(50.0, 81.6 - 16.5, 81.6),
-            1.0,
+            1.5,
             MaterialKind::Lambertian {
-                albedo: vec3(1.0, 1.0, 1.0),
+                albedo: vec3(0.0, 0.0, 0.0),
             },
             Some(vec3(4.0, 4.0, 4.0) * 100.0),
         ), //Lite
