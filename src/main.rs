@@ -77,7 +77,7 @@ fn main() {
         width: value_t!(matches, "width", u32).unwrap_or(1280),
         height: value_t!(matches, "height", u32).unwrap_or(720),
         samples: value_t!(matches, "samples", u32).unwrap_or(4),
-        max_depth: value_t!(matches, "depth", u32).unwrap_or(50),
+        max_depth: value_t!(matches, "depth", u32).unwrap_or(10),
         random_seed: matches.is_present("random"),
     };
 
