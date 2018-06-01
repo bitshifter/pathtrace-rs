@@ -154,7 +154,7 @@ impl Scene {
         } else {
             // sky
             let t = 0.5 * (ray_in.direction.get_y() + 1.0);
-            (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0)
+            (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0) * 0.3
         }
     }
 
