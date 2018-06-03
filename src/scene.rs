@@ -46,7 +46,7 @@ impl Scene {
     }
 
     fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
-        unsafe { self.spheres.hit_simd(ray, t_min, t_max) }
+        self.spheres.hit_simd(ray, t_min, t_max)
     }
 
     fn sample_lights(
