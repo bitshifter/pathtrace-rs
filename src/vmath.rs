@@ -8,7 +8,7 @@ pub use self::sse2::*;
 pub use self::scalar::*;
 
 pub mod sse2 {
-    use simd::m128::f32xN;
+    use simd::m128::f32x4;
     #[cfg(target_arch = "x86")]
     use std::arch::x86::*;
     #[cfg(target_arch = "x86_64")]
@@ -32,10 +32,10 @@ pub mod sse2 {
         Vec3::new(x, y, z)
     }
 
-    impl Into<f32xN> for Vec3 {
+    impl Into<f32x4> for Vec3 {
         #[inline]
-        fn into(self: Vec3) -> f32xN {
-            f32xN(self.0)
+        fn into(self: Vec3) -> f32x4 {
+            f32x4(self.0)
         }
     }
 

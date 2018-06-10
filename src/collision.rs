@@ -1,7 +1,7 @@
 use material::{Material, MaterialKind};
 use math::align_to;
 use simd::{
-    self, dot3, f32xN, i32xN, ArrayF32xN, ArrayI32xN, VECTOR_WIDTH_DWORDS_LOG2, VECTOR_WIDTH_DWORDS,
+    Float32xN, Int32xN, Bool32xN, VECTOR_WIDTH_DWORDS,
 };
 use std::f32;
 use std::intrinsics::cttz;
@@ -61,49 +61,43 @@ pub fn sphere(
 
 #[derive(Debug)]
 pub struct SpheresSoA {
-    centre_x: Vec<ArrayF32xN>,
-    centre_y: Vec<ArrayF32xN>,
-    centre_z: Vec<ArrayF32xN>,
-    radius_sq: Vec<ArrayF32xN>,
-    radius_inv: Vec<ArrayF32xN>,
-    num_chunks: u32,
+    centre_x: Vec<f32>,
+    centre_y: Vec<f32>,
+    centre_z: Vec<f32>,
+    radius_sq: Vec<f32>,
+    radius_inv: Vec<f32>,
+    len: u32,
     num_spheres: u32,
 }
 
 impl SpheresSoA {
     pub fn new(spheres: &[Sphere]) -> SpheresSoA {
-        simd::print_version();
         let num_spheres = spheres.len();
-        let num_chunks = align_to(num_spheres, VECTOR_WIDTH_DWORDS) / VECTOR_WIDTH_DWORDS;
-        let mut centre_x = Vec::with_capacity(num_chunks);
-        let mut centre_y = Vec::with_capacity(num_chunks);
-        let mut centre_z = Vec::with_capacity(num_chunks);
-        let mut radius_inv = Vec::with_capacity(num_chunks);
-        let mut radius_sq = Vec::with_capacity(num_chunks);
-        for chunk in spheres.chunks(VECTOR_WIDTH_DWORDS) {
-            // this is so if we have a final chunk that is smaller than the chunk size it will be
-            // initialised to impossible to hit data.
-            let mut chunk_x = ArrayF32xN::new([f32::MAX; VECTOR_WIDTH_DWORDS]);
-            let mut chunk_y = ArrayF32xN::new([f32::MAX; VECTOR_WIDTH_DWORDS]);
-            let mut chunk_z = ArrayF32xN::new([f32::MAX; VECTOR_WIDTH_DWORDS]);
-            let mut chunk_rsq = ArrayF32xN::new([0.0; VECTOR_WIDTH_DWORDS]);
-            let mut chunk_rinv = ArrayF32xN::new([0.0; VECTOR_WIDTH_DWORDS]);
-            for (index, sphere) in chunk.iter().enumerate() {
-                chunk_x.0[index] = sphere.centre.get_x();
-                chunk_y.0[index] = sphere.centre.get_y();
-                chunk_z.0[index] = sphere.centre.get_z();
-                chunk_rsq.0[index] = sphere.radius * sphere.radius;
-                chunk_rinv.0[index] = 1.0 / sphere.radius;
-            }
-            centre_x.push(chunk_x);
-            centre_y.push(chunk_y);
-            centre_z.push(chunk_z);
-            radius_sq.push(chunk_rsq);
-            radius_inv.push(chunk_rinv);
+        // align to 8 for now
+        let len = align_to(num_spheres, 8);
+        let mut centre_x = Vec::with_capacity(len);
+        let mut centre_y = Vec::with_capacity(len);
+        let mut centre_z = Vec::with_capacity(len);
+        let mut radius_inv = Vec::with_capacity(len);
+        let mut radius_sq = Vec::with_capacity(len);
+        for sphere in spheres {
+            centre_x.push(sphere.centre.get_x());
+            centre_y.push(sphere.centre.get_y());
+            centre_z.push(sphere.centre.get_z());
+            radius_sq.push(sphere.radius * sphere.radius);
+            radius_inv.push(1.0 / sphere.radius);
+        }
+        let padding = len - num_spheres;
+        for _ in 0..padding {
+            centre_x.push(f32::MAX);
+            centre_y.push(f32::MAX);
+            centre_z.push(f32::MAX);
+            radius_sq.push(0.0);
+            radius_inv.push(0.0);
         }
         SpheresSoA {
             num_spheres: num_spheres as u32,
-            num_chunks: num_chunks as u32,
+            len: len as u32,
             centre_x,
             centre_y,
             centre_z,
@@ -113,126 +107,108 @@ impl SpheresSoA {
     }
 
     pub fn centre(&self, sphere_index: u32) -> Vec3 {
-        let (chunk_index, lane_index) = self.get_indices(sphere_index as usize);
+        debug_assert!(sphere_index < self.num_spheres);
+        let sphere_index = sphere_index as usize;
         unsafe {
             vec3(
                 *self
                     .centre_x
-                    .get_unchecked(chunk_index)
-                    .0
-                    .get_unchecked(lane_index),
+                    .get_unchecked(sphere_index),
                 *self
                     .centre_y
-                    .get_unchecked(chunk_index)
-                    .0
-                    .get_unchecked(lane_index),
+                    .get_unchecked(sphere_index),
                 *self
                     .centre_z
-                    .get_unchecked(chunk_index)
-                    .0
-                    .get_unchecked(lane_index),
+                    .get_unchecked(sphere_index),
             )
         }
     }
 
     pub fn radius_sq(&self, sphere_index: u32) -> f32 {
-        let (chunk_index, lane_index) = self.get_indices(sphere_index as usize);
+        debug_assert!(sphere_index < self.num_spheres);
+        let sphere_index = sphere_index as usize;
         unsafe {
             *self
                 .radius_sq
-                .get_unchecked(chunk_index)
-                .0
-                .get_unchecked(lane_index)
+                .get_unchecked(sphere_index)
         }
     }
 
-    fn get_indices(&self, sphere_index: usize) -> (usize, usize) {
-        assert!(sphere_index < self.num_spheres as usize);
-        let chunk_index = sphere_index >> VECTOR_WIDTH_DWORDS_LOG2;
-        let lane_index = sphere_index - (chunk_index << VECTOR_WIDTH_DWORDS_LOG2);
-        (chunk_index, lane_index)
-    }
-
-    pub fn hit_simd(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
-        let t_min = f32xN::from(t_min);
-        let mut hit_t = f32xN::from(t_max);
-        let mut hit_index = i32xN::from(-1);
+    pub fn hit_simd<FI, II, BI, B: Bool32xN<BI>, F: Float32xN<FI, BI, B>, I: Int32xN<II, BI, B>>(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+        let t_min = F::splat(t_min);
+        let mut hit_t = F::splat(t_max);
+        let mut hit_index = I::splat(-1);
         // load ray origin
-        let ro_x = f32xN::from_x(ray.origin);
-        let ro_y = f32xN::from_y(ray.origin);
-        let ro_z = f32xN::from_z(ray.origin);
+        let ro_x = F::from_x(ray.origin);
+        let ro_y = F::from_y(ray.origin);
+        let ro_z = F::from_z(ray.origin);
         // load ray direction
-        let rd_x = f32xN::from_x(ray.direction);
-        let rd_y = f32xN::from_y(ray.direction);
-        let rd_z = f32xN::from_z(ray.direction);
+        let rd_x = F::from_x(ray.direction);
+        let rd_y = F::from_y(ray.direction);
+        let rd_z = F::from_z(ray.direction);
         // current indices being processed (little endian ordering)
-        let mut sphere_index = i32xN::indices();
+        let mut sphere_index = I::indices();
+        let num_lanes = F::num_lanes();
         for (((centre_x, centre_y), centre_z), radius_sq) in self
             .centre_x
-            .iter()
-            .zip(self.centre_y.iter())
-            .zip(self.centre_z.iter())
-            .zip(self.radius_sq.iter())
+            .chunks(num_lanes)
+            .zip(self.centre_y.chunks(num_lanes))
+            .zip(self.centre_z.chunks(num_lanes))
+            .zip(self.radius_sq.chunks(num_lanes))
         {
             // load sphere centres
-            let c_x = f32xN::from(centre_x);
-            let c_y = f32xN::from(centre_y);
-            let c_z = f32xN::from(centre_z);
+            let c_x = F::load_unaligned(centre_x);
+            let c_y = F::load_unaligned(centre_y);
+            let c_z = F::load_unaligned(centre_z);
             // load radius_sq
-            let r_sq = f32xN::from(radius_sq);
+            let r_sq = F::load_unaligned(radius_sq);
             // let co = centre - ray.origin
             let co_x = c_x - ro_x;
             let co_y = c_y - ro_y;
             let co_z = c_z - ro_z;
             // let nb = dot(co, ray.direction);
-            let nb = dot3(co_x, rd_x, co_y, rd_y, co_z, rd_z);
+            let nb = F::dot3(co_x, rd_x, co_y, rd_y, co_z, rd_z);
             // let c = dot(co, co) - radius_sq;
-            let c = dot3(co_x, co_x, co_y, co_y, co_z, co_z) - r_sq;
+            let c = F::dot3(co_x, co_x, co_y, co_y, co_z, co_z) - r_sq;
             let discr = nb * nb - c;
             // if discr > 0.0
-            let ptve_discr = discr.gt(f32xN::from(0.0));
+            let ptve_discr = discr.gt(F::splat(0.0));
             if i32::from(ptve_discr) != 0 {
                 let discr_sqrt = discr.sqrt();
                 let t0 = nb - discr_sqrt;
                 let t1 = nb + discr_sqrt;
                 // let t = if t0 > t_min { t0 } else { t1 };
-                let t = t1.blend(t0, t0.gt(t_min));
+                let t = F::blend(t1, t0, t0.gt(t_min));
                 // from rygs opts
                 let mask = ptve_discr & t.gt(t_min) & t.lt(hit_t);
                 // hit_index = mask ? sphere_index : hit_index;
-                hit_index = hit_index.blend(sphere_index, mask);
+                hit_index = I::blend(hit_index, sphere_index, mask);
                 // hit_t = mask ? t : hit_t;
-                hit_t = hit_t.blend(t, mask);
+                hit_t = F::blend(hit_t, t, mask);
             }
             // increment indices
-            sphere_index = sphere_index + i32xN::from(VECTOR_WIDTH_DWORDS as i32);
+            sphere_index = sphere_index + I::splat(VECTOR_WIDTH_DWORDS as i32);
         }
 
         let min_hit_t = hit_t.hmin();
         if min_hit_t < t_max {
-            let min_mask = i32::from(hit_t.eq(f32xN::from(min_hit_t)));
+            let min_mask = I::from(hit_t.eq(F::splat(min_hit_t)));
             if min_mask != 0 {
                 let hit_t_lane = unsafe { cttz(min_mask) } as usize;
 
                 // store hit_index and hit_t back to scalar
                 // TODO: use aligned structures
-                let mut hit_index_array = ArrayI32xN::new([-1; VECTOR_WIDTH_DWORDS]);
-                let mut hit_t_array = ArrayF32xN::new([t_max; VECTOR_WIDTH_DWORDS]);
-                hit_index_array.store(hit_index);
-                hit_t_array.store(hit_t);
+                let mut hit_index_array = [-1i32; VECTOR_WIDTH_DWORDS];
+                let mut hit_t_array = [t_max; VECTOR_WIDTH_DWORDS];
+                hit_index.store_unaligned(&mut hit_index_array);
+                hit_t.store_unaligned(&mut hit_t_array);
 
-                debug_assert!(hit_t_lane < hit_index_array.0.len());
-                debug_assert!(hit_t_lane < hit_t_array.0.len());
+                debug_assert!(hit_t_lane < hit_index_array.len());
+                debug_assert!(hit_t_lane < hit_t_array.len());
 
                 let hit_index_scalar =
-                    unsafe { *hit_index_array.0.get_unchecked(hit_t_lane) as usize };
-                let hit_t_scalar = unsafe { *hit_t_array.0.get_unchecked(hit_t_lane) };
-
-                let chunk_index = hit_index_scalar >> VECTOR_WIDTH_DWORDS_LOG2;
-                let lane_index = hit_index_scalar - (chunk_index << VECTOR_WIDTH_DWORDS_LOG2);
-
-                debug_assert!(chunk_index < self.num_spheres as usize);
-                debug_assert!(lane_index < VECTOR_WIDTH_DWORDS);
+                    unsafe { *hit_index_array.get_unchecked(hit_t_lane) as usize };
+                let hit_t_scalar = unsafe { *hit_t_array.get_unchecked(hit_t_lane) };
 
                 let point = ray.point_at_parameter(hit_t_scalar);
                 let normal = unsafe {
@@ -240,25 +216,17 @@ impl SpheresSoA {
                         - vec3(
                             *self
                                 .centre_x
-                                .get_unchecked(chunk_index)
-                                .0
-                                .get_unchecked(lane_index),
+                                .get_unchecked(hit_index_scalar),
                             *self
                                 .centre_y
-                                .get_unchecked(chunk_index)
-                                .0
-                                .get_unchecked(lane_index),
+                                .get_unchecked(hit_index_scalar),
                             *self
                                 .centre_z
-                                .get_unchecked(chunk_index)
-                                .0
-                                .get_unchecked(lane_index),
+                                .get_unchecked(hit_index_scalar),
                         ))
                         * *self
                             .radius_inv
-                            .get_unchecked(chunk_index)
-                            .0
-                            .get_unchecked(lane_index)
+                            .get_unchecked(hit_index_scalar)
                 };
                 return Some((RayHit { point, normal }, hit_index_scalar as u32));
             }
