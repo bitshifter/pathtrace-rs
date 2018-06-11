@@ -46,7 +46,30 @@ impl Scene {
     }
 
     fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
-        self.spheres.hit_simd(ray, t_min, t_max)
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        {
+            #[cfg(target_arch = "x86")]
+            use std::arch::x86::*;
+            #[cfg(target_arch = "x86_64")]
+            use std::arch::x86_64::*;
+            if is_x86_feature_detected!("avx2") {
+                use simd::m256::*;
+                return self
+                    .spheres
+                    .hit_simd::<__m256, __m256, __m256i, b32x8, f32x8, i32x8>(ray, t_min, t_max);
+            } else if is_x86_feature_detected!("sse2") {
+                use simd::m128::*;
+                return self
+                    .spheres
+                    .hit_simd::<__m128, __m128, __m128i, b32x4, f32x4, i32x4>(ray, t_min, t_max);
+            }
+        }
+
+        {
+            use simd::m32::*;
+            self.spheres
+                .hit_simd::<bool, f32, i32, b32x1, f32x1, i32x1>(ray, t_min, t_max)
+        }
     }
 
     fn sample_lights(

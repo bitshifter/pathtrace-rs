@@ -1,10 +1,9 @@
 use material::{Material, MaterialKind};
 use math::align_to;
-use simd::{
-    Float32xN, Int32xN, Bool32xN, VECTOR_WIDTH_DWORDS,
-};
+use simd::{Bool32xN, Float32xN, Int32xN};
 use std::f32;
 use std::intrinsics::cttz;
+use std::ops::{Add, BitAnd, Mul, Sub};
 use vmath::{vec3, Vec3};
 
 #[derive(Clone, Copy, Debug)]
@@ -111,15 +110,9 @@ impl SpheresSoA {
         let sphere_index = sphere_index as usize;
         unsafe {
             vec3(
-                *self
-                    .centre_x
-                    .get_unchecked(sphere_index),
-                *self
-                    .centre_y
-                    .get_unchecked(sphere_index),
-                *self
-                    .centre_z
-                    .get_unchecked(sphere_index),
+                *self.centre_x.get_unchecked(sphere_index),
+                *self.centre_y.get_unchecked(sphere_index),
+                *self.centre_z.get_unchecked(sphere_index),
             )
         }
     }
@@ -127,14 +120,20 @@ impl SpheresSoA {
     pub fn radius_sq(&self, sphere_index: u32) -> f32 {
         debug_assert!(sphere_index < self.num_spheres);
         let sphere_index = sphere_index as usize;
-        unsafe {
-            *self
-                .radius_sq
-                .get_unchecked(sphere_index)
-        }
+        unsafe { *self.radius_sq.get_unchecked(sphere_index) }
     }
 
-    pub fn hit_simd<FI, II, BI, B: Bool32xN<BI>, F: Float32xN<FI, BI, B>, I: Int32xN<II, BI, B>>(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+    pub fn hit_simd<BI, FI, II, B, F, I>(
+        &self,
+        ray: &Ray,
+        t_min: f32,
+        t_max: f32,
+    ) -> Option<(RayHit, u32)>
+    where
+        B: Bool32xN<BI> + BitAnd<Output = B>,
+        F: Float32xN<FI, BI, B> + Add<Output = F> + Sub<Output = F> + Mul<Output = F>,
+        I: Int32xN<II, BI, B> + Add<Output = I>,
+    {
         let t_min = F::splat(t_min);
         let mut hit_t = F::splat(t_max);
         let mut hit_index = I::splat(-1);
@@ -157,11 +156,11 @@ impl SpheresSoA {
             .zip(self.radius_sq.chunks(num_lanes))
         {
             // load sphere centres
-            let c_x = F::load_unaligned(centre_x);
-            let c_y = F::load_unaligned(centre_y);
-            let c_z = F::load_unaligned(centre_z);
+            let c_x = unsafe { F::load_unaligned(centre_x) };
+            let c_y = unsafe { F::load_unaligned(centre_y) };
+            let c_z = unsafe { F::load_unaligned(centre_z) };
             // load radius_sq
-            let r_sq = F::load_unaligned(radius_sq);
+            let r_sq = unsafe { F::load_unaligned(radius_sq) };
             // let co = centre - ray.origin
             let co_x = c_x - ro_x;
             let co_y = c_y - ro_y;
@@ -173,7 +172,7 @@ impl SpheresSoA {
             let discr = nb * nb - c;
             // if discr > 0.0
             let ptve_discr = discr.gt(F::splat(0.0));
-            if i32::from(ptve_discr) != 0 {
+            if ptve_discr.to_mask() != 0 {
                 let discr_sqrt = discr.sqrt();
                 let t0 = nb - discr_sqrt;
                 let t1 = nb + discr_sqrt;
@@ -187,21 +186,23 @@ impl SpheresSoA {
                 hit_t = F::blend(hit_t, t, mask);
             }
             // increment indices
-            sphere_index = sphere_index + I::splat(VECTOR_WIDTH_DWORDS as i32);
+            sphere_index = sphere_index + I::splat(F::num_lanes() as i32);
         }
 
         let min_hit_t = hit_t.hmin();
         if min_hit_t < t_max {
-            let min_mask = I::from(hit_t.eq(F::splat(min_hit_t)));
+            let min_mask = hit_t.eq(F::splat(min_hit_t)).to_mask();
             if min_mask != 0 {
                 let hit_t_lane = unsafe { cttz(min_mask) } as usize;
 
                 // store hit_index and hit_t back to scalar
                 // TODO: use aligned structures
-                let mut hit_index_array = [-1i32; VECTOR_WIDTH_DWORDS];
-                let mut hit_t_array = [t_max; VECTOR_WIDTH_DWORDS];
-                hit_index.store_unaligned(&mut hit_index_array);
-                hit_t.store_unaligned(&mut hit_t_array);
+                let mut hit_index_array = [-1i32; 8];
+                let mut hit_t_array = [t_max; 8];
+                unsafe {
+                    hit_index.store_unaligned(&mut hit_index_array);
+                    hit_t.store_unaligned(&mut hit_t_array);
+                }
 
                 debug_assert!(hit_t_lane < hit_index_array.len());
                 debug_assert!(hit_t_lane < hit_t_array.len());
@@ -214,19 +215,10 @@ impl SpheresSoA {
                 let normal = unsafe {
                     (point
                         - vec3(
-                            *self
-                                .centre_x
-                                .get_unchecked(hit_index_scalar),
-                            *self
-                                .centre_y
-                                .get_unchecked(hit_index_scalar),
-                            *self
-                                .centre_z
-                                .get_unchecked(hit_index_scalar),
-                        ))
-                        * *self
-                            .radius_inv
-                            .get_unchecked(hit_index_scalar)
+                            *self.centre_x.get_unchecked(hit_index_scalar),
+                            *self.centre_y.get_unchecked(hit_index_scalar),
+                            *self.centre_z.get_unchecked(hit_index_scalar),
+                        )) * *self.radius_inv.get_unchecked(hit_index_scalar)
                 };
                 return Some((RayHit { point, normal }, hit_index_scalar as u32));
             }
