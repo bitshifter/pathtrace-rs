@@ -71,7 +71,6 @@ pub struct SpheresSoA {
     radius_sq: Vec<f32>,
     radius_inv: Vec<f32>,
     len: usize,
-    chunk_size: usize,
     num_spheres: usize,
 }
 
@@ -111,7 +110,6 @@ impl SpheresSoA {
             radius_inv,
             len,
             num_spheres,
-            chunk_size,
         }
     }
 
@@ -190,6 +188,7 @@ impl SpheresSoA {
         #[cfg(target_arch = "x86_64")]
         use std::arch::x86_64::*;
         use std::intrinsics::cttz;
+        const NUM_LANES: usize = 4;
         let t_min = _mm_set_ps1(t_min);
         let mut hit_t = _mm_set_ps1(t_max);
         let mut hit_index = _mm_set_epi32(-1, -1, -1, -1);
@@ -205,14 +204,13 @@ impl SpheresSoA {
         let rd_z = _mm_shuffle_ps(rd, rd, _mm_shuffle!(2, 2, 2, 2));
         // current indices being processed (little endian ordering)
         let mut index = _mm_set_epi32(3, 2, 1, 0);
-        let chunk_size = self.chunk_size;
         // loop over 4 spheres at a time
         for (((centre_x, centre_y), centre_z), radius_sq) in self
             .centre_x
-            .chunks(chunk_size)
-            .zip(self.centre_y.chunks(chunk_size))
-            .zip(self.centre_z.chunks(chunk_size))
-            .zip(self.radius_sq.chunks(chunk_size))
+            .chunks(NUM_LANES)
+            .zip(self.centre_y.chunks(NUM_LANES))
+            .zip(self.centre_z.chunks(NUM_LANES))
+            .zip(self.radius_sq.chunks(NUM_LANES))
         {
             // load sphere centres
             // TODO: align memory
@@ -255,7 +253,7 @@ impl SpheresSoA {
                 hit_t = _mm_blendv_ps(hit_t, t, mask);
             }
             // increment indices
-            index = _mm_add_epi32(index, _mm_set1_epi32(chunk_size as i32));
+            index = _mm_add_epi32(index, _mm_set1_epi32(NUM_LANES as i32));
         }
 
         let min_hit_t = hmin_sse2(hit_t);
@@ -263,7 +261,7 @@ impl SpheresSoA {
             let min_mask = _mm_movemask_ps(_mm_cmpeq_ps(hit_t, _mm_set1_ps(min_hit_t)));
             if min_mask != 0 {
                 let hit_t_lane = cttz(min_mask) as usize;
-                debug_assert!(hit_t_lane < chunk_size);
+                debug_assert!(hit_t_lane < NUM_LANES);
 
                 let hit_index_array = I32x4 { simd: hit_index }.array;
                 let hit_t_array = F32x4 { simd: hit_t }.array;
