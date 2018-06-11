@@ -38,6 +38,11 @@ mod sse2 {
         }
 
         #[inline]
+        pub fn unwrap(self) -> __m128 {
+            self.0
+        }
+
+        #[inline]
         pub fn new(x: f32, y: f32, z: f32) -> Vec3 {
             unsafe { Vec3(_mm_set_ps(z, z, y, x)) }
         }
@@ -245,6 +250,11 @@ mod scalar {
         #[inline]
         pub fn zero() -> Vec3 {
             Vec3(0.0, 0.0, 0.0)
+        }
+
+        #[inline]
+        pub fn unwrap(self) -> (f32, f32, f32) {
+            (self.0, self.1, self.2)
         }
 
         #[inline]

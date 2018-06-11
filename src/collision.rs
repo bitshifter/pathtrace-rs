@@ -1,7 +1,15 @@
 use material::{Material, MaterialKind};
 use math::align_to;
+use simd::*;
 use std::f32;
 use vmath::{vec3, Vec3};
+
+// TODO: how do I import this from mod simd
+macro_rules! _mm_shuffle {
+    ($z:expr, $y:expr, $x:expr, $w:expr) => {
+        ($z << 6) | ($y << 4) | ($x << 2) | $w
+    };
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct Ray {
@@ -57,20 +65,24 @@ pub fn sphere(
 
 #[derive(Debug)]
 pub struct SpheresSoA {
-    len: usize,
     centre_x: Vec<f32>,
     centre_y: Vec<f32>,
     centre_z: Vec<f32>,
     radius_sq: Vec<f32>,
     radius_inv: Vec<f32>,
+    len: usize,
+    chunk_size: usize,
+    num_spheres: usize,
 }
 
 impl SpheresSoA {
     pub fn new(spheres: &[Sphere]) -> SpheresSoA {
         // HACK: make sure there's enough entries for SIMD
         // TODO: conditionally compile this
-        let unaligned_len = spheres.len();
-        let len = align_to(unaligned_len, 4);
+        // TODO: simd_bits() / 8 / mem::size_of::<f32>();
+        let chunk_size = 4;
+        let num_spheres = spheres.len();
+        let len = align_to(num_spheres, chunk_size);
         let mut centre_x = Vec::with_capacity(len);
         let mut centre_y = Vec::with_capacity(len);
         let mut centre_z = Vec::with_capacity(len);
@@ -83,7 +95,7 @@ impl SpheresSoA {
             radius_sq.push(sphere.radius * sphere.radius);
             radius_inv.push(1.0 / sphere.radius);
         }
-        let padding = len - unaligned_len;
+        let padding = len - num_spheres;
         for _ in 0..padding {
             centre_x.push(f32::MAX);
             centre_y.push(f32::MAX);
@@ -92,12 +104,14 @@ impl SpheresSoA {
             radius_inv.push(0.0);
         }
         SpheresSoA {
-            len,
             centre_x,
             centre_y,
             centre_z,
             radius_sq,
             radius_inv,
+            len,
+            num_spheres,
+            chunk_size,
         }
     }
 
@@ -175,26 +189,30 @@ impl SpheresSoA {
         use std::arch::x86::*;
         #[cfg(target_arch = "x86_64")]
         use std::arch::x86_64::*;
+        use std::intrinsics::cttz;
         let t_min = _mm_set_ps1(t_min);
         let mut hit_t = _mm_set_ps1(t_max);
         let mut hit_index = _mm_set_epi32(-1, -1, -1, -1);
         // load ray origin
-        let ro_x = _mm_set_ps1(ray.origin.get_x());
-        let ro_y = _mm_set_ps1(ray.origin.get_y());
-        let ro_z = _mm_set_ps1(ray.origin.get_z());
+        let ro = ray.origin.unwrap();
+        let ro_x = _mm_shuffle_ps(ro, ro, _mm_shuffle!(0, 0, 0, 0));
+        let ro_y = _mm_shuffle_ps(ro, ro, _mm_shuffle!(1, 1, 1, 1));
+        let ro_z = _mm_shuffle_ps(ro, ro, _mm_shuffle!(2, 2, 2, 2));
         // load ray direction
-        let rd_x = _mm_set_ps1(ray.direction.get_x());
-        let rd_y = _mm_set_ps1(ray.direction.get_y());
-        let rd_z = _mm_set_ps1(ray.direction.get_z());
+        let rd = ray.direction.unwrap();
+        let rd_x = _mm_shuffle_ps(rd, rd, _mm_shuffle!(0, 0, 0, 0));
+        let rd_y = _mm_shuffle_ps(rd, rd, _mm_shuffle!(1, 1, 1, 1));
+        let rd_z = _mm_shuffle_ps(rd, rd, _mm_shuffle!(2, 2, 2, 2));
         // current indices being processed (little endian ordering)
         let mut index = _mm_set_epi32(3, 2, 1, 0);
+        let chunk_size = self.chunk_size;
         // loop over 4 spheres at a time
         for (((centre_x, centre_y), centre_z), radius_sq) in self
             .centre_x
-            .chunks(4)
-            .zip(self.centre_y.chunks(4))
-            .zip(self.centre_z.chunks(4))
-            .zip(self.radius_sq.chunks(4))
+            .chunks(chunk_size)
+            .zip(self.centre_y.chunks(chunk_size))
+            .zip(self.centre_z.chunks(chunk_size))
+            .zip(self.radius_sq.chunks(chunk_size))
         {
             // load sphere centres
             // TODO: align memory
@@ -209,14 +227,9 @@ impl SpheresSoA {
             let co_z = _mm_sub_ps(c_z, ro_z);
             // TODO: write a dot product helper
             // let nb = dot(co, ray.direction);
-            let nb = _mm_mul_ps(co_x, rd_x);
-            let nb = _mm_add_ps(nb, _mm_mul_ps(co_y, rd_y));
-            let nb = _mm_add_ps(nb, _mm_mul_ps(co_z, rd_z));
+            let nb = dot3_sse2(co_x, rd_x, co_y, rd_y, co_z, rd_z);
             // let c = dot(co, co) - radius_sq;
-            let c = _mm_mul_ps(co_x, co_x);
-            let c = _mm_add_ps(c, _mm_mul_ps(co_y, co_y));
-            let c = _mm_add_ps(c, _mm_mul_ps(co_z, co_z));
-            let c = _mm_sub_ps(c, r_sq);
+            let c = _mm_sub_ps(dot3_sse2(co_x, co_x, co_y, co_y, co_z, co_z), r_sq);
             // let discriminant = nb * nb - c;
             let discr = _mm_sub_ps(_mm_mul_ps(nb, nb), c);
             // if discr > 0.0
@@ -242,44 +255,34 @@ impl SpheresSoA {
                 hit_t = _mm_blendv_ps(hit_t, t, mask);
             }
             // increment indices
-            index = _mm_add_epi32(index, _mm_set1_epi32(4));
+            index = _mm_add_epi32(index, _mm_set1_epi32(chunk_size as i32));
         }
 
-        // copy results out into scalar code to get return value (if any)
-        let mut hit_t_array = [t_max, t_max, t_max, t_max];
-        _mm_storeu_ps(hit_t_array.as_mut_ptr(), hit_t);
-        let (hit_t_lane, hit_t_scalar) = hit_t_array.iter().enumerate().fold(
-            (self.len, t_max),
-            |result, t| if *t.1 < result.1 { (t.0, *t.1) } else { result },
-        );
-        // .min_by(|x, y| {
-        //     // PartialOrd strikes again
-        //     use std::cmp::Ordering;
-        //     if x.1 < y.1 {
-        //         Ordering::Less
-        //     } else if x.1 > y.1 {
-        //         Ordering::Greater
-        //     } else {
-        //         Ordering::Equal
-        //     }
-        // })
-        // .unwrap();
-        // let hit_t_scalar = *hit_t_scalar;
-        if hit_t_scalar < t_max {
-            let mut hit_index_array = [-1i32, -1, -1, -1];
-            _mm_storeu_si128(hit_index_array.as_mut_ptr() as *mut __m128i, hit_index);
-            let hit_index_scalar = hit_index_array[hit_t_lane] as usize;
-            debug_assert!(hit_index_scalar < self.len);
-            let point = ray.point_at_parameter(hit_t_scalar);
-            let normal = (point
-                - vec3(
-                    *self.centre_x.get_unchecked(hit_index_scalar),
-                    *self.centre_y.get_unchecked(hit_index_scalar),
-                    *self.centre_z.get_unchecked(hit_index_scalar),
-                )) * *self.radius_inv.get_unchecked(hit_index_scalar);
-            Some((RayHit { point, normal }, hit_index_scalar as u32))
-        } else {
-            None
+        let min_hit_t = hmin_sse2(hit_t);
+        if min_hit_t < t_max {
+            let min_mask = _mm_movemask_ps(_mm_cmpeq_ps(hit_t, _mm_set1_ps(min_hit_t)));
+            if min_mask != 0 {
+                let hit_t_lane = cttz(min_mask) as usize;
+                debug_assert!(hit_t_lane < chunk_size);
+
+                let hit_index_array = I32x4 { simd: hit_index }.array;
+                let hit_t_array = F32x4 { simd: hit_t }.array;
+
+                let hit_index_scalar = *hit_index_array.get_unchecked(hit_t_lane) as usize;
+                debug_assert!(hit_index_scalar < self.len);
+                let hit_t_scalar = *hit_t_array.get_unchecked(hit_t_lane);
+
+                let point = ray.point_at_parameter(hit_t_scalar);
+                let normal = (point
+                    - vec3(
+                        *self.centre_x.get_unchecked(hit_index_scalar),
+                        *self.centre_y.get_unchecked(hit_index_scalar),
+                        *self.centre_z.get_unchecked(hit_index_scalar),
+                    ))
+                    * *self.radius_inv.get_unchecked(hit_index_scalar);
+                return Some((RayHit { point, normal }, hit_index_scalar as u32));
+            }
         }
+        None
     }
 }

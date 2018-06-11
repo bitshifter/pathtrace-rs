@@ -1,7 +1,10 @@
 use camera::Camera;
 use glium::{
-    self, glutin::{Api, GlProfile, GlRequest}, index::{NoIndices, PrimitiveType},
-    texture::buffer_texture::{BufferTexture, BufferTextureType}, vertex::EmptyVertexAttributes,
+    self,
+    glutin::{Api, GlProfile, GlRequest},
+    index::{NoIndices, PrimitiveType},
+    texture::buffer_texture::{BufferTexture, BufferTextureType},
+    vertex::EmptyVertexAttributes,
     Surface,
 };
 use image;
