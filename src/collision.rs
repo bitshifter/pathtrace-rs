@@ -205,20 +205,14 @@ impl SpheresSoA {
         // current indices being processed (little endian ordering)
         let mut index = _mm_set_epi32(3, 2, 1, 0);
         // loop over 4 spheres at a time
-        for (((centre_x, centre_y), centre_z), radius_sq) in self
-            .centre_x
-            .chunks(NUM_LANES)
-            .zip(self.centre_y.chunks(NUM_LANES))
-            .zip(self.centre_z.chunks(NUM_LANES))
-            .zip(self.radius_sq.chunks(NUM_LANES))
-        {
+        let num_chunks = self.len >> 2;
+        for chunk_index in (0..num_chunks).map(|i| i << 2) {
             // load sphere centres
-            // TODO: align memory
-            let c_x = _mm_loadu_ps(centre_x.as_ptr());
-            let c_y = _mm_loadu_ps(centre_y.as_ptr());
-            let c_z = _mm_loadu_ps(centre_z.as_ptr());
+            let c_x = _mm_loadu_ps(self.centre_x.get_unchecked(chunk_index));
+            let c_y = _mm_loadu_ps(self.centre_y.get_unchecked(chunk_index));
+            let c_z = _mm_loadu_ps(self.centre_z.get_unchecked(chunk_index));
             // load radius_sq
-            let r_sq = _mm_loadu_ps(radius_sq.as_ptr());
+            let r_sq = _mm_loadu_ps(self.radius_sq.get_unchecked(chunk_index));
             // let co = centre - ray.origin
             let co_x = _mm_sub_ps(c_x, ro_x);
             let co_y = _mm_sub_ps(c_y, ro_y);
