@@ -78,8 +78,7 @@ impl SpheresSoA {
     pub fn new(spheres: &[Sphere]) -> SpheresSoA {
         // HACK: make sure there's enough entries for SIMD
         // TODO: conditionally compile this
-        // TODO: simd_bits() / 8 / mem::size_of::<f32>();
-        let chunk_size = 4;
+        let chunk_size = simd_bits() / 32;
         let num_spheres = spheres.len();
         let len = align_to(num_spheres, chunk_size);
         let mut centre_x = Vec::with_capacity(len);
@@ -132,6 +131,9 @@ impl SpheresSoA {
     pub fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
+            if is_x86_feature_detected!("avx2") {
+                return unsafe { self.hit_avx2(ray, t_min, t_max) };
+            }
             if is_x86_feature_detected!("sse4.1") {
                 return unsafe { self.hit_sse4_1(ray, t_min, t_max) };
             }
@@ -217,7 +219,6 @@ impl SpheresSoA {
             let co_x = _mm_sub_ps(c_x, ro_x);
             let co_y = _mm_sub_ps(c_y, ro_y);
             let co_z = _mm_sub_ps(c_z, ro_z);
-            // TODO: write a dot product helper
             // let nb = dot(co, ray.direction);
             let nb = dot3_sse2(co_x, rd_x, co_y, rd_y, co_z, rd_z);
             // let c = dot(co, co) - radius_sq;
@@ -230,8 +231,8 @@ impl SpheresSoA {
                 // let discr_sqrt = discr.sqrt();
                 let discr_sqrt = _mm_sqrt_ps(discr);
                 // let t0 = nb - discr_sqrt;
-                // let t1 = nb + discr_sqrt;
                 let t0 = _mm_sub_ps(nb, discr_sqrt);
+                // let t1 = nb + discr_sqrt;
                 let t1 = _mm_add_ps(nb, discr_sqrt);
                 // let t = if t0 > t_min { t0 } else { t1 };
                 let t = _mm_blendv_ps(t1, t0, _mm_cmpgt_ps(t0, t_min));
@@ -259,6 +260,116 @@ impl SpheresSoA {
 
                 let hit_index_array = I32x4 { simd: hit_index }.array;
                 let hit_t_array = F32x4 { simd: hit_t }.array;
+
+                let hit_index_scalar = *hit_index_array.get_unchecked(hit_t_lane) as usize;
+                debug_assert!(hit_index_scalar < self.len);
+                let hit_t_scalar = *hit_t_array.get_unchecked(hit_t_lane);
+
+                let point = ray.point_at_parameter(hit_t_scalar);
+                let normal = (point
+                    - vec3(
+                        *self.centre_x.get_unchecked(hit_index_scalar),
+                        *self.centre_y.get_unchecked(hit_index_scalar),
+                        *self.centre_z.get_unchecked(hit_index_scalar),
+                    ))
+                    * *self.radius_inv.get_unchecked(hit_index_scalar);
+                return Some((RayHit { point, normal }, hit_index_scalar as u32));
+            }
+        }
+        None
+    }
+
+    #[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "avx2"))]
+    unsafe fn hit_avx2(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+        #[cfg(target_arch = "x86")]
+        use std::arch::x86::*;
+        #[cfg(target_arch = "x86_64")]
+        use std::arch::x86_64::*;
+        use std::intrinsics::cttz;
+        // TODO: are these defined anywhere in std::arch?
+        const CMP_EQ_OQ: i32 = 0x00;
+        const CMP_LT_OQ: i32 = 0x11;
+        const CMP_GT_OQ: i32 = 0x1e;
+        const NUM_LANES: usize = 8;
+        let t_min = _mm256_set1_ps(t_min);
+        let mut hit_t = _mm256_set1_ps(t_max);
+        let mut hit_index = _mm256_set1_epi32(-1);
+        // load ray origin
+        let ro = ray.origin.unwrap();
+        let ro_x = _mm_shuffle_ps(ro, ro, _mm_shuffle!(0, 0, 0, 0));
+        let ro_y = _mm_shuffle_ps(ro, ro, _mm_shuffle!(1, 1, 1, 1));
+        let ro_z = _mm_shuffle_ps(ro, ro, _mm_shuffle!(2, 2, 2, 2));
+        let ro_x = _mm256_set_m128(ro_x, ro_x);
+        let ro_y = _mm256_set_m128(ro_y, ro_y);
+        let ro_z = _mm256_set_m128(ro_z, ro_z);
+        // load ray direction
+        let rd = ray.direction.unwrap();
+        let rd_x = _mm_shuffle_ps(rd, rd, _mm_shuffle!(0, 0, 0, 0));
+        let rd_y = _mm_shuffle_ps(rd, rd, _mm_shuffle!(1, 1, 1, 1));
+        let rd_z = _mm_shuffle_ps(rd, rd, _mm_shuffle!(2, 2, 2, 2));
+        let rd_x = _mm256_set_m128(rd_x, rd_x);
+        let rd_y = _mm256_set_m128(rd_y, rd_y);
+        let rd_z = _mm256_set_m128(rd_z, rd_z);
+        // current indices being processed (little endian ordering)
+        let mut index = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
+        // loop over NUM_LANES spheres at a time
+        let num_chunks = self.len >> 3;
+        for chunk_index in (0..num_chunks).map(|i| i << 3) {
+            // load sphere centres
+            let c_x = _mm256_loadu_ps(self.centre_x.get_unchecked(chunk_index));
+            let c_y = _mm256_loadu_ps(self.centre_y.get_unchecked(chunk_index));
+            let c_z = _mm256_loadu_ps(self.centre_z.get_unchecked(chunk_index));
+            // load radius_sq
+            let r_sq = _mm256_loadu_ps(self.radius_sq.get_unchecked(chunk_index));
+            // let co = centre - ray.origin
+            let co_x = _mm256_sub_ps(c_x, ro_x);
+            let co_y = _mm256_sub_ps(c_y, ro_y);
+            let co_z = _mm256_sub_ps(c_z, ro_z);
+            // let nb = dot(co, ray.direction);
+            let nb = dot3_avx2(co_x, rd_x, co_y, rd_y, co_z, rd_z);
+            // let c = dot(co, co) - radius_sq;
+            let c = _mm256_sub_ps(dot3_avx2(co_x, co_x, co_y, co_y, co_z, co_z), r_sq);
+            // let discriminant = nb * nb - c;
+            let discr = _mm256_sub_ps(_mm256_mul_ps(nb, nb), c);
+            // if discr > 0.0
+            let pos_discr = _mm256_cmp_ps(discr, _mm256_set1_ps(0.0), CMP_EQ_OQ);
+            if _mm256_movemask_ps(pos_discr) != 0 {
+                // let discr_sqrt = discr.sqrt();
+                let discr_sqrt = _mm256_sqrt_ps(discr);
+                // let t0 = nb - discr_sqrt;
+                let t0 = _mm256_sub_ps(nb, discr_sqrt);
+                // let t1 = nb + discr_sqrt;
+                let t1 = _mm256_add_ps(nb, discr_sqrt);
+                // let t = if t0 > t_min { t0 } else { t1 };
+                let t = _mm256_blendv_ps(t1, t0, _mm256_cmp_ps(t0, t_min, CMP_GT_OQ));
+                // from rygs opts
+                // bool4 msk = discrPos & (t > tMin4) & (t < hitT);
+                let mask = _mm256_and_ps(
+                    pos_discr,
+                    _mm256_and_ps(
+                        _mm256_cmp_ps(t, t_min, CMP_GT_OQ),
+                        _mm256_cmp_ps(t, hit_t, CMP_LT_OQ),
+                    ),
+                );
+                // hit_index = mask ? index : hit_index;
+                hit_index = _mm256_blendv_epi8(hit_index, index, _mm256_castps_si256(mask));
+                // hit_t = mask ? t : hit_t;
+                hit_t = _mm256_blendv_ps(hit_t, t, mask);
+            }
+            // increment indices
+            index = _mm256_add_epi32(index, _mm256_set1_epi32(NUM_LANES as i32));
+        }
+
+        let min_hit_t = hmin_avx2(hit_t);
+        if min_hit_t < t_max {
+            let min_mask =
+                _mm256_movemask_ps(_mm256_cmp_ps(hit_t, _mm256_set1_ps(min_hit_t), CMP_EQ_OQ));
+            if min_mask != 0 {
+                let hit_t_lane = cttz(min_mask) as usize;
+                debug_assert!(hit_t_lane < NUM_LANES);
+
+                let hit_index_array = I32x8 { simd: hit_index }.array;
+                let hit_t_array = F32x8 { simd: hit_t }.array;
 
                 let hit_index_scalar = *hit_index_array.get_unchecked(hit_t_lane) as usize;
                 debug_assert!(hit_index_scalar < self.len);

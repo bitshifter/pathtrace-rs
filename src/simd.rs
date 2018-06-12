@@ -12,14 +12,28 @@ macro_rules! _mm_shuffle {
     };
 }
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 pub union F32x4 {
     pub simd: __m128,
     pub array: [f32; 4],
 }
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 pub union I32x4 {
     pub simd: __m128i,
     pub array: [i32; 4],
+}
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+pub union F32x8 {
+    pub simd: __m256,
+    pub array: [f32; 8],
+}
+
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+pub union I32x8 {
+    pub simd: __m256i,
+    pub array: [i32; 8],
 }
 
 pub fn simd_bits() -> usize {
@@ -58,6 +72,14 @@ pub unsafe fn hmin_sse2(v: __m128) -> f32 {
     _mm_cvtss_f32(v)
 }
 
+#[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "avx2"))]
+pub unsafe fn hmin_avx2(v: __m256) -> f32 {
+    let v = _mm256_min_ps(v, _mm256_permute_ps(v, _mm_shuffle!(0, 0, 3, 2)));
+    let v = _mm256_min_ps(v, _mm256_permute_ps(v, _mm_shuffle!(0, 0, 0, 1)));
+    let v = _mm256_min_ps(v, _mm256_permute2f128_ps(v, v, 1));
+    _mm256_cvtss_f32(v)
+}
+
 #[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "sse2"))]
 pub unsafe fn blend_f32_sse2(lhs: __m128, rhs: __m128, cond: __m128) -> __m128 {
     let d = _mm_castsi128_ps(_mm_srai_epi32(_mm_castps_si128(cond), 31));
@@ -76,5 +98,20 @@ pub unsafe fn dot3_sse2(
     let mut dot = _mm_mul_ps(x0, x1);
     dot = _mm_add_ps(dot, _mm_mul_ps(y0, y1));
     dot = _mm_add_ps(dot, _mm_mul_ps(z0, z1));
+    dot
+}
+
+#[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "avx2"))]
+pub unsafe fn dot3_avx2(
+    x0: __m256,
+    x1: __m256,
+    y0: __m256,
+    y1: __m256,
+    z0: __m256,
+    z1: __m256,
+) -> __m256 {
+    let mut dot = _mm256_mul_ps(x0, x1);
+    dot = _mm256_add_ps(dot, _mm256_mul_ps(y0, y1));
+    dot = _mm256_add_ps(dot, _mm256_mul_ps(z0, z1));
     dot
 }
