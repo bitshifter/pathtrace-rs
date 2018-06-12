@@ -216,16 +216,13 @@ impl Scene {
 mod bench {
     use presets;
     use rand::{SeedableRng, XorShiftRng};
-    use scene::Params;
-    use std::f32;
+    use scene::{MIN_T, MAX_T, Params};
     use test::{black_box, Bencher};
 
     const FIXED_SEED: [u32; 4] = [0x193a_6754, 0xa8a7_d469, 0x9783_0e05, 0x113b_a7bb];
 
     #[bench]
     fn ray_hit(b: &mut Bencher) {
-        const MAX_T: f32 = f32::MAX;
-        const MIN_T: f32 = 0.001;
         let seed = black_box(FIXED_SEED);
         let mut rng = XorShiftRng::from_seed(seed);
         let params = Params {

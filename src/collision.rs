@@ -332,7 +332,7 @@ impl SpheresSoA {
             // let discriminant = nb * nb - c;
             let discr = _mm256_sub_ps(_mm256_mul_ps(nb, nb), c);
             // if discr > 0.0
-            let pos_discr = _mm256_cmp_ps(discr, _mm256_set1_ps(0.0), CMP_EQ_OQ);
+            let pos_discr = _mm256_cmp_ps(discr, _mm256_set1_ps(0.0), CMP_GT_OQ);
             if _mm256_movemask_ps(pos_discr) != 0 {
                 // let discr_sqrt = discr.sqrt();
                 let discr_sqrt = _mm256_sqrt_ps(discr);
