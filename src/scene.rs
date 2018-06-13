@@ -4,6 +4,7 @@ use material::Material;
 use math::maxf;
 use rand::{weak_rng, Rng, SeedableRng, XorShiftRng};
 use rayon::prelude::*;
+use simd::sinf_cosf;
 use std::f32;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use vmath::{vec3, Vec3};
@@ -86,7 +87,8 @@ impl Scene {
             let cos_a = 1.0 - eps1 + eps1 * cos_a_max;
             let sin_a = (1.0 - cos_a * cos_a).sqrt();
             let phi = 2.0 * f32::consts::PI * eps2;
-            let l = su * (phi.cos() * sin_a) + sv * (phi.sin() * sin_a) + sw * cos_a;
+            let (sin_phi, cos_phi) = sinf_cosf(phi);
+            let l = su * (cos_phi * sin_a) + sv * (sin_phi * sin_a) + sw * cos_a;
             //l = normalize(l); // NOTE(fg): This is already normalized, by construction.
 
             *ray_count += 1;

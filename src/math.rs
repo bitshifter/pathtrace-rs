@@ -1,4 +1,5 @@
 use rand::Rng;
+use simd::sinf_cosf;
 use std::f32;
 use vmath::{vec3, Vec3};
 
@@ -28,7 +29,7 @@ pub fn random_unit_vector<T: Rng>(rng: &mut T) -> Vec3 {
     let z = rng.next_f32() * 2.0 - 1.0;
     let a = rng.next_f32() * 2.0 * f32::consts::PI;
     let r = (1.0 - z * z).sqrt();
-    let (sina, cosa) = a.sin_cos();
+    let (sina, cosa) = sinf_cosf(a);
     vec3(r * cosa, r * sina, z)
 }
 
