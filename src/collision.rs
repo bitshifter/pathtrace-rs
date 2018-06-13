@@ -287,9 +287,6 @@ impl SpheresSoA {
         use std::arch::x86_64::*;
         use std::intrinsics::cttz;
         // TODO: are these defined anywhere in std::arch?
-        const CMP_EQ_OQ: i32 = 0x00;
-        const CMP_LT_OQ: i32 = 0x11;
-        const CMP_GT_OQ: i32 = 0x1e;
         const NUM_LANES: usize = 8;
         let t_min = _mm256_set1_ps(t_min);
         let mut hit_t = _mm256_set1_ps(t_max);
@@ -332,7 +329,7 @@ impl SpheresSoA {
             // let discriminant = nb * nb - c;
             let discr = _mm256_sub_ps(_mm256_mul_ps(nb, nb), c);
             // if discr > 0.0
-            let pos_discr = _mm256_cmp_ps(discr, _mm256_set1_ps(0.0), CMP_GT_OQ);
+            let pos_discr = _mm256_cmp_ps(discr, _mm256_set1_ps(0.0), _CMP_GT_OQ);
             if _mm256_movemask_ps(pos_discr) != 0 {
                 // let discr_sqrt = discr.sqrt();
                 let discr_sqrt = _mm256_sqrt_ps(discr);
@@ -341,14 +338,14 @@ impl SpheresSoA {
                 // let t1 = nb + discr_sqrt;
                 let t1 = _mm256_add_ps(nb, discr_sqrt);
                 // let t = if t0 > t_min { t0 } else { t1 };
-                let t = _mm256_blendv_ps(t1, t0, _mm256_cmp_ps(t0, t_min, CMP_GT_OQ));
+                let t = _mm256_blendv_ps(t1, t0, _mm256_cmp_ps(t0, t_min, _CMP_GT_OQ));
                 // from rygs opts
                 // bool4 msk = discrPos & (t > tMin4) & (t < hitT);
                 let mask = _mm256_and_ps(
                     pos_discr,
                     _mm256_and_ps(
-                        _mm256_cmp_ps(t, t_min, CMP_GT_OQ),
-                        _mm256_cmp_ps(t, hit_t, CMP_LT_OQ),
+                        _mm256_cmp_ps(t, t_min, _CMP_GT_OQ),
+                        _mm256_cmp_ps(t, hit_t, _CMP_LT_OQ),
                     ),
                 );
                 // hit_index = mask ? index : hit_index;
@@ -363,7 +360,7 @@ impl SpheresSoA {
         let min_hit_t = hmin_avx2(hit_t);
         if min_hit_t < t_max {
             let min_mask =
-                _mm256_movemask_ps(_mm256_cmp_ps(hit_t, _mm256_set1_ps(min_hit_t), CMP_EQ_OQ));
+                _mm256_movemask_ps(_mm256_cmp_ps(hit_t, _mm256_set1_ps(min_hit_t), _CMP_EQ_OQ));
             if min_mask != 0 {
                 let hit_t_lane = cttz(min_mask) as usize;
                 debug_assert!(hit_t_lane < NUM_LANES);
