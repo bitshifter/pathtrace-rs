@@ -11,6 +11,15 @@ macro_rules! _mm_shuffle {
     };
 }
 
+pub fn print_simd_version() {
+    #[cfg(target_feature = "avx2")]
+    println!("Using AVX2");
+    #[cfg(all(target_feature = "sse4.1", not(target_feature = "avx2")))]
+    println!("Using SSE4.1");
+    #[cfg(not(any(target_feature = "sse2", target_feature = "avx2")))]
+    println!("Using Scalar");
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Ray {
     pub origin: Vec3,
@@ -76,6 +85,7 @@ pub struct SpheresSoA {
 
 impl SpheresSoA {
     pub fn new(spheres: &[Sphere]) -> SpheresSoA {
+        print_simd_version();
         // HACK: make sure there's enough entries for SIMD
         // TODO: conditionally compile this
         let chunk_size = simd_bits() / 32;
@@ -129,19 +139,15 @@ impl SpheresSoA {
     }
 
     pub fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
-        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-        {
-            if is_x86_feature_detected!("avx2") {
-                return unsafe { self.hit_avx2(ray, t_min, t_max) };
-            }
-            if is_x86_feature_detected!("sse4.1") {
-                return unsafe { self.hit_sse4_1(ray, t_min, t_max) };
-            }
-        }
-
+        #[cfg(target_feature = "avx2")]
+        return unsafe { self.hit_avx2(ray, t_min, t_max) };
+        #[cfg(all(target_feature = "sse4.1", not(target_feature = "avx2")))]
+        return unsafe { self.hit_sse4_1(ray, t_min, t_max) };
+        #[cfg(not(any(target_feature = "sse4.1", target_feature = "avx2")))]
         self.hit_scalar(ray, t_min, t_max)
     }
 
+    #[cfg(not(any(target_feature = "sse4.1", target_feature = "avx2")))]
     fn hit_scalar(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
         let mut hit_t = t_max;
         let mut hit_index = self.len;
@@ -183,7 +189,7 @@ impl SpheresSoA {
         }
     }
 
-    #[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "sse4.1"))]
+    #[cfg(all(target_feature = "sse4.1", not(target_feature = "avx2")))]
     unsafe fn hit_sse4_1(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::*;
@@ -279,7 +285,7 @@ impl SpheresSoA {
         None
     }
 
-    #[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "avx2"))]
+    #[cfg(target_feature = "avx2")]
     unsafe fn hit_avx2(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::*;

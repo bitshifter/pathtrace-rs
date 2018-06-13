@@ -86,7 +86,7 @@ pub fn sinf_cosf(x: f32) -> (f32, f32) {
 }
 
 // Based on http://gruntthepeon.free.fr/ssemath/sse_mathfun.h
-#[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "sse2"))]
+#[cfg(target_feature = "sse2")]
 pub unsafe fn sinf_cosf_sse2(x: __m128) -> (__m128, __m128) {
     let mut sign_bit_sin = x;
     // take the absolute value
@@ -178,42 +178,38 @@ pub unsafe fn sinf_cosf_sse2(x: __m128) -> (__m128, __m128) {
 }
 
 pub fn simd_bits() -> usize {
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    {
-        if is_x86_feature_detected!("avx2") {
-            return unsafe { simd_bits_avx2() };
-        }
-        if is_x86_feature_detected!("sse2") {
-            return unsafe { simd_bits_sse2() };
-        }
-    }
+    #[cfg(target_feature = "avx2")]
+    return unsafe { simd_bits_avx2() };
+    #[cfg(all(target_feature = "sse2", not(target_feature = "avx2")))]
+    return unsafe { simd_bits_sse2() };
+    #[cfg(not(any(target_feature = "sse2", target_feature = "avx2")))]
     32
 }
 
-#[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "sse2"))]
+#[cfg(target_feature = "sse2")]
 pub unsafe fn simd_bits_sse2() -> usize {
     128
 }
 
-#[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "avx2"))]
+#[cfg(target_feature = "avx2")]
 pub unsafe fn simd_bits_avx2() -> usize {
     256
 }
 
-#[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "sse2"))]
+#[cfg(target_feature = "sse2")]
 pub unsafe fn blend_i32_sse2(lhs: __m128i, rhs: __m128i, cond: __m128) -> __m128i {
     let d = _mm_srai_epi32(_mm_castps_si128(cond), 31);
     _mm_or_si128(_mm_and_si128(d, rhs), _mm_andnot_si128(d, lhs))
 }
 
-#[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "sse2"))]
+#[cfg(target_feature = "sse2")]
 pub unsafe fn hmin_sse2(v: __m128) -> f32 {
     let v = _mm_min_ps(v, _mm_shuffle_ps(v, v, _mm_shuffle!(0, 0, 3, 2)));
     let v = _mm_min_ps(v, _mm_shuffle_ps(v, v, _mm_shuffle!(0, 0, 0, 1)));
     _mm_cvtss_f32(v)
 }
 
-#[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "avx2"))]
+#[cfg(target_feature = "avx2")]
 pub unsafe fn hmin_avx2(v: __m256) -> f32 {
     let v = _mm256_min_ps(v, _mm256_permute_ps(v, _mm_shuffle!(0, 0, 3, 2)));
     let v = _mm256_min_ps(v, _mm256_permute_ps(v, _mm_shuffle!(0, 0, 0, 1)));
@@ -221,13 +217,13 @@ pub unsafe fn hmin_avx2(v: __m256) -> f32 {
     _mm256_cvtss_f32(v)
 }
 
-#[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "sse2"))]
+#[cfg(target_feature = "sse2")]
 pub unsafe fn blend_f32_sse2(lhs: __m128, rhs: __m128, cond: __m128) -> __m128 {
     let d = _mm_castsi128_ps(_mm_srai_epi32(_mm_castps_si128(cond), 31));
     _mm_or_ps(_mm_and_ps(d, rhs), _mm_andnot_ps(d, lhs))
 }
 
-#[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "sse2"))]
+#[cfg(target_feature = "sse2")]
 pub unsafe fn dot3_sse2(
     x0: __m128,
     x1: __m128,
@@ -242,7 +238,7 @@ pub unsafe fn dot3_sse2(
     dot
 }
 
-#[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "avx2"))]
+#[cfg(target_feature = "avx2")]
 pub unsafe fn dot3_avx2(
     x0: __m256,
     x1: __m256,
