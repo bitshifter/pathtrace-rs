@@ -76,6 +76,7 @@ _ps_const_ty!(PS_COSCOF_P2, f32x4, 4.166664568298827E-002);
 _ps_const_ty!(PS_CEPHES_FOPI, f32x4, 1.27323954473516); // 4 / M_PI
 
 pub fn sinf_cosf(x: f32) -> (f32, f32) {
+    // expect sse2 to be available on all x86 builds
     #[cfg(target_feature = "sse2")]
     unsafe {
         let (sinx, cosx) = sinf_cosf_sse2(_mm_set1_ps(x));
@@ -86,7 +87,7 @@ pub fn sinf_cosf(x: f32) -> (f32, f32) {
 }
 
 // Based on http://gruntthepeon.free.fr/ssemath/sse_mathfun.h
-#[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "sse2"))]
+#[cfg(target_feature = "sse2")]
 pub unsafe fn sinf_cosf_sse2(x: __m128) -> (__m128, __m128) {
     let mut sign_bit_sin = x;
     // take the absolute value

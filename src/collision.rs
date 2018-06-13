@@ -11,6 +11,21 @@ macro_rules! _mm_shuffle {
     };
 }
 
+pub fn print_simd_version() {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        if is_x86_feature_detected!("avx2") {
+            println!("Using AVX2");
+            return;
+        }
+        if is_x86_feature_detected!("sse4.1") {
+            println!("Using SSE4.1");
+            return;
+        }
+    }
+    println!("Using Scalar");
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Ray {
     pub origin: Vec3,
@@ -76,6 +91,7 @@ pub struct SpheresSoA {
 
 impl SpheresSoA {
     pub fn new(spheres: &[Sphere]) -> SpheresSoA {
+        print_simd_version();
         // HACK: make sure there's enough entries for SIMD
         // TODO: conditionally compile this
         let chunk_size = simd_bits() / 32;
