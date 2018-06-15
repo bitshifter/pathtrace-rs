@@ -4,11 +4,19 @@ use simd::*;
 use std::f32;
 use vmath::{vec3, Vec3};
 
-// TODO: how do I import this from mod simd
-macro_rules! _mm_shuffle {
-    ($z:expr, $y:expr, $x:expr, $w:expr) => {
-        ($z << 6) | ($y << 4) | ($x << 2) | $w
-    };
+pub fn print_simd_version() {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        if is_x86_feature_detected!("avx2") {
+            println!("Using AVX2");
+            return;
+        }
+        if is_x86_feature_detected!("sse4.1") {
+            println!("Using SSE4.1");
+            return;
+        }
+    }
+    println!("Using Scalar");
 }
 
 pub fn print_simd_version() {
@@ -202,14 +210,14 @@ impl SpheresSoA {
         let mut hit_index = _mm_set_epi32(-1, -1, -1, -1);
         // load ray origin
         let ro = ray.origin.unwrap();
-        let ro_x = _mm_shuffle_ps(ro, ro, _mm_shuffle!(0, 0, 0, 0));
-        let ro_y = _mm_shuffle_ps(ro, ro, _mm_shuffle!(1, 1, 1, 1));
-        let ro_z = _mm_shuffle_ps(ro, ro, _mm_shuffle!(2, 2, 2, 2));
+        let ro_x = _mm_shuffle_ps(ro, ro, 0b00_00_00_00);
+        let ro_y = _mm_shuffle_ps(ro, ro, 0b01_01_01_01);
+        let ro_z = _mm_shuffle_ps(ro, ro, 0b10_10_10_10);
         // load ray direction
         let rd = ray.direction.unwrap();
-        let rd_x = _mm_shuffle_ps(rd, rd, _mm_shuffle!(0, 0, 0, 0));
-        let rd_y = _mm_shuffle_ps(rd, rd, _mm_shuffle!(1, 1, 1, 1));
-        let rd_z = _mm_shuffle_ps(rd, rd, _mm_shuffle!(2, 2, 2, 2));
+        let rd_x = _mm_shuffle_ps(rd, rd, 0b00_00_00_00);
+        let rd_y = _mm_shuffle_ps(rd, rd, 0b01_01_01_01);
+        let rd_z = _mm_shuffle_ps(rd, rd, 0b10_10_10_10);
         // current indices being processed (little endian ordering)
         let mut index = _mm_set_epi32(3, 2, 1, 0);
         // loop over 4 spheres at a time
@@ -299,17 +307,17 @@ impl SpheresSoA {
         let mut hit_index = _mm256_set1_epi32(-1);
         // load ray origin
         let ro = ray.origin.unwrap();
-        let ro_x = _mm_shuffle_ps(ro, ro, _mm_shuffle!(0, 0, 0, 0));
-        let ro_y = _mm_shuffle_ps(ro, ro, _mm_shuffle!(1, 1, 1, 1));
-        let ro_z = _mm_shuffle_ps(ro, ro, _mm_shuffle!(2, 2, 2, 2));
+        let ro_x = _mm_shuffle_ps(ro, ro, 0b00_00_00_00);
+        let ro_y = _mm_shuffle_ps(ro, ro, 0b01_01_01_01);
+        let ro_z = _mm_shuffle_ps(ro, ro, 0b10_10_10_10);
         let ro_x = _mm256_set_m128(ro_x, ro_x);
         let ro_y = _mm256_set_m128(ro_y, ro_y);
         let ro_z = _mm256_set_m128(ro_z, ro_z);
         // load ray direction
         let rd = ray.direction.unwrap();
-        let rd_x = _mm_shuffle_ps(rd, rd, _mm_shuffle!(0, 0, 0, 0));
-        let rd_y = _mm_shuffle_ps(rd, rd, _mm_shuffle!(1, 1, 1, 1));
-        let rd_z = _mm_shuffle_ps(rd, rd, _mm_shuffle!(2, 2, 2, 2));
+        let rd_x = _mm_shuffle_ps(rd, rd, 0b00_00_00_00);
+        let rd_y = _mm_shuffle_ps(rd, rd, 0b01_01_01_01);
+        let rd_z = _mm_shuffle_ps(rd, rd, 0b10_10_10_10);
         let rd_x = _mm256_set_m128(rd_x, rd_x);
         let rd_y = _mm256_set_m128(rd_y, rd_y);
         let rd_z = _mm256_set_m128(rd_z, rd_z);

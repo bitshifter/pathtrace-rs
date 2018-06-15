@@ -5,13 +5,6 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-#[macro_export]
-macro_rules! _mm_shuffle {
-    ($z:expr, $y:expr, $x:expr, $w:expr) => {
-        ($z << 6) | ($y << 4) | ($x << 2) | $w
-    };
-}
-
 macro_rules! _ps_const_ty {
     ($name:ident, $field:ident, $x:expr) => {
         const $name: UnionCast = UnionCast {
@@ -76,6 +69,7 @@ _ps_const_ty!(PS_COSCOF_P2, f32x4, 4.166664568298827E-002);
 _ps_const_ty!(PS_CEPHES_FOPI, f32x4, 1.27323954473516); // 4 / M_PI
 
 pub fn sinf_cosf(x: f32) -> (f32, f32) {
+    // expect sse2 to be available on all x86 builds
     #[cfg(target_feature = "sse2")]
     unsafe {
         let (sinx, cosx) = sinf_cosf_sse2(_mm_set1_ps(x));
@@ -204,15 +198,15 @@ pub unsafe fn blend_i32_sse2(lhs: __m128i, rhs: __m128i, cond: __m128) -> __m128
 
 #[cfg(target_feature = "sse2")]
 pub unsafe fn hmin_sse2(v: __m128) -> f32 {
-    let v = _mm_min_ps(v, _mm_shuffle_ps(v, v, _mm_shuffle!(0, 0, 3, 2)));
-    let v = _mm_min_ps(v, _mm_shuffle_ps(v, v, _mm_shuffle!(0, 0, 0, 1)));
+    let v = _mm_min_ps(v, _mm_shuffle_ps(v, v, 0b00_00_11_10));
+    let v = _mm_min_ps(v, _mm_shuffle_ps(v, v, 0b00_00_00_01));
     _mm_cvtss_f32(v)
 }
 
 #[cfg(target_feature = "avx2")]
 pub unsafe fn hmin_avx2(v: __m256) -> f32 {
-    let v = _mm256_min_ps(v, _mm256_permute_ps(v, _mm_shuffle!(0, 0, 3, 2)));
-    let v = _mm256_min_ps(v, _mm256_permute_ps(v, _mm_shuffle!(0, 0, 0, 1)));
+    let v = _mm256_min_ps(v, _mm256_permute_ps(v, 0b00_00_11_10));
+    let v = _mm256_min_ps(v, _mm256_permute_ps(v, 0b00_00_00_01));
     let v = _mm256_min_ps(v, _mm256_permute2f128_ps(v, v, 1));
     _mm256_cvtss_f32(v)
 }
