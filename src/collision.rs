@@ -5,21 +5,6 @@ use std::f32;
 use vmath::{vec3, Vec3};
 
 pub fn print_simd_version() {
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    {
-        if is_x86_feature_detected!("avx2") {
-            println!("Using AVX2");
-            return;
-        }
-        if is_x86_feature_detected!("sse4.1") {
-            println!("Using SSE4.1");
-            return;
-        }
-    }
-    println!("Using Scalar");
-}
-
-pub fn print_simd_version() {
     #[cfg(target_feature = "avx2")]
     println!("Using AVX2");
     #[cfg(all(target_feature = "sse4.1", not(target_feature = "avx2")))]
