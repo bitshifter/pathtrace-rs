@@ -20,12 +20,6 @@ mod sse2 {
     #[repr(C)]
     pub struct Vec3(__m128);
 
-    macro_rules! _mm_shuffle {
-        ($z:expr, $y:expr, $x:expr, $w:expr) => {
-            ($z << 6) | ($y << 4) | ($x << 2) | $w
-        };
-    }
-
     #[inline]
     pub fn vec3(x: f32, y: f32, z: f32) -> Vec3 {
         Vec3::new(x, y, z)
@@ -54,22 +48,22 @@ mod sse2 {
 
         #[inline]
         pub fn get_y(self) -> f32 {
-            unsafe { _mm_cvtss_f32(_mm_shuffle_ps(self.0, self.0, _mm_shuffle!(1, 1, 1, 1))) }
+            unsafe { _mm_cvtss_f32(_mm_shuffle_ps(self.0, self.0, 0b01_01_01_01)) }
         }
 
         #[inline]
         pub fn get_z(self) -> f32 {
-            unsafe { _mm_cvtss_f32(_mm_shuffle_ps(self.0, self.0, _mm_shuffle!(2, 2, 2, 2))) }
+            unsafe { _mm_cvtss_f32(_mm_shuffle_ps(self.0, self.0, 0b10_10_10_10)) }
         }
 
         #[inline]
         pub fn yzx(self) -> Vec3 {
-            unsafe { Vec3(_mm_shuffle_ps(self.0, self.0, _mm_shuffle!(0, 0, 2, 1))) }
+            unsafe { Vec3(_mm_shuffle_ps(self.0, self.0, 0b00_00_10_01)) }
         }
 
         #[inline]
         pub fn zxy(self) -> Vec3 {
-            unsafe { Vec3(_mm_shuffle_ps(self.0, self.0, _mm_shuffle!(1, 1, 0, 2))) }
+            unsafe { Vec3(_mm_shuffle_ps(self.0, self.0, 0b01_01_00_10)) }
         }
 
         #[inline]
@@ -83,7 +77,7 @@ mod sse2 {
         pub fn set_y(&mut self, y: f32) {
             unsafe {
                 let mut t = _mm_move_ss(self.0, _mm_set_ss(y));
-                t = _mm_shuffle_ps(t, t, _mm_shuffle!(3, 2, 0, 0));
+                t = _mm_shuffle_ps(t, t, 0b11_10_00_00);
                 self.0 = _mm_move_ss(t, self.0);
             }
         }
@@ -92,7 +86,7 @@ mod sse2 {
         pub fn set_z(&mut self, z: f32) {
             unsafe {
                 let mut t = _mm_move_ss(self.0, _mm_set_ss(z));
-                t = _mm_shuffle_ps(t, t, _mm_shuffle!(3, 0, 1, 0));
+                t = _mm_shuffle_ps(t, t, 0b11_00_01_00);
                 self.0 = _mm_move_ss(t, self.0);
             }
         }
