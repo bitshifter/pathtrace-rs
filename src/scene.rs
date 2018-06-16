@@ -68,8 +68,8 @@ impl Scene {
 
             // create a random direction towards sphere
             // coord system for sampling: sw, su, sv
-            let sphere_centre = self.spheres.centre(*index);
-            let sphere_radius_sq = self.spheres.radius_sq(*index);
+            let sphere_centre = self.spheres.get_centre(*index);
+            let sphere_radius_sq = self.spheres.get_radius_sq(*index);
             let sw = (sphere_centre - ray_in_hit.point).normalize();
             let su = (if sw.get_x().abs() > 0.01 {
                 vec3(0.0, 1.0, 0.0)

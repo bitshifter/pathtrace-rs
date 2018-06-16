@@ -73,13 +73,14 @@ pub fn sphere(
 
 #[derive(Debug)]
 pub struct SpheresSoA {
-    centre_x: Vec<f32>,
-    centre_y: Vec<f32>,
-    centre_z: Vec<f32>,
-    radius_sq: Vec<f32>,
-    radius_inv: Vec<f32>,
-    len: usize,
-    num_spheres: usize,
+    buffer: Vec<f32>,
+    centre_x: u32,
+    centre_y: u32,
+    centre_z: u32,
+    radius_sq: u32,
+    radius_inv: u32,
+    len: u32,
+    num_spheres: u32,
 }
 
 impl SpheresSoA {
@@ -87,54 +88,84 @@ impl SpheresSoA {
         print_simd_version();
         // HACK: make sure there's enough entries for SIMD
         // TODO: conditionally compile this
-        let chunk_size = simd_bits() / 32;
+        const U8_BITS: usize = 8;
+        const F32_BYTES: usize = 4;
+        const F32_BITS: usize = 32;
+        let simd_bit_size = simd_bits();
+        let chunk_size = simd_bit_size / F32_BITS;
+        let chunk_align = simd_bit_size / U8_BITS;
         let num_spheres = spheres.len();
         let len = align_to(num_spheres, chunk_size);
-        let mut centre_x = Vec::with_capacity(len);
-        let mut centre_y = Vec::with_capacity(len);
-        let mut centre_z = Vec::with_capacity(len);
-        let mut radius_inv = Vec::with_capacity(len);
-        let mut radius_sq = Vec::with_capacity(len);
-        for sphere in spheres {
-            centre_x.push(sphere.centre.get_x());
-            centre_y.push(sphere.centre.get_y());
-            centre_z.push(sphere.centre.get_z());
-            radius_sq.push(sphere.radius * sphere.radius);
-            radius_inv.push(1.0 / sphere.radius);
+        let buffer_size = len * 5 + chunk_align - 1;
+        let mut buffer = vec![0.0f32; buffer_size];
+        let address = buffer.as_ptr() as usize;
+        let aligned_address = align_to(address, chunk_align);
+        let offset = (aligned_address - address) / F32_BYTES;
+        let centre_x = offset;
+        let centre_y = centre_x + len;
+        let centre_z = centre_y + len;
+        let radius_sq = centre_z + len;
+        let radius_inv = radius_sq + len;
+        for (i, sphere) in spheres.iter().enumerate() {
+            buffer[centre_x + i] = sphere.centre.get_x();
+            buffer[centre_y + i] = sphere.centre.get_y();
+            buffer[centre_z + i] = sphere.centre.get_z();
+            buffer[radius_sq + i] = sphere.radius * sphere.radius;
+            buffer[radius_inv + i] = 1.0 / sphere.radius;
         }
-        let padding = len - num_spheres;
-        for _ in 0..padding {
-            centre_x.push(f32::MAX);
-            centre_y.push(f32::MAX);
-            centre_z.push(f32::MAX);
-            radius_sq.push(0.0);
-            radius_inv.push(0.0);
+        for i in num_spheres..len {
+            buffer[centre_x + i] = f32::MAX;
+            buffer[centre_y + i] = f32::MAX;
+            buffer[centre_z + i] = f32::MAX;
+            buffer[radius_sq + i] = 0.0;
+            buffer[radius_inv + i] = 0.0;
         }
         SpheresSoA {
-            centre_x,
-            centre_y,
-            centre_z,
-            radius_sq,
-            radius_inv,
-            len,
-            num_spheres,
+            buffer,
+            centre_x: centre_x as u32,
+            centre_y: centre_y as u32,
+            centre_z: centre_z as u32,
+            radius_sq: radius_sq as u32,
+            radius_inv: radius_inv as u32,
+            len: len as u32,
+            num_spheres: num_spheres as u32,
         }
     }
 
-    pub fn centre(&self, index: u32) -> Vec3 {
-        let index = index as usize;
+    pub fn get_centre(&self, index: u32) -> Vec3 {
         assert!(index < self.len);
         unsafe {
             vec3(
-                *self.centre_x.get_unchecked(index),
-                *self.centre_y.get_unchecked(index),
-                *self.centre_z.get_unchecked(index),
+                *self.buffer.get_unchecked((self.centre_x + index) as usize),
+                *self.buffer.get_unchecked((self.centre_y + index) as usize),
+                *self.buffer.get_unchecked((self.centre_z + index) as usize),
             )
         }
     }
 
-    pub fn radius_sq(&self, index: u32) -> f32 {
-        self.radius_sq[index as usize]
+    #[inline]
+    fn get_centre_x(&self, index: u32) -> &f32 {
+        unsafe { self.buffer.get_unchecked((self.centre_x + index) as usize) }
+    }
+
+    #[inline]
+    fn get_centre_y(&self, index: u32) -> &f32 {
+        unsafe { self.buffer.get_unchecked((self.centre_y + index) as usize) }
+    }
+
+    #[inline]
+    fn get_centre_z(&self, index: u32) -> &f32 {
+        unsafe { self.buffer.get_unchecked((self.centre_z + index) as usize) }
+    }
+
+    #[inline]
+    pub fn get_radius_sq(&self, index: u32) -> &f32 {
+        unsafe { self.buffer.get_unchecked((self.radius_sq + index) as usize) }
+    }
+
+    #[inline]
+    fn get_radius_inv(&self, index: u32) -> &f32 {
+        unsafe { self.buffer.get_unchecked((self.radius_inv + index) as usize) }
     }
 
     pub fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
@@ -154,17 +185,10 @@ impl SpheresSoA {
     fn hit_scalar(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
         let mut hit_t = t_max;
         let mut hit_index = self.len;
-        for ((((index, centre_x), centre_y), centre_z), radius_sq) in self
-            .centre_x
-            .iter()
-            .enumerate()
-            .zip(self.centre_y.iter())
-            .zip(self.centre_z.iter())
-            .zip(self.radius_sq.iter())
-        {
-            let co = vec3(*centre_x, *centre_y, *centre_z) - ray.origin;
+        for index in 0..self.num_spheres {
+            let co = self.get_centre(index) - ray.origin;
             let nb = co.dot(ray.direction);
-            let c = co.dot(co) - radius_sq;
+            let c = co.dot(co) - self.get_radius_sq(index);
             let discriminant = nb * nb - c;
             if discriminant > 0.0 {
                 let discriminant_sqrt = discriminant.sqrt();
@@ -180,12 +204,7 @@ impl SpheresSoA {
         }
         if hit_index < self.len {
             let point = ray.point_at_parameter(hit_t);
-            let normal = (point
-                - vec3(
-                    self.centre_x[hit_index],
-                    self.centre_y[hit_index],
-                    self.centre_z[hit_index],
-                )) * self.radius_inv[hit_index];
+            let normal = (point - self.get_centre(hit_index)) * *self.get_radius_inv(hit_index);
             Some((RayHit { point, normal }, hit_index as u32))
         } else {
             None
@@ -219,11 +238,11 @@ impl SpheresSoA {
         let num_chunks = self.len >> 2;
         for chunk_index in (0..num_chunks).map(|i| i << 2) {
             // load sphere centres
-            let c_x = _mm_loadu_ps(self.centre_x.get_unchecked(chunk_index));
-            let c_y = _mm_loadu_ps(self.centre_y.get_unchecked(chunk_index));
-            let c_z = _mm_loadu_ps(self.centre_z.get_unchecked(chunk_index));
+            let c_x = _mm_load_ps(self.get_centre_x(chunk_index));
+            let c_y = _mm_load_ps(self.get_centre_y(chunk_index));
+            let c_z = _mm_load_ps(self.get_centre_z(chunk_index));
             // load radius_sq
-            let r_sq = _mm_loadu_ps(self.radius_sq.get_unchecked(chunk_index));
+            let r_sq = _mm_load_ps(self.get_radius_sq(chunk_index));
             // let co = centre - ray.origin
             let co_x = _mm_sub_ps(c_x, ro_x);
             let co_y = _mm_sub_ps(c_y, ro_y);
@@ -270,19 +289,14 @@ impl SpheresSoA {
                 let hit_index_array = I32x4 { simd: hit_index }.array;
                 let hit_t_array = F32x4 { simd: hit_t }.array;
 
-                let hit_index_scalar = *hit_index_array.get_unchecked(hit_t_lane) as usize;
+                let hit_index_scalar = *hit_index_array.get_unchecked(hit_t_lane) as u32;
                 debug_assert!(hit_index_scalar < self.len);
                 let hit_t_scalar = *hit_t_array.get_unchecked(hit_t_lane);
 
                 let point = ray.point_at_parameter(hit_t_scalar);
-                let normal = (point
-                    - vec3(
-                        *self.centre_x.get_unchecked(hit_index_scalar),
-                        *self.centre_y.get_unchecked(hit_index_scalar),
-                        *self.centre_z.get_unchecked(hit_index_scalar),
-                    ))
-                    * *self.radius_inv.get_unchecked(hit_index_scalar);
-                return Some((RayHit { point, normal }, hit_index_scalar as u32));
+                let normal = (point - self.get_centre(hit_index_scalar))
+                    * *self.get_radius_inv(hit_index_scalar);
+                return Some((RayHit { point, normal }, hit_index_scalar));
             }
         }
         None
@@ -322,11 +336,11 @@ impl SpheresSoA {
         let num_chunks = self.len >> 3;
         for chunk_index in (0..num_chunks).map(|i| i << 3) {
             // load sphere centres
-            let c_x = _mm256_loadu_ps(self.centre_x.get_unchecked(chunk_index));
-            let c_y = _mm256_loadu_ps(self.centre_y.get_unchecked(chunk_index));
-            let c_z = _mm256_loadu_ps(self.centre_z.get_unchecked(chunk_index));
+            let c_x = _mm256_load_ps(self.get_centre_x(chunk_index));
+            let c_y = _mm256_load_ps(self.get_centre_y(chunk_index));
+            let c_z = _mm256_load_ps(self.get_centre_z(chunk_index));
             // load radius_sq
-            let r_sq = _mm256_loadu_ps(self.radius_sq.get_unchecked(chunk_index));
+            let r_sq = _mm256_load_ps(self.get_radius_sq(chunk_index));
             // let co = centre - ray.origin
             let co_x = _mm256_sub_ps(c_x, ro_x);
             let co_y = _mm256_sub_ps(c_y, ro_y);
@@ -377,18 +391,13 @@ impl SpheresSoA {
                 let hit_index_array = I32x8 { simd: hit_index }.array;
                 let hit_t_array = F32x8 { simd: hit_t }.array;
 
-                let hit_index_scalar = *hit_index_array.get_unchecked(hit_t_lane) as usize;
+                let hit_index_scalar = *hit_index_array.get_unchecked(hit_t_lane) as u32;
                 debug_assert!(hit_index_scalar < self.len);
                 let hit_t_scalar = *hit_t_array.get_unchecked(hit_t_lane);
 
                 let point = ray.point_at_parameter(hit_t_scalar);
-                let normal = (point
-                    - vec3(
-                        *self.centre_x.get_unchecked(hit_index_scalar),
-                        *self.centre_y.get_unchecked(hit_index_scalar),
-                        *self.centre_z.get_unchecked(hit_index_scalar),
-                    ))
-                    * *self.radius_inv.get_unchecked(hit_index_scalar);
+                let normal = (point - self.get_centre(hit_index_scalar))
+                    * *self.get_radius_inv(hit_index_scalar);
                 return Some((RayHit { point, normal }, hit_index_scalar as u32));
             }
         }
