@@ -9,7 +9,7 @@ pub fn print_simd_version() {
     println!("Using AVX2");
     #[cfg(all(target_feature = "sse4.1", not(target_feature = "avx2")))]
     println!("Using SSE4.1");
-    #[cfg(not(any(target_feature = "sse2", target_feature = "avx2")))]
+    #[cfg(not(any(target_feature = "sse4.1", target_feature = "avx2")))]
     println!("Using Scalar");
 }
 
