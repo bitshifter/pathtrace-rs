@@ -54,21 +54,25 @@ impl Scene {
             use std::arch::x86_64::*;
             if is_x86_feature_detected!("avx2") {
                 use simd::m256::*;
-                return self
+                return unsafe {
+                    self
                     .spheres
-                    .hit_simd::<__m256, __m256, __m256i, b32x8, f32x8, i32x8>(ray, t_min, t_max);
+                    .hit_simd::<__m256, __m256, __m256i, b32x8, f32x8, i32x8>(ray, t_min, t_max)
+                };
             } else if is_x86_feature_detected!("sse2") {
                 use simd::m128::*;
-                return self
+                return unsafe {
+                    self
                     .spheres
-                    .hit_simd::<__m128, __m128, __m128i, b32x4, f32x4, i32x4>(ray, t_min, t_max);
+                    .hit_simd::<__m128, __m128, __m128i, b32x4, f32x4, i32x4>(ray, t_min, t_max)
+                };
             }
         }
 
         {
             use simd::m32::*;
-            self.spheres
-                .hit_simd::<bool, f32, i32, b32x1, f32x1, i32x1>(ray, t_min, t_max)
+            unsafe { self.spheres
+                .hit_simd::<bool, f32, i32, b32x1, f32x1, i32x1>(ray, t_min, t_max) }
         }
     }
 

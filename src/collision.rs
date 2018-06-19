@@ -123,7 +123,7 @@ impl SpheresSoA {
         unsafe { *self.radius_sq.get_unchecked(sphere_index) }
     }
 
-    pub fn hit_simd<BI, FI, II, B, F, I>(
+    pub unsafe fn hit_simd<BI, FI, II, B, F, I>(
         &self,
         ray: &Ray,
         t_min: f32,
@@ -156,11 +156,11 @@ impl SpheresSoA {
             .zip(self.radius_sq.chunks(num_lanes))
         {
             // load sphere centres
-            let c_x = unsafe { F::load_unaligned(centre_x) };
-            let c_y = unsafe { F::load_unaligned(centre_y) };
-            let c_z = unsafe { F::load_unaligned(centre_z) };
+            let c_x = F::load_unaligned(centre_x);
+            let c_y = F::load_unaligned(centre_y);
+            let c_z = F::load_unaligned(centre_z);
             // load radius_sq
-            let r_sq = unsafe { F::load_unaligned(radius_sq) };
+            let r_sq = F::load_unaligned(radius_sq);
             // let co = centre - ray.origin
             let co_x = c_x - ro_x;
             let co_y = c_y - ro_y;
@@ -193,33 +193,30 @@ impl SpheresSoA {
         if min_hit_t < t_max {
             let min_mask = hit_t.eq(F::splat(min_hit_t)).to_mask();
             if min_mask != 0 {
-                let hit_t_lane = unsafe { cttz(min_mask) } as usize;
+                let hit_t_lane = cttz(min_mask) as usize;
 
                 // store hit_index and hit_t back to scalar
                 // TODO: use aligned structures
                 let mut hit_index_array = [-1i32; 8];
                 let mut hit_t_array = [t_max; 8];
-                unsafe {
-                    hit_index.store_unaligned(&mut hit_index_array);
-                    hit_t.store_unaligned(&mut hit_t_array);
-                }
+                hit_index.store_unaligned(&mut hit_index_array);
+                hit_t.store_unaligned(&mut hit_t_array);
 
                 debug_assert!(hit_t_lane < hit_index_array.len());
                 debug_assert!(hit_t_lane < hit_t_array.len());
 
                 let hit_index_scalar =
-                    unsafe { *hit_index_array.get_unchecked(hit_t_lane) as usize };
-                let hit_t_scalar = unsafe { *hit_t_array.get_unchecked(hit_t_lane) };
+                    *hit_index_array.get_unchecked(hit_t_lane) as usize;
+                let hit_t_scalar = *hit_t_array.get_unchecked(hit_t_lane);
 
                 let point = ray.point_at_parameter(hit_t_scalar);
-                let normal = unsafe {
-                    (point
-                        - vec3(
-                            *self.centre_x.get_unchecked(hit_index_scalar),
-                            *self.centre_y.get_unchecked(hit_index_scalar),
-                            *self.centre_z.get_unchecked(hit_index_scalar),
-                        )) * *self.radius_inv.get_unchecked(hit_index_scalar)
-                };
+                let normal = (point
+                              - vec3(
+                                  *self.centre_x.get_unchecked(hit_index_scalar),
+                                  *self.centre_y.get_unchecked(hit_index_scalar),
+                                  *self.centre_z.get_unchecked(hit_index_scalar),
+                                  )) * *self.radius_inv.get_unchecked(hit_index_scalar)
+                    ;
                 return Some((RayHit { point, normal }, hit_index_scalar as u32));
             }
         }
