@@ -21,14 +21,17 @@ pub struct Params {
     pub random_seed: bool,
 }
 
+type RayHitFunc = Fn(&SpheresSoA, &Ray, f32, f32) -> Option<(RayHit, u32)> + Sync + Send + 'static;
+
 pub struct Scene {
     spheres: SpheresSoA,
     materials: Vec<Material>,
     emissive: Vec<u32>,
+    hit_func: Box<RayHitFunc>,
     ray_count: AtomicUsize,
 }
 
-fn get_hit_func() -> Box<dyn Fn(&SpheresSoA, &Ray, f32, f32) -> Option<(RayHit, u32)> + Sync> {
+fn get_hit_func() -> Box<RayHitFunc> {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     {
         if is_x86_feature_detected!("avx2") {
@@ -58,10 +61,12 @@ impl Scene {
                 emissive.push(index as u32);
             }
         }
+        let hit_func = get_hit_func();
         Scene {
             spheres: SpheresSoA::new(&spheres),
             materials,
             emissive,
+            hit_func,
             ray_count: AtomicUsize::new(0),
         }
     }
@@ -72,7 +77,6 @@ impl Scene {
         ray_in_hit: &RayHit,
         in_hit_index: u32,
         attenuation: Vec3,
-        hit_func: &Box<Fn(&SpheresSoA, &Ray, f32, f32) -> Option<(RayHit, u32)> + Sync>,
         rng: &mut XorShiftRng,
         ray_count: &mut usize,
     ) -> Vec3 {
@@ -110,7 +114,8 @@ impl Scene {
 
             *ray_count += 1;
             let ray_out = ray(ray_in_hit.point, l);
-            if let Some((_, out_hit_index)) = hit_func(&self.spheres, &ray_out, MIN_T, MAX_T) {
+            if let Some((_, out_hit_index)) = (self.hit_func)(&self.spheres, &ray_out, MIN_T, MAX_T)
+            {
                 if *index == out_hit_index {
                     let omega = 2.0 * f32::consts::PI * (1.0 - cos_a_max);
                     let rdir = ray_in.direction;
@@ -134,27 +139,18 @@ impl Scene {
         depth: u32,
         max_depth: u32,
         do_material_emission: bool,
-        hit_func: &Box<Fn(&SpheresSoA, &Ray, f32, f32) -> Option<(RayHit, u32)> + Sync>,
         rng: &mut XorShiftRng,
         ray_count: &mut usize,
     ) -> Vec3 {
         *ray_count += 1;
-        if let Some((ray_hit, hit_index)) = hit_func(&self.spheres, ray_in, MIN_T, MAX_T) {
+        if let Some((ray_hit, hit_index)) = (self.hit_func)(&self.spheres, ray_in, MIN_T, MAX_T) {
             let material = &self.materials[hit_index as usize];
             if depth < max_depth {
                 if let Some((attenuation, scattered, do_light_sampling)) =
                     material.scatter(ray_in, &ray_hit, rng)
                 {
                     let light_emission = if do_light_sampling {
-                        self.sample_lights(
-                            ray_in,
-                            &ray_hit,
-                            hit_index,
-                            attenuation,
-                            hit_func,
-                            rng,
-                            ray_count,
-                        )
+                        self.sample_lights(ray_in, &ray_hit, hit_index, attenuation, rng, ray_count)
                     } else {
                         Vec3::zero()
                     };
@@ -173,7 +169,6 @@ impl Scene {
                                 depth + 1,
                                 max_depth,
                                 do_material_emission,
-                                hit_func,
                                 rng,
                                 ray_count,
                             );
@@ -203,8 +198,6 @@ impl Scene {
         let mix_prev = frame_num as f32 / (frame_num + 1) as f32;
         let mix_new = 1.0 - mix_prev;
 
-        let hit_func = get_hit_func();
-
         // parallel iterate each row of pixels
         buffer
             .par_chunks_mut(params.width as usize)
@@ -228,7 +221,6 @@ impl Scene {
                             0,
                             params.max_depth,
                             true,
-                            &hit_func,
                             &mut rng,
                             &mut ray_count,
                         );
