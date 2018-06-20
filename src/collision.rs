@@ -137,21 +137,7 @@ impl SpheresSoA {
         self.radius_sq[index as usize]
     }
 
-    pub fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
-        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-        {
-            if is_x86_feature_detected!("avx2") {
-                return unsafe { self.hit_avx2(ray, t_min, t_max) };
-            }
-            if is_x86_feature_detected!("sse4.1") {
-                return unsafe { self.hit_sse4_1(ray, t_min, t_max) };
-            }
-        }
-
-        self.hit_scalar(ray, t_min, t_max)
-    }
-
-    fn hit_scalar(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+    pub fn hit_scalar(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
         let mut hit_t = t_max;
         let mut hit_index = self.len;
         for ((((index, centre_x), centre_y), centre_z), radius_sq) in self
@@ -193,7 +179,7 @@ impl SpheresSoA {
     }
 
     #[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "sse4.1"))]
-    unsafe fn hit_sse4_1(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+    pub unsafe fn hit_sse4_1(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::*;
         #[cfg(target_arch = "x86_64")]
@@ -289,7 +275,7 @@ impl SpheresSoA {
     }
 
     #[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "avx2"))]
-    unsafe fn hit_avx2(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+    pub unsafe fn hit_avx2(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::*;
         #[cfg(target_arch = "x86_64")]
