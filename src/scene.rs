@@ -71,6 +71,11 @@ impl Scene {
         }
     }
 
+    #[inline]
+    fn ray_hit(&self, ray_in: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+        (self.hit_func)(&self.spheres, &ray_in, t_min, t_max)
+    }
+
     fn sample_lights(
         &self,
         ray_in: &Ray,
@@ -114,7 +119,7 @@ impl Scene {
 
             *ray_count += 1;
             let ray_out = ray(ray_in_hit.point, l);
-            if let Some((_, out_hit_index)) = (self.hit_func)(&self.spheres, &ray_out, MIN_T, MAX_T)
+            if let Some((_, out_hit_index)) = self.ray_hit(&ray_out, MIN_T, MAX_T)
             {
                 if *index == out_hit_index {
                     let omega = 2.0 * f32::consts::PI * (1.0 - cos_a_max);
@@ -143,7 +148,7 @@ impl Scene {
         ray_count: &mut usize,
     ) -> Vec3 {
         *ray_count += 1;
-        if let Some((ray_hit, hit_index)) = (self.hit_func)(&self.spheres, ray_in, MIN_T, MAX_T) {
+        if let Some((ray_hit, hit_index)) = self.ray_hit(ray_in, MIN_T, MAX_T) {
             let material = &self.materials[hit_index as usize];
             if depth < max_depth {
                 if let Some((attenuation, scattered, do_light_sampling)) =
