@@ -21,34 +21,32 @@ pub struct Params {
     pub random_seed: bool,
 }
 
-type RayHitFunc = Fn(&SpheresSoA, &Ray, f32, f32) -> Option<(RayHit, u32)> + Sync + Send + 'static;
+enum TargetFeature {
+    AVX2,
+    SSE4_1,
+    Scalar,
+}
 
 pub struct Scene {
     spheres: SpheresSoA,
     materials: Vec<Material>,
     emissive: Vec<u32>,
-    hit_func: Box<RayHitFunc>,
+    feature: TargetFeature,
     ray_count: AtomicUsize,
 }
 
-fn get_hit_func() -> Box<RayHitFunc> {
+fn get_target_feature() -> TargetFeature {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     {
         if is_x86_feature_detected!("avx2") {
-            return Box::new(|ref spheres, &ray, min_t, max_t| -> Option<(RayHit, u32)> {
-                unsafe { spheres.hit_avx2(&ray, min_t, max_t) }
-            });
+            return TargetFeature::AVX2;
         }
         if is_x86_feature_detected!("sse4.1") {
-            return Box::new(|ref spheres, &ray, min_t, max_t| -> Option<(RayHit, u32)> {
-                unsafe { spheres.hit_sse4_1(&ray, min_t, max_t) }
-            });
+            return TargetFeature::SSE4_1;
         }
     }
 
-    return Box::new(|ref spheres, &ray, min_t, max_t| -> Option<(RayHit, u32)> {
-        spheres.hit_scalar(&ray, min_t, max_t)
-    });
+    TargetFeature::Scalar
 }
 
 impl Scene {
@@ -61,19 +59,23 @@ impl Scene {
                 emissive.push(index as u32);
             }
         }
-        let hit_func = get_hit_func();
+        let feature = get_target_feature();
         Scene {
             spheres: SpheresSoA::new(&spheres),
             materials,
             emissive,
-            hit_func,
+            feature,
             ray_count: AtomicUsize::new(0),
         }
     }
 
     #[inline]
     fn ray_hit(&self, ray_in: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
-        (self.hit_func)(&self.spheres, &ray_in, t_min, t_max)
+        match self.feature {
+            TargetFeature::AVX2 => unsafe { self.spheres.hit_avx2(ray_in, t_min, t_max) },
+            TargetFeature::SSE4_1 => unsafe { self.spheres.hit_sse4_1(ray_in, t_min, t_max) },
+            TargetFeature::Scalar => self.spheres.hit_scalar(ray_in, t_min, t_max),
+        }
     }
 
     fn sample_lights(
@@ -119,8 +121,7 @@ impl Scene {
 
             *ray_count += 1;
             let ray_out = ray(ray_in_hit.point, l);
-            if let Some((_, out_hit_index)) = self.ray_hit(&ray_out, MIN_T, MAX_T)
-            {
+            if let Some((_, out_hit_index)) = self.ray_hit(&ray_out, MIN_T, MAX_T) {
                 if *index == out_hit_index {
                     let omega = 2.0 * f32::consts::PI * (1.0 - cos_a_max);
                     let rdir = ray_in.direction;
