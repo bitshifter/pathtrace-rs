@@ -242,7 +242,7 @@ impl Scene {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(bench, test))]
 mod bench {
     use presets;
     use rand::{SeedableRng, XorShiftRng};

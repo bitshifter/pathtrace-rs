@@ -1,7 +1,6 @@
-// for cttz
-#![feature(core_intrinsics)]
-// for bench
-#![feature(test)]
+#![cfg_attr(core_intrinsics, feature(core_intrinsics))] // for cttz
+#![cfg_attr(bench, feature(test))] // for bench
+#[cfg(bench)]
 extern crate test;
 
 #[macro_use]

@@ -10,6 +10,10 @@ rayon = "~1.0.1"
 # serde_derive = "1.0"
 # serde_json = "1.0"
 
+[features]
+core_intrinsics = []
+bench = []
+
 [dependencies.glium]
 version = "~0.21.0"
 features = ["glutin"]
@@ -29,3 +33,4 @@ opt-level = 3
 
 [profile.release]
 debug = true
+# lto = true

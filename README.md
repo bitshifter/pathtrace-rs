@@ -6,6 +6,8 @@ I found the book via Aras Pranckevičius' [blog series](http://aras-p.info/blog/
 
 ## Compiling and running
 
+Requires Rust 1.27 for SIMD support.
+
 The easiest way to build and run the path tracer use the command:
 
 ```

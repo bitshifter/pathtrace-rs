@@ -19,6 +19,37 @@ pub fn print_simd_version() {
     println!("Using Scalar");
 }
 
+#[inline]
+fn cttz(x: u32) -> u32 {
+    #[cfg(core_intrinsics)]
+    return std::intrinsics::cttz(x);
+    if x == 0 {
+        return 32;
+    }
+    let mut x = x;
+    let mut n = 0;
+    if (x & 0x0000FFFF) == 0 {
+        n += 16;
+        x >>= 16;
+    }
+    if (x & 0x000000FF) == 0 {
+        n += 8;
+        x >>= 8;
+    }
+    if (x & 0x0000000F) == 0 {
+        n += 4;
+        x >>= 4;
+    }
+    if (x & 0x00000003) == 0 {
+        n += 2;
+        x >>= 2;
+    }
+    if (x & 0x00000001) == 0 {
+        n += 1;
+    }
+    n
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Ray {
     pub origin: Vec3,
@@ -140,8 +171,7 @@ impl SpheresSoA {
     pub fn hit_scalar(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
         let mut hit_t = t_max;
         let mut hit_index = self.len;
-        for ((((index, centre_x), centre_y), centre_z), radius_sq) in self
-            .centre_x
+        for ((((index, centre_x), centre_y), centre_z), radius_sq) in self.centre_x
             .iter()
             .enumerate()
             .zip(self.centre_y.iter())
@@ -184,7 +214,6 @@ impl SpheresSoA {
         use std::arch::x86::*;
         #[cfg(target_arch = "x86_64")]
         use std::arch::x86_64::*;
-        use std::intrinsics::cttz;
         const NUM_LANES: usize = 4;
         let t_min = _mm_set_ps1(t_min);
         let mut hit_t = _mm_set_ps1(t_max);
@@ -250,7 +279,7 @@ impl SpheresSoA {
         if min_hit_t < t_max {
             let min_mask = _mm_movemask_ps(_mm_cmpeq_ps(hit_t, _mm_set1_ps(min_hit_t)));
             if min_mask != 0 {
-                let hit_t_lane = cttz(min_mask) as usize;
+                let hit_t_lane = cttz(min_mask as u32) as usize;
                 debug_assert!(hit_t_lane < NUM_LANES);
 
                 let hit_index_array = I32x4 { simd: hit_index }.array;
@@ -280,8 +309,6 @@ impl SpheresSoA {
         use std::arch::x86::*;
         #[cfg(target_arch = "x86_64")]
         use std::arch::x86_64::*;
-        use std::intrinsics::cttz;
-        // TODO: are these defined anywhere in std::arch?
         const NUM_LANES: usize = 8;
         let t_min = _mm256_set1_ps(t_min);
         let mut hit_t = _mm256_set1_ps(t_max);
@@ -357,7 +384,7 @@ impl SpheresSoA {
             let min_mask =
                 _mm256_movemask_ps(_mm256_cmp_ps(hit_t, _mm256_set1_ps(min_hit_t), _CMP_EQ_OQ));
             if min_mask != 0 {
-                let hit_t_lane = cttz(min_mask) as usize;
+                let hit_t_lane = cttz(min_mask as u32) as usize;
                 debug_assert!(hit_t_lane < NUM_LANES);
 
                 let hit_index_array = I32x8 { simd: hit_index }.array;
