@@ -20,26 +20,32 @@ pub fn print_simd_version() {
 }
 
 #[inline]
-fn cttz(x: u32) -> u32 {
+fn cttz_8bits_nonzero(x: u32) -> u32 {
+    // cttz on first 8 bits - 0 not expected
     #[cfg(core_intrinsics)]
     return std::intrinsics::cttz(x);
-    if x == 0 {
-        return 32;
-    }
     let mut x = x;
     let mut n = 0;
-    if (x & 0x0000FFFF) == 0 {
-        n += 16;
-        x >>= 16;
-    }
-    if (x & 0x000000FF) == 0 {
-        n += 8;
-        x >>= 8;
-    }
     if (x & 0x0000000F) == 0 {
         n += 4;
         x >>= 4;
     }
+    if (x & 0x00000003) == 0 {
+        n += 2;
+        x >>= 2;
+    }
+    if (x & 0x00000001) == 0 {
+        n += 1;
+    }
+    n
+}
+
+#[inline]
+fn cttz_4bits_nonzero(x: u32) -> u32 {
+    #[cfg(core_intrinsics)]
+    return std::intrinsics::cttz(x);
+    let mut x = x;
+    let mut n = 0;
     if (x & 0x00000003) == 0 {
         n += 2;
         x >>= 2;
@@ -279,7 +285,7 @@ impl SpheresSoA {
         if min_hit_t < t_max {
             let min_mask = _mm_movemask_ps(_mm_cmpeq_ps(hit_t, _mm_set1_ps(min_hit_t)));
             if min_mask != 0 {
-                let hit_t_lane = cttz(min_mask as u32) as usize;
+                let hit_t_lane = cttz_4bits_nonzero(min_mask as u32) as usize;
                 debug_assert!(hit_t_lane < NUM_LANES);
 
                 let hit_index_array = I32x4 { simd: hit_index }.array;
@@ -384,7 +390,7 @@ impl SpheresSoA {
             let min_mask =
                 _mm256_movemask_ps(_mm256_cmp_ps(hit_t, _mm256_set1_ps(min_hit_t), _CMP_EQ_OQ));
             if min_mask != 0 {
-                let hit_t_lane = cttz(min_mask as u32) as usize;
+                let hit_t_lane = cttz_8bits_nonzero(min_mask as u32) as usize;
                 debug_assert!(hit_t_lane < NUM_LANES);
 
                 let hit_index_array = I32x8 { simd: hit_index }.array;
