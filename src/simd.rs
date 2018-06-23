@@ -171,29 +171,6 @@ pub unsafe fn sinf_cosf_sse2(x: __m128) -> (__m128, __m128) {
     )
 }
 
-pub fn simd_bits() -> usize {
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-    {
-        if is_x86_feature_detected!("avx2") {
-            return unsafe { simd_bits_avx2() };
-        }
-        if is_x86_feature_detected!("sse2") {
-            return unsafe { simd_bits_sse2() };
-        }
-    }
-    32
-}
-
-#[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "sse2"))]
-pub unsafe fn simd_bits_sse2() -> usize {
-    128
-}
-
-#[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "avx2"))]
-pub unsafe fn simd_bits_avx2() -> usize {
-    256
-}
-
 #[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "sse2"))]
 pub unsafe fn blend_i32_sse2(lhs: __m128i, rhs: __m128i, cond: __m128) -> __m128i {
     let d = _mm_srai_epi32(_mm_castps_si128(cond), 31);
