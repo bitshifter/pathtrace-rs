@@ -43,38 +43,51 @@ impl TargetFeature {
 #[inline]
 fn cttz_8bits_nonzero(x: u32) -> u32 {
     // cttz on first 8 bits - 0 not expected
-    #[cfg(core_intrinsics)]
-    return std::intrinsics::cttz(x);
-    let mut x = x;
-    let mut n = 0;
-    if (x & 0x0000000F) == 0 {
-        n += 4;
-        x >>= 4;
+    #[cfg(feature = "core_intrinsics")]
+    {
+        use std::intrinsics::cttz_nonzero;
+        unsafe { cttz_nonzero(x) }
     }
-    if (x & 0x00000003) == 0 {
-        n += 2;
-        x >>= 2;
+    #[cfg(not(feature = "core_intrinsics"))]
+    {
+        let mut x = x;
+        let mut n = 0;
+        if (x & 0x0000000F) == 0 {
+            n += 4;
+            x >>= 4;
+        }
+        if (x & 0x00000003) == 0 {
+            n += 2;
+            x >>= 2;
+        }
+        if (x & 0x00000001) == 0 {
+            n += 1;
+        }
+        n
     }
-    if (x & 0x00000001) == 0 {
-        n += 1;
-    }
-    n
 }
 
 #[inline]
 fn cttz_4bits_nonzero(x: u32) -> u32 {
-    #[cfg(core_intrinsics)]
-    return std::intrinsics::cttz(x);
-    let mut x = x;
-    let mut n = 0;
-    if (x & 0x00000003) == 0 {
-        n += 2;
-        x >>= 2;
+    // cttz on first 4 bits - 0 not expected
+    #[cfg(feature = "core_intrinsics")]
+    {
+        use std::intrinsics::cttz_nonzero;
+        return unsafe { cttz_nonzero(x) }
     }
-    if (x & 0x00000001) == 0 {
-        n += 1;
+    #[cfg(not(feature = "core_intrinsics"))]
+    {
+        let mut x = x;
+        let mut n = 0;
+        if (x & 0x00000003) == 0 {
+            n += 2;
+            x >>= 2;
+        }
+        if (x & 0x00000001) == 0 {
+            n += 1;
+        }
+        n
     }
-    n
 }
 
 #[derive(Clone, Copy, Debug)]

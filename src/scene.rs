@@ -210,7 +210,7 @@ impl Scene {
     }
 }
 
-#[cfg(all(bench, test))]
+#[cfg(all(feature = "bench", test))]
 mod bench {
     use presets;
     use rand::{SeedableRng, XorShiftRng};
@@ -232,6 +232,6 @@ mod bench {
         };
         let (scene, camera) = presets::aras_p(&params);
         let ray = camera.get_ray(0.5, 0.5, &mut rng);
-        b.iter(|| scene.ray_hit(&ray, MIN_T, MAX_T));
+        b.iter(|| scene.spheres.hit(&ray, MIN_T, MAX_T));
     }
 }
