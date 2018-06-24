@@ -14,6 +14,12 @@ The easiest way to build and run the path tracer use the command:
 cargo run --release
 ```
 
+Using nightly will give slightly better performance due to use of `std::intrinsics::cttz`. To build with core intrinsics enabled make sure you have a nightly build of rustc installed and use the command:
+
+```
+cargo +nightly run --release --features core_intrinsics
+```
+
 If you build without the `--release` flag the application will be very slow!
 
 ## License
