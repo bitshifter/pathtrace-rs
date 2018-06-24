@@ -4,42 +4,6 @@ use simd::*;
 use std::f32;
 use vmath::{vec3, Vec3};
 
-#[derive(Debug)]
-enum TargetFeature {
-    AVX2,
-    SSE4_1,
-    FallBack,
-}
-
-impl TargetFeature {
-    fn detect() -> TargetFeature {
-        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-        {
-            if is_x86_feature_detected!("avx2") {
-                return TargetFeature::AVX2;
-            }
-            if is_x86_feature_detected!("sse4.1") {
-                return TargetFeature::SSE4_1;
-            }
-        }
-        TargetFeature::FallBack
-    }
-    fn print_version(&self) {
-        match self {
-            TargetFeature::AVX2 => println!("Using AVX2"),
-            TargetFeature::SSE4_1 => println!("Using SSE4.1"),
-            TargetFeature::FallBack => println!("Using scalar"),
-        }
-    }
-    fn get_bits(&self) -> usize {
-        match self {
-            TargetFeature::AVX2 => 256,
-            TargetFeature::SSE4_1 => 128,
-            TargetFeature::FallBack => 32,
-        }
-    }
-}
-
 #[inline]
 fn cttz_8bits_nonzero(x: u32) -> u32 {
     // cttz on first 8 bits - 0 not expected
@@ -73,7 +37,7 @@ fn cttz_4bits_nonzero(x: u32) -> u32 {
     #[cfg(feature = "core_intrinsics")]
     {
         use std::intrinsics::cttz_nonzero;
-        return unsafe { cttz_nonzero(x) }
+        return unsafe { cttz_nonzero(x) };
     }
     #[cfg(not(feature = "core_intrinsics"))]
     {
@@ -151,16 +115,13 @@ pub struct SpheresSoA {
     radius_inv: Vec<f32>,
     len: usize,
     num_spheres: usize,
-    feature: TargetFeature,
 }
 
 impl SpheresSoA {
     pub fn new(spheres: &[Sphere]) -> SpheresSoA {
-        let feature = TargetFeature::detect();
-        feature.print_version();
         // HACK: make sure there's enough entries for SIMD
         // TODO: conditionally compile this
-        let chunk_size = feature.get_bits() / 32;
+        let chunk_size = TargetFeature::detect().get_bits() / 32;
         let num_spheres = spheres.len();
         let len = align_to(num_spheres, chunk_size);
         let mut centre_x = Vec::with_capacity(len);
@@ -191,7 +152,6 @@ impl SpheresSoA {
             radius_inv,
             len,
             num_spheres,
-            feature,
         }
     }
 
@@ -211,18 +171,11 @@ impl SpheresSoA {
         self.radius_sq[index as usize]
     }
 
-    pub fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
-        match self.feature {
-            TargetFeature::AVX2 => unsafe { self.hit_avx2(ray, t_min, t_max) },
-            TargetFeature::SSE4_1 => unsafe { self.hit_sse4_1(ray, t_min, t_max) },
-            TargetFeature::FallBack => self.hit_scalar(ray, t_min, t_max),
-        }
-    }
-
-    fn hit_scalar(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+    pub fn hit_scalar(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
         let mut hit_t = t_max;
         let mut hit_index = self.len;
-        for ((((index, centre_x), centre_y), centre_z), radius_sq) in self.centre_x
+        for ((((index, centre_x), centre_y), centre_z), radius_sq) in self
+            .centre_x
             .iter()
             .enumerate()
             .zip(self.centre_y.iter())
@@ -260,7 +213,7 @@ impl SpheresSoA {
     }
 
     #[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "sse4.1"))]
-    unsafe fn hit_sse4_1(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+    pub unsafe fn hit_sse4_1(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::*;
         #[cfg(target_arch = "x86_64")]
@@ -355,7 +308,7 @@ impl SpheresSoA {
     }
 
     #[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "avx2"))]
-    unsafe fn hit_avx2(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+    pub unsafe fn hit_avx2(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::*;
         #[cfg(target_arch = "x86_64")]

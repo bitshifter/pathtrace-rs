@@ -5,6 +5,42 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
+#[derive(Debug)]
+pub enum TargetFeature {
+    AVX2,
+    SSE4_1,
+    FallBack,
+}
+
+impl TargetFeature {
+    pub fn detect() -> TargetFeature {
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        {
+            if is_x86_feature_detected!("avx2") {
+                return TargetFeature::AVX2;
+            }
+            if is_x86_feature_detected!("sse4.1") {
+                return TargetFeature::SSE4_1;
+            }
+        }
+        TargetFeature::FallBack
+    }
+    pub fn print_version(&self) {
+        match self {
+            TargetFeature::AVX2 => println!("Using AVX2"),
+            TargetFeature::SSE4_1 => println!("Using SSE4.1"),
+            TargetFeature::FallBack => println!("Using scalar"),
+        }
+    }
+    pub fn get_bits(&self) -> usize {
+        match self {
+            TargetFeature::AVX2 => 256,
+            TargetFeature::SSE4_1 => 128,
+            TargetFeature::FallBack => 32,
+        }
+    }
+}
+
 macro_rules! _ps_const_ty {
     ($name:ident, $field:ident, $x:expr) => {
         const $name: UnionCast = UnionCast {
