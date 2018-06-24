@@ -5,7 +5,7 @@ use std::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TargetFeature {
     AVX2,
     SSE4_1,

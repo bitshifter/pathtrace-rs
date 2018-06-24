@@ -227,23 +227,46 @@ mod bench {
     use presets;
     use rand::{SeedableRng, XorShiftRng};
     use scene::{Params, MAX_T, MIN_T};
+    use simd::TargetFeature;
     use test::{black_box, Bencher};
 
     const FIXED_SEED: [u32; 4] = [0x193a_6754, 0xa8a7_d469, 0x9783_0e05, 0x113b_a7bb];
+    const PARAMS: Params = Params {
+        width: 200,
+        height: 100,
+        samples: 10,
+        max_depth: 10,
+        random_seed: false,
+    };
 
     #[bench]
-    fn ray_hit(b: &mut Bencher) {
+    fn ray_hit_scalar(b: &mut Bencher) {
         let seed = black_box(FIXED_SEED);
         let mut rng = XorShiftRng::from_seed(seed);
-        let params = Params {
-            width: 200,
-            height: 100,
-            samples: 10,
-            max_depth: 10,
-            random_seed: false,
-        };
-        let (scene, camera) = presets::aras_p(&params);
+        let (scene, camera) = presets::aras_p(&PARAMS);
         let ray = camera.get_ray(0.5, 0.5, &mut rng);
-        b.iter(|| scene.ray_hit(&ray, MIN_T, MAX_T));
+        b.iter(|| scene.spheres.hit_scalar(&ray, MIN_T, MAX_T));
+    }
+
+    #[bench]
+    fn ray_hit_sse4_1(b: &mut Bencher) {
+        let seed = black_box(FIXED_SEED);
+        let mut rng = XorShiftRng::from_seed(seed);
+        let (scene, camera) = presets::aras_p(&PARAMS);
+        let ray = camera.get_ray(0.5, 0.5, &mut rng);
+        if scene.feature != TargetFeature::FallBack {
+            b.iter(|| unsafe { scene.spheres.hit_sse4_1(&ray, MIN_T, MAX_T) });
+        }
+    }
+
+    #[bench]
+    fn ray_hit_avx2(b: &mut Bencher) {
+        let seed = black_box(FIXED_SEED);
+        let mut rng = XorShiftRng::from_seed(seed);
+        let (scene, camera) = presets::aras_p(&PARAMS);
+        let ray = camera.get_ray(0.5, 0.5, &mut rng);
+        if scene.feature == TargetFeature::AVX2 {
+            b.iter(|| unsafe { scene.spheres.hit_avx2(&ray, MIN_T, MAX_T) });
+        }
     }
 }
