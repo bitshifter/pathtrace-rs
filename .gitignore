@@ -2,6 +2,7 @@
 *.out.*
 *.png
 *.sw[a-z]
+/.cargo
 /target
 **/*.rs.bk
 perf.*
