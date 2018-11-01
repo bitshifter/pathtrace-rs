@@ -25,12 +25,12 @@ pub fn start_loop(params: Params, camera: Camera, scene: Scene, max_frames: Opti
     let display =
         glium::Display::new(window, context, &events_loop).expect("Failed to create display");
 
-    let mut buffer_texture: BufferTexture<(u8, u8, u8, u8)> =
-        BufferTexture::empty_persistent(
-            &display,
-            (params.width * params.height * 4) as usize,
-            BufferTextureType::Float,
-        ).expect("Failed to create rgb_buffer texture");
+    let mut buffer_texture: BufferTexture<(u8, u8, u8, u8)> = BufferTexture::empty_persistent(
+        &display,
+        (params.width * params.height * 4) as usize,
+        BufferTextureType::Float,
+    )
+    .expect("Failed to create rgb_buffer texture");
     {
         // init buffer texture to something
         let mut mapping = buffer_texture.map();
@@ -68,7 +68,8 @@ pub fn start_loop(params: Params, camera: Camera, scene: Scene, max_frames: Opti
             }
         ",
         None,
-    ).expect("Failed to create shader");
+    )
+    .expect("Failed to create shader");
 
     let mut rgb_buffer = Some(vec![
         (0.0, 0.0, 0.0);
@@ -129,7 +130,7 @@ pub fn start_loop(params: Params, camera: Camera, scene: Scene, max_frames: Opti
                     WindowEvent::CloseRequested => {
                         quit = true;
                         save = true;
-                    },
+                    }
                     WindowEvent::KeyboardInput { input, .. } => {
                         if let ElementState::Released = input.state {
                             if let Some(VirtualKeyCode::Escape) = input.virtual_keycode {

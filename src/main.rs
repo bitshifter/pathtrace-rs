@@ -5,6 +5,7 @@ extern crate test;
 
 #[macro_use]
 extern crate clap;
+extern crate glam;
 #[macro_use]
 extern crate glium;
 extern crate image;
@@ -24,7 +25,6 @@ mod presets;
 mod scene;
 #[macro_use]
 mod simd;
-mod vmath;
 
 use clap::{App, Arg};
 

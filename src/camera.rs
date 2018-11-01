@@ -1,8 +1,8 @@
 use collision::{ray, Ray};
+use glam::Vec3;
 use math::random_in_unit_disk;
 use rand::Rng;
 use std::f32;
-use vmath::Vec3;
 
 // #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 #[derive(Copy, Clone, Debug)]

@@ -1,5 +1,6 @@
 use camera::Camera;
 use collision::{ray, Ray, RayHit, Sphere, SpheresSoA};
+use glam::{vec3, Vec3};
 use material::Material;
 use math::maxf;
 use rand::{weak_rng, Rng, SeedableRng, XorShiftRng};
@@ -7,7 +8,6 @@ use rayon::prelude::*;
 use simd::{sinf_cosf, TargetFeature};
 use std::f32;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use vmath::{vec3, Vec3};
 
 const MAX_T: f32 = f32::MAX;
 const MIN_T: f32 = 0.001;
@@ -22,7 +22,8 @@ pub struct Params {
 }
 
 pub struct Scene {
-    spheres: SpheresSoA,
+    spheres_soa: SpheresSoA,
+    spheres: Vec<Sphere>,
     materials: Vec<Material>,
     emissive: Vec<u32>,
     feature: TargetFeature,
@@ -42,7 +43,8 @@ impl Scene {
             }
         }
         Scene {
-            spheres: SpheresSoA::new(&spheres),
+            spheres_soa: SpheresSoA::new(&spheres),
+            spheres: spheres,
             materials,
             emissive,
             feature,
@@ -50,11 +52,11 @@ impl Scene {
         }
     }
 
-    fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+    fn ray_hit_soa(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
         match self.feature {
-            TargetFeature::AVX2 => unsafe { self.spheres.hit_avx2(ray, t_min, t_max) },
-            TargetFeature::SSE4_1 => unsafe { self.spheres.hit_sse4_1(ray, t_min, t_max) },
-            TargetFeature::FallBack => self.spheres.hit_scalar(ray, t_min, t_max),
+            TargetFeature::AVX2 => unsafe { self.spheres_soa.hit_avx2(ray, t_min, t_max) },
+            TargetFeature::SSE4_1 => unsafe { self.spheres_soa.hit_sse4_1(ray, t_min, t_max) },
+            TargetFeature::FallBack => self.spheres_soa.hit_scalar(ray, t_min, t_max),
         }
     }
 
@@ -76,20 +78,21 @@ impl Scene {
 
             // create a random direction towards sphere
             // coord system for sampling: sw, su, sv
-            let sphere_centre = self.spheres.centre(*index);
-            let sphere_radius_sq = self.spheres.radius_sq(*index);
+            let sphere_centre = self.spheres_soa.centre(*index);
+            let sphere_radius_sq = self.spheres_soa.radius_sq(*index);
             let sw = (sphere_centre - ray_in_hit.point).normalize();
             let su = (if sw.get_x().abs() > 0.01 {
                 vec3(0.0, 1.0, 0.0)
             } else {
                 vec3(1.0, 0.0, 0.0)
-            }).cross(sw)
-                .normalize();
+            })
+            .cross(sw)
+            .normalize();
             let sv = sw.cross(su);
             // sample sphere by solid angle
             let cos_a_max = (1.0
                 - sphere_radius_sq / (ray_in_hit.point - sphere_centre).length_squared())
-                .sqrt();
+            .sqrt();
             let eps1 = rng.next_f32();
             let eps2 = rng.next_f32();
             let cos_a = 1.0 - eps1 + eps1 * cos_a_max;
@@ -101,7 +104,7 @@ impl Scene {
 
             *ray_count += 1;
             let ray_out = ray(ray_in_hit.point, l);
-            if let Some((_, out_hit_index)) = self.ray_hit(&ray_out, MIN_T, MAX_T) {
+            if let Some((_, out_hit_index)) = self.ray_hit_soa(&ray_out, MIN_T, MAX_T) {
                 if *index == out_hit_index {
                     let omega = 2.0 * f32::consts::PI * (1.0 - cos_a_max);
                     let rdir = ray_in.direction;
@@ -129,7 +132,7 @@ impl Scene {
         ray_count: &mut usize,
     ) -> Vec3 {
         *ray_count += 1;
-        if let Some((ray_hit, hit_index)) = self.ray_hit(ray_in, MIN_T, MAX_T) {
+        if let Some((ray_hit, hit_index)) = self.ray_hit_soa(ray_in, MIN_T, MAX_T) {
             let material = &self.materials[hit_index as usize];
             if depth < max_depth {
                 if let Some((attenuation, scattered, do_light_sampling)) =
@@ -148,7 +151,8 @@ impl Scene {
                         Vec3::zero()
                     };
                     let do_material_emission = !do_light_sampling;
-                    return material_emission + light_emission
+                    return material_emission
+                        + light_emission
                         + attenuation
                             * self.ray_trace(
                                 &scattered,
@@ -245,7 +249,7 @@ mod bench {
         let mut rng = XorShiftRng::from_seed(seed);
         let (scene, camera) = presets::aras_p(&PARAMS);
         let ray = camera.get_ray(0.5, 0.5, &mut rng);
-        b.iter(|| scene.spheres.hit_scalar(&ray, MIN_T, MAX_T));
+        b.iter(|| scene.spheres_soa.hit_scalar(&ray, MIN_T, MAX_T));
     }
 
     #[bench]
@@ -255,7 +259,7 @@ mod bench {
         let (scene, camera) = presets::aras_p(&PARAMS);
         let ray = camera.get_ray(0.5, 0.5, &mut rng);
         if scene.feature != TargetFeature::FallBack {
-            b.iter(|| unsafe { scene.spheres.hit_sse4_1(&ray, MIN_T, MAX_T) });
+            b.iter(|| unsafe { scene.spheres_soa.hit_sse4_1(&ray, MIN_T, MAX_T) });
         }
     }
 
@@ -266,7 +270,7 @@ mod bench {
         let (scene, camera) = presets::aras_p(&PARAMS);
         let ray = camera.get_ray(0.5, 0.5, &mut rng);
         if scene.feature == TargetFeature::AVX2 {
-            b.iter(|| unsafe { scene.spheres.hit_avx2(&ray, MIN_T, MAX_T) });
+            b.iter(|| unsafe { scene.spheres_soa.hit_avx2(&ray, MIN_T, MAX_T) });
         }
     }
 }

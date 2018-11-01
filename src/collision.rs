@@ -1,8 +1,8 @@
+use glam::{vec3, Vec3};
 use material::{Material, MaterialKind};
 use math::align_to;
 use simd::*;
 use std::f32;
-use vmath::{vec3, Vec3};
 
 #[inline]
 fn cttz_8bits_nonzero(x: u32) -> u32 {
@@ -55,6 +55,42 @@ fn cttz_4bits_nonzero(x: u32) -> u32 {
 }
 
 #[derive(Clone, Copy, Debug)]
+pub struct AABB {
+    pub min: Vec3,
+    pub max: Vec3,
+}
+
+impl AABB {
+    #[inline]
+    #[allow(dead_code)]
+    pub fn hit(&self, r: &Ray, tmin: f32, tmax: f32) -> bool {
+        // note if not using SSE this might be faster to calc per component to early out
+        let min_delta = (self.min - r.origin) / r.direction;
+        let max_delta = (self.max - r.origin) / r.direction;
+        let t0 = min_delta.min(max_delta);
+        let t1 = min_delta.max(max_delta);
+        let tmin = t0.max(Vec3::splat(tmin));
+        let tmax = t1.min(Vec3::splat(tmax));
+        tmax > tmin
+    }
+
+    #[inline]
+    #[allow(dead_code)]
+    pub fn slabs(&self, p0: Vec3, p1: Vec3, ray_origin: Vec3, inv_ray_dir: Vec3) -> bool {
+        let t0 = (p0 - ray_origin) * inv_ray_dir;
+        let t1 = (p1 - ray_origin) * inv_ray_dir;
+        let tmin = t0.min(t1);
+        let tmax = t0.max(t1);
+        tmin.hmax() <= tmax.hmin()
+    }
+
+    #[inline]
+    fn bounding_box(&self, rhs: &AABB) -> AABB {
+        AABB { min: self.min.min(rhs.min), max: self.max.max(rhs.max) }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct Ray {
     pub origin: Vec3,
     pub direction: Vec3,
@@ -83,7 +119,6 @@ pub struct RayHit {
     pub normal: Vec3,
 }
 
-// #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[derive(Clone, Copy, Debug)]
 pub struct Sphere {
     pub centre: Vec3,
@@ -111,6 +146,7 @@ pub struct SpheresSoA {
     centre_x: Vec<f32>,
     centre_y: Vec<f32>,
     centre_z: Vec<f32>,
+    radius: Vec<f32>,
     radius_sq: Vec<f32>,
     radius_inv: Vec<f32>,
     len: usize,
@@ -127,12 +163,14 @@ impl SpheresSoA {
         let mut centre_x = Vec::with_capacity(len);
         let mut centre_y = Vec::with_capacity(len);
         let mut centre_z = Vec::with_capacity(len);
+        let mut radius = Vec::with_capacity(len);
         let mut radius_inv = Vec::with_capacity(len);
         let mut radius_sq = Vec::with_capacity(len);
         for sphere in spheres {
             centre_x.push(sphere.centre.get_x());
             centre_y.push(sphere.centre.get_y());
             centre_z.push(sphere.centre.get_z());
+            radius.push(sphere.radius);
             radius_sq.push(sphere.radius * sphere.radius);
             radius_inv.push(1.0 / sphere.radius);
         }
@@ -141,6 +179,7 @@ impl SpheresSoA {
             centre_x.push(f32::MAX);
             centre_y.push(f32::MAX);
             centre_z.push(f32::MAX);
+            radius.push(0.0);
             radius_sq.push(0.0);
             radius_inv.push(0.0);
         }
@@ -148,6 +187,7 @@ impl SpheresSoA {
             centre_x,
             centre_y,
             centre_z,
+            radius,
             radius_sq,
             radius_inv,
             len,
@@ -159,11 +199,25 @@ impl SpheresSoA {
         let index = index as usize;
         assert!(index < self.len);
         unsafe {
-            vec3(
-                *self.centre_x.get_unchecked(index),
-                *self.centre_y.get_unchecked(index),
-                *self.centre_z.get_unchecked(index),
-            )
+            self.centre_unchecked(index)
+        }
+    }
+
+    unsafe fn centre_unchecked(&self, index: usize) -> Vec3 {
+        vec3(
+            *self.centre_x.get_unchecked(index),
+            *self.centre_y.get_unchecked(index),
+            *self.centre_z.get_unchecked(index),
+        )
+    }
+
+    pub fn bounding_box(&self, index: u32) -> AABB {
+        let index = index as usize;
+        assert!(index < self.len);
+        unsafe {
+            let centre = self.centre_unchecked(index);
+            let radius = Vec3::splat(*self.radius.get_unchecked(index));
+            AABB { min: centre - radius, max: centre + radius }
         }
     }
 
@@ -205,14 +259,18 @@ impl SpheresSoA {
                     self.centre_x[hit_index],
                     self.centre_y[hit_index],
                     self.centre_z[hit_index],
-                )) * self.radius_inv[hit_index];
+                ))
+                * self.radius_inv[hit_index];
             Some((RayHit { point, normal }, hit_index as u32))
         } else {
             None
         }
     }
 
-    #[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "sse4.1"))]
+    #[cfg_attr(
+        any(target_arch = "x86", target_arch = "x86_64"),
+        target_feature(enable = "sse4.1")
+    )]
     pub unsafe fn hit_sse4_1(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::*;
@@ -223,12 +281,12 @@ impl SpheresSoA {
         let mut hit_t = _mm_set_ps1(t_max);
         let mut hit_index = _mm_set_epi32(-1, -1, -1, -1);
         // load ray origin
-        let ro = ray.origin.unwrap();
+        let ro = ray.origin.into();
         let ro_x = _mm_shuffle_ps(ro, ro, 0b00_00_00_00);
         let ro_y = _mm_shuffle_ps(ro, ro, 0b01_01_01_01);
         let ro_z = _mm_shuffle_ps(ro, ro, 0b10_10_10_10);
         // load ray direction
-        let rd = ray.direction.unwrap();
+        let rd = ray.direction.into();
         let rd_x = _mm_shuffle_ps(rd, rd, 0b00_00_00_00);
         let rd_y = _mm_shuffle_ps(rd, rd, 0b01_01_01_01);
         let rd_z = _mm_shuffle_ps(rd, rd, 0b10_10_10_10);
@@ -307,7 +365,10 @@ impl SpheresSoA {
         None
     }
 
-    #[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "avx2"))]
+    #[cfg_attr(
+        any(target_arch = "x86", target_arch = "x86_64"),
+        target_feature(enable = "avx2")
+    )]
     pub unsafe fn hit_avx2(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::*;
@@ -318,7 +379,7 @@ impl SpheresSoA {
         let mut hit_t = _mm256_set1_ps(t_max);
         let mut hit_index = _mm256_set1_epi32(-1);
         // load ray origin
-        let ro = ray.origin.unwrap();
+        let ro = ray.origin.into();
         let ro_x = _mm_shuffle_ps(ro, ro, 0b00_00_00_00);
         let ro_y = _mm_shuffle_ps(ro, ro, 0b01_01_01_01);
         let ro_z = _mm_shuffle_ps(ro, ro, 0b10_10_10_10);
@@ -326,7 +387,7 @@ impl SpheresSoA {
         let ro_y = _mm256_set_m128(ro_y, ro_y);
         let ro_z = _mm256_set_m128(ro_z, ro_z);
         // load ray direction
-        let rd = ray.direction.unwrap();
+        let rd = ray.direction.into();
         let rd_x = _mm_shuffle_ps(rd, rd, 0b00_00_00_00);
         let rd_y = _mm_shuffle_ps(rd, rd, 0b01_01_01_01);
         let rd_z = _mm_shuffle_ps(rd, rd, 0b10_10_10_10);
