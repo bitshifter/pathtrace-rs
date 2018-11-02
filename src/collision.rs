@@ -4,6 +4,11 @@ use math::align_to;
 use simd::*;
 use std::f32;
 
+pub trait Hitable {
+    fn hit(&self, ray: &Ray, t0: f32, t1: f32) -> Option<RayHitEx>;
+    fn bounding_box(&self, t0: f32, t1: f32) -> Option<AABB>;
+}
+
 #[inline]
 fn cttz_8bits_nonzero(x: u32) -> u32 {
     // cttz on first 8 bits - 0 not expected
@@ -54,7 +59,7 @@ fn cttz_4bits_nonzero(x: u32) -> u32 {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AABB {
     pub min: Vec3,
     pub max: Vec3,
@@ -85,8 +90,11 @@ impl AABB {
     }
 
     #[inline]
-    fn bounding_box(&self, rhs: &AABB) -> AABB {
-        AABB { min: self.min.min(rhs.min), max: self.max.max(rhs.max) }
+    pub fn combine(&self, rhs: &AABB) -> AABB {
+        AABB {
+            min: self.min.min(rhs.min),
+            max: self.max.max(rhs.max),
+        }
     }
 }
 
@@ -120,9 +128,55 @@ pub struct RayHit {
 }
 
 #[derive(Clone, Copy, Debug)]
+pub struct RayHitEx {
+    pub t: f32,
+    pub point: Vec3,
+    pub normal: Vec3,
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct Sphere {
     pub centre: Vec3,
     pub radius: f32,
+}
+
+impl Sphere {
+    pub fn new(centre: Vec3, radius: f32) -> Sphere {
+        Sphere { centre, radius }
+    }
+}
+
+impl Hitable for Sphere {
+    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<RayHitEx> {
+        let oc = ray.origin - self.centre;
+        let a = ray.direction.dot(ray.direction);
+        let b = oc.dot(ray.direction);
+        let c = oc.dot(oc) - self.radius * self.radius;
+        let discriminant = b * b - a * c;
+        if discriminant > 0.0 {
+            let discriminant_sqrt = discriminant.sqrt();
+            let t = (-b - discriminant_sqrt) / a;
+            if t < t_max && t > t_min {
+                let point = ray.point_at_parameter(t);
+                let normal = (point - self.centre) / self.radius;
+                return Some(RayHitEx { t, point, normal });
+            }
+            let t = (-b + discriminant_sqrt) / a;
+            if t < t_max && t > t_min {
+                let point = ray.point_at_parameter(t);
+                let normal = (point - self.centre) / self.radius;
+                return Some(RayHitEx { t, point, normal });
+            }
+        }
+        None
+    }
+    fn bounding_box(&self, _t0: f32, _t1: f32) -> Option<AABB> {
+        let radius = Vec3::splat(self.radius);
+        Some(AABB {
+            min: self.centre - radius,
+            max: self.centre + radius,
+        })
+    }
 }
 
 #[inline]
@@ -198,9 +252,7 @@ impl SpheresSoA {
     pub fn centre(&self, index: u32) -> Vec3 {
         let index = index as usize;
         assert!(index < self.len);
-        unsafe {
-            self.centre_unchecked(index)
-        }
+        unsafe { self.centre_unchecked(index) }
     }
 
     unsafe fn centre_unchecked(&self, index: usize) -> Vec3 {
@@ -209,16 +261,6 @@ impl SpheresSoA {
             *self.centre_y.get_unchecked(index),
             *self.centre_z.get_unchecked(index),
         )
-    }
-
-    pub fn bounding_box(&self, index: u32) -> AABB {
-        let index = index as usize;
-        assert!(index < self.len);
-        unsafe {
-            let centre = self.centre_unchecked(index);
-            let radius = Vec3::splat(*self.radius.get_unchecked(index));
-            AABB { min: centre - radius, max: centre + radius }
-        }
     }
 
     pub fn radius_sq(&self, index: u32) -> f32 {

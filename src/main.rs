@@ -15,6 +15,7 @@ extern crate rayon;
 // extern crate serde_derive;
 // extern crate serde_json;
 
+mod bvh;
 mod camera;
 mod collision;
 mod glium_window;

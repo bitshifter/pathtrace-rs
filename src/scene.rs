@@ -23,7 +23,6 @@ pub struct Params {
 
 pub struct Scene {
     spheres_soa: SpheresSoA,
-    spheres: Vec<Sphere>,
     materials: Vec<Material>,
     emissive: Vec<u32>,
     feature: TargetFeature,
@@ -44,7 +43,6 @@ impl Scene {
         }
         Scene {
             spheres_soa: SpheresSoA::new(&spheres),
-            spheres: spheres,
             materials,
             emissive,
             feature,
