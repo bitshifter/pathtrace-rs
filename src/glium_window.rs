@@ -128,7 +128,7 @@ pub fn start_loop(params: Params, camera: Camera, scene: Scene, max_frames: Opti
                     WindowEvent::CloseRequested => {
                         quit = true;
                         save = true;
-                    },
+                    }
                     WindowEvent::KeyboardInput { input, .. } => {
                         if let ElementState::Released = input.state {
                             if let Some(VirtualKeyCode::Escape) = input.virtual_keycode {
