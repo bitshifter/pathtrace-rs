@@ -1,4 +1,5 @@
-use camera::Camera;
+use crate::camera::Camera;
+use crate::scene::{Params, Scene};
 use glium::{
     self,
     glutin::{Api, GlProfile, GlRequest},
@@ -8,7 +9,6 @@ use glium::{
     Surface,
 };
 use image;
-use scene::{Params, Scene};
 use std::sync::mpsc::{channel, RecvTimeoutError};
 use std::thread;
 use std::time::{Duration, SystemTime};
@@ -25,12 +25,11 @@ pub fn start_loop(params: Params, camera: Camera, scene: Scene, max_frames: Opti
     let display =
         glium::Display::new(window, context, &events_loop).expect("Failed to create display");
 
-    let mut buffer_texture: BufferTexture<(u8, u8, u8, u8)> =
-        BufferTexture::empty_persistent(
-            &display,
-            (params.width * params.height * 4) as usize,
-            BufferTextureType::Float,
-        ).expect("Failed to create rgb_buffer texture");
+    let mut buffer_texture: BufferTexture<(u8, u8, u8, u8)> = BufferTexture::empty_persistent(
+        &display,
+        (params.width * params.height * 4) as usize,
+        BufferTextureType::Float,
+    ).expect("Failed to create rgb_buffer texture");
     {
         // init buffer texture to something
         let mut mapping = buffer_texture.map();
@@ -179,8 +178,7 @@ pub fn start_loop(params: Params, camera: Camera, scene: Scene, max_frames: Opti
                         &program,
                         &uniform!{ tex: &buffer_texture, stride: params.width as i32 },
                         &Default::default(),
-                    )
-                    .unwrap();
+                    ).unwrap();
                 target.finish().unwrap();
 
                 frame_num += 1;

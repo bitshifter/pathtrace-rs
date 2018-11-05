@@ -1,8 +1,8 @@
-use material::{Material, MaterialKind};
-use math::align_to;
-use simd::*;
+use crate::material::{Material, MaterialKind};
+use crate::math::align_to;
+use crate::simd::*;
+use crate::vmath::{vec3, Vec3};
 use std::f32;
-use vmath::{vec3, Vec3};
 
 #[inline]
 fn cttz_8bits_nonzero(x: u32) -> u32 {
@@ -200,19 +200,21 @@ impl SpheresSoA {
         }
         if hit_index < self.len {
             let point = ray.point_at_parameter(hit_t);
-            let normal = (point
-                - vec3(
-                    self.centre_x[hit_index],
-                    self.centre_y[hit_index],
-                    self.centre_z[hit_index],
-                )) * self.radius_inv[hit_index];
+            let normal = (point - vec3(
+                self.centre_x[hit_index],
+                self.centre_y[hit_index],
+                self.centre_z[hit_index],
+            )) * self.radius_inv[hit_index];
             Some((RayHit { point, normal }, hit_index as u32))
         } else {
             None
         }
     }
 
-    #[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "sse4.1"))]
+    #[cfg_attr(
+        any(target_arch = "x86", target_arch = "x86_64"),
+        target_feature(enable = "sse4.1")
+    )]
     pub unsafe fn hit_sse4_1(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::*;
@@ -294,20 +296,21 @@ impl SpheresSoA {
                 let hit_t_scalar = *hit_t_array.get_unchecked(hit_t_lane);
 
                 let point = ray.point_at_parameter(hit_t_scalar);
-                let normal = (point
-                    - vec3(
-                        *self.centre_x.get_unchecked(hit_index_scalar),
-                        *self.centre_y.get_unchecked(hit_index_scalar),
-                        *self.centre_z.get_unchecked(hit_index_scalar),
-                    ))
-                    * *self.radius_inv.get_unchecked(hit_index_scalar);
+                let normal = (point - vec3(
+                    *self.centre_x.get_unchecked(hit_index_scalar),
+                    *self.centre_y.get_unchecked(hit_index_scalar),
+                    *self.centre_z.get_unchecked(hit_index_scalar),
+                )) * *self.radius_inv.get_unchecked(hit_index_scalar);
                 return Some((RayHit { point, normal }, hit_index_scalar as u32));
             }
         }
         None
     }
 
-    #[cfg_attr(any(target_arch = "x86", target_arch = "x86_64"), target_feature(enable = "avx2"))]
+    #[cfg_attr(
+        any(target_arch = "x86", target_arch = "x86_64"),
+        target_feature(enable = "avx2")
+    )]
     pub unsafe fn hit_avx2(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::*;
@@ -399,13 +402,11 @@ impl SpheresSoA {
                 let hit_t_scalar = *hit_t_array.get_unchecked(hit_t_lane);
 
                 let point = ray.point_at_parameter(hit_t_scalar);
-                let normal = (point
-                    - vec3(
-                        *self.centre_x.get_unchecked(hit_index_scalar),
-                        *self.centre_y.get_unchecked(hit_index_scalar),
-                        *self.centre_z.get_unchecked(hit_index_scalar),
-                    ))
-                    * *self.radius_inv.get_unchecked(hit_index_scalar);
+                let normal = (point - vec3(
+                    *self.centre_x.get_unchecked(hit_index_scalar),
+                    *self.centre_y.get_unchecked(hit_index_scalar),
+                    *self.centre_z.get_unchecked(hit_index_scalar),
+                )) * *self.radius_inv.get_unchecked(hit_index_scalar);
                 return Some((RayHit { point, normal }, hit_index_scalar as u32));
             }
         }

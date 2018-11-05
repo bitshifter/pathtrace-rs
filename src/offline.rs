@@ -1,7 +1,7 @@
-use camera::Camera;
+use crate::camera::Camera;
+use crate::math::linear_to_srgb;
+use crate::scene::{Params, Scene};
 use image;
-use math::linear_to_srgb;
-use scene::{Params, Scene};
 use std::time::SystemTime;
 
 pub fn render_offline(params: &Params, camera: &Camera, scene: &Scene) {

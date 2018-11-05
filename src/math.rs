@@ -1,7 +1,7 @@
+use crate::simd::sinf_cosf;
+use crate::vmath::{vec3, Vec3};
 use rand::Rng;
-use simd::sinf_cosf;
 use std::f32;
-use vmath::{vec3, Vec3};
 
 pub fn random_in_unit_disk<T: Rng>(rng: &mut T) -> Vec3 {
     loop {

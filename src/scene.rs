@@ -1,13 +1,13 @@
-use camera::Camera;
-use collision::{ray, Ray, RayHit, Sphere, SpheresSoA};
-use material::Material;
-use math::maxf;
+use crate::camera::Camera;
+use crate::collision::{ray, Ray, RayHit, Sphere, SpheresSoA};
+use crate::material::Material;
+use crate::math::maxf;
+use crate::simd::{sinf_cosf, TargetFeature};
+use crate::vmath::{vec3, Vec3};
 use rand::{weak_rng, Rng, SeedableRng, XorShiftRng};
 use rayon::prelude::*;
-use simd::{sinf_cosf, TargetFeature};
 use std::f32;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use vmath::{vec3, Vec3};
 
 const MAX_T: f32 = f32::MAX;
 const MIN_T: f32 = 0.001;
@@ -84,12 +84,11 @@ impl Scene {
             } else {
                 vec3(1.0, 0.0, 0.0)
             }).cross(sw)
-                .normalize();
+            .normalize();
             let sv = sw.cross(su);
             // sample sphere by solid angle
             let cos_a_max = (1.0
-                - sphere_radius_sq / (ray_in_hit.point - sphere_centre).length_squared())
-                .sqrt();
+                - sphere_radius_sq / (ray_in_hit.point - sphere_centre).length_squared()).sqrt();
             let eps1 = rng.next_f32();
             let eps2 = rng.next_f32();
             let cos_a = 1.0 - eps1 + eps1 * cos_a_max;
@@ -148,16 +147,14 @@ impl Scene {
                         Vec3::zero()
                     };
                     let do_material_emission = !do_light_sampling;
-                    return material_emission + light_emission
-                        + attenuation
-                            * self.ray_trace(
-                                &scattered,
-                                depth + 1,
-                                max_depth,
-                                do_material_emission,
-                                rng,
-                                ray_count,
-                            );
+                    return material_emission + light_emission + attenuation * self.ray_trace(
+                        &scattered,
+                        depth + 1,
+                        max_depth,
+                        do_material_emission,
+                        rng,
+                        ray_count,
+                    );
                 }
             }
             return material.emissive;

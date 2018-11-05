@@ -1,8 +1,8 @@
-use collision::{ray, Ray};
-use math::random_in_unit_disk;
+use crate::collision::{ray, Ray};
+use crate::math::random_in_unit_disk;
+use crate::vmath::Vec3;
 use rand::Rng;
 use std::f32;
-use vmath::Vec3;
 
 // #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 #[derive(Copy, Clone, Debug)]
