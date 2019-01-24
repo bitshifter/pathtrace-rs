@@ -1,5 +1,5 @@
 use crate::camera::Camera;
-use crate::collision::{ray, Ray, RayHit, Sphere, Spheres, SpheresSoA};
+use crate::collision::{ray, Ray, RayHit, Sphere, Spheres, SpheresBVH, SpheresSoA};
 use crate::material::Material;
 use crate::math::maxf;
 use crate::simd::{sinf_cosf};
@@ -19,17 +19,18 @@ pub struct Params {
     pub samples: u32,
     pub max_depth: u32,
     pub random_seed: bool,
+    pub use_bvh: bool,
 }
 
 pub struct Scene {
-    spheres_soa: SpheresSoA,
+    spheres: Box<Spheres>,
     materials: Vec<Material>,
     emissive: Vec<u32>,
     ray_count: AtomicUsize,
 }
 
 impl Scene {
-    pub fn new(sphere_materials: &[(Sphere, Material)]) -> Scene {
+    pub fn new(rng: &mut XorShiftRng, sphere_materials: &[(Sphere, Material)], use_bvh: bool) -> Scene {
         let (spheres, materials): (Vec<Sphere>, Vec<Material>) =
             sphere_materials.iter().cloned().unzip();
         let mut emissive = vec![];
@@ -38,8 +39,13 @@ impl Scene {
                 emissive.push(index as u32);
             }
         }
+        let spheres: Box<dyn Spheres> = if use_bvh {
+            Box::new(SpheresBVH::new(rng, &mut spheres))
+        } else {
+            Box::new(SpheresSoA::new(&spheres))
+        };
         Scene {
-            spheres_soa: SpheresSoA::new(&spheres),
+            spheres,
             materials,
             emissive,
             ray_count: AtomicUsize::new(0),
@@ -64,8 +70,8 @@ impl Scene {
 
             // create a random direction towards sphere
             // coord system for sampling: sw, su, sv
-            let sphere_centre = self.spheres_soa.sphere_centre(*index);
-            let sphere_radius_sq = self.spheres_soa.sphere_radius_sq(*index);
+            let sphere_centre = self.spheres.sphere_centre(*index);
+            let sphere_radius_sq = self.spheres.sphere_radius_sq(*index);
             let sw = (sphere_centre - ray_in_hit.point).normalize();
             let su = (if sw.get_x().abs() > 0.01 {
                 vec3(0.0, 1.0, 0.0)
@@ -90,7 +96,7 @@ impl Scene {
 
             *ray_count += 1;
             let ray_out = ray(ray_in_hit.point, l);
-            if let Some((_, out_hit_index)) = self.spheres_soa.ray_hit(&ray_out, MIN_T, MAX_T) {
+            if let Some((_, out_hit_index)) = self.spheres.ray_hit(&ray_out, MIN_T, MAX_T) {
                 if *index == out_hit_index {
                     let omega = 2.0 * f32::consts::PI * (1.0 - cos_a_max);
                     let rdir = ray_in.direction;
@@ -118,7 +124,7 @@ impl Scene {
         ray_count: &mut usize,
     ) -> Vec3 {
         *ray_count += 1;
-        if let Some((ray_hit, hit_index)) = self.spheres_soa.ray_hit(ray_in, MIN_T, MAX_T) {
+        if let Some((ray_hit, hit_index)) = self.spheres.ray_hit(ray_in, MIN_T, MAX_T) {
             let material = &self.materials[hit_index as usize];
             if depth < max_depth {
                 if let Some((attenuation, scattered, do_light_sampling)) =

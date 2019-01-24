@@ -53,6 +53,10 @@ fn main() {
                 .short("D")
                 .long("depth")
                 .takes_value(true),
+            Arg::with_name("bvh")
+                .help("Use a bounding volume hierarchy")
+                .short("B")
+                .long("bvh"),
             Arg::with_name("random")
                 .help("Use a random seed")
                 .short("R")
@@ -80,6 +84,7 @@ fn main() {
         samples: value_t!(matches, "samples", u32).unwrap_or(4),
         max_depth: value_t!(matches, "depth", u32).unwrap_or(10),
         random_seed: matches.is_present("random"),
+        use_bvh: matches.is_present("bvh"),
     };
 
     let preset = matches.value_of("preset").unwrap_or("aras");

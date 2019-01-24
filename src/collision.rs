@@ -7,7 +7,7 @@ use rand::XorShiftRng;
 use std::f32;
 
 pub trait Hitable {
-    fn hit(&self, ray: &Ray, t0: f32, t1: f32) -> Option<RayHitEx>;
+    fn ray_hit(&self, ray: &Ray, t0: f32, t1: f32) -> Option<RayHitEx>;
     fn bounding_box(&self, t0: f32, t1: f32) -> Option<AABB>;
 }
 
@@ -70,7 +70,7 @@ pub struct AABB {
 impl AABB {
     #[inline]
     #[allow(dead_code)]
-    pub fn hit(&self, r: &Ray, tmin: f32, tmax: f32) -> bool {
+    pub fn ray_hit(&self, r: &Ray, tmin: f32, tmax: f32) -> bool {
         // note if not using SSE this might be faster to calc per component to early out
         let min_delta = (self.min - r.origin) / r.direction;
         let max_delta = (self.max - r.origin) / r.direction;
@@ -149,7 +149,7 @@ impl Sphere {
 }
 
 impl Hitable for Sphere {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<RayHitEx> {
+    fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<RayHitEx> {
         let oc = ray.origin - self.centre;
         let a = ray.direction.dot(ray.direction);
         let b = oc.dot(ray.direction);
@@ -538,7 +538,7 @@ impl Spheres for SpheresSoA {
     }
 }
 
-struct SpheresBVH {
+pub struct SpheresBVH {
     bvh: BVHNode,
     spheres: Box<[Sphere]>,
 }
@@ -551,5 +551,23 @@ impl SpheresBVH {
             bvh: bvh.unwrap(),
             spheres: spheres.into_boxed_slice(),
         }
+    }
+}
+
+impl Spheres for SpheresBVH {
+    fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+        if let Some(result) = self.bvh.ray_hit(ray, t_min, t_max) {
+            // TODO: sphere index
+            Some((RayHit { point: result.point, normal: result.normal }, 0))
+        } else {
+            None
+        }
+    }
+    fn sphere_centre(&self, index: u32) -> Vec3 {
+        self.spheres[index as usize].centre
+    }
+    fn sphere_radius_sq(&self, index: u32) -> f32 {
+        let radius = self.spheres[index as usize].radius;
+        radius * radius
     }
 }

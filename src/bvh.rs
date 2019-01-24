@@ -10,10 +10,10 @@ pub struct BVHNode {
 }
 
 impl Hitable for BVHNode {
-    fn hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<RayHitEx> {
-        if self.aabb.hit(ray, t_min, t_max) {
-            let hit_lhs = self.lhs.hit(ray, t_min, t_max);
-            let hit_rhs = self.rhs.hit(ray, t_min, t_max);
+    fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<RayHitEx> {
+        if self.aabb.ray_hit(ray, t_min, t_max) {
+            let hit_lhs = self.lhs.ray_hit(ray, t_min, t_max);
+            let hit_rhs = self.rhs.ray_hit(ray, t_min, t_max);
             match (hit_lhs, hit_rhs) {
                 (Some(hit_lhs), Some(hit_rhs)) => {
                     if hit_lhs.t < hit_rhs.t {

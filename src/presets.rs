@@ -8,16 +8,6 @@ use glam::vec3;
 use rand::{Rng, SeedableRng, XorShiftRng};
 
 pub fn from_name(name: &str, params: &Params) -> Option<(Scene, Camera)> {
-    match name {
-        "random" => Some(random(params)),
-        "small" => Some(small(params)),
-        "aras" => Some(aras_p(params)),
-        "smallpt" => Some(smallpt(params)),
-        _ => None,
-    }
-}
-
-pub fn random(params: &Params) -> (Scene, Camera) {
     let mut rng = if params.random_seed {
         rand::weak_rng()
     } else {
@@ -25,6 +15,16 @@ pub fn random(params: &Params) -> (Scene, Camera) {
         XorShiftRng::from_seed(FIXED_SEED)
     };
 
+    match name {
+        "random" => Some(random(&mut rng, params)),
+        "small" => Some(small(&mut rng, params)),
+        "aras" => Some(aras_p(&mut rng, params)),
+        "smallpt" => Some(smallpt(&mut rng, params)),
+        _ => None,
+    }
+}
+
+pub fn random(rng: &mut XorShiftRng, params: &Params) -> (Scene, Camera) {
     let lookfrom = vec3(13.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
     let dist_to_focus = 10.0;
@@ -118,11 +118,11 @@ pub fn random(params: &Params) -> (Scene, Camera) {
         None,
     ));
 
-    let scene = Scene::new(&spheres);
+    let scene = Scene::new(rng, &spheres, params.use_bvh);
     (scene, camera)
 }
 
-pub fn small(params: &Params) -> (Scene, Camera) {
+pub fn small(rng: &mut XorShiftRng, params: &Params) -> (Scene, Camera) {
     let lookfrom = vec3(3.0, 3.0, 2.0);
     let lookat = vec3(0.0, 0.0, -1.0);
     let dist_to_focus = (lookfrom - lookat).length();
@@ -177,11 +177,11 @@ pub fn small(params: &Params) -> (Scene, Camera) {
         ),
     ];
 
-    let scene = Scene::new(&spheres);
+    let scene = Scene::new(rng, &spheres, params.use_bvh);
     (scene, camera)
 }
 
-pub fn aras_p(params: &Params) -> (Scene, Camera) {
+pub fn aras_p(rng: &mut XorShiftRng, params: &Params) -> (Scene, Camera) {
     let lookfrom = vec3(0.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
     let dist_to_focus = 3.0;
@@ -589,11 +589,11 @@ pub fn aras_p(params: &Params) -> (Scene, Camera) {
         ),
     ];
 
-    let scene = Scene::new(&spheres);
+    let scene = Scene::new(rng, &spheres, params.use_bvh);
     (scene, camera)
 }
 
-pub fn smallpt(params: &Params) -> (Scene, Camera) {
+pub fn smallpt(rng: &mut XorShiftRng, params: &Params) -> (Scene, Camera) {
     let lookfrom = vec3(50.0, 52.0, 295.6);
     let lookat = vec3(50.0, 33.0, 0.0);
     let dist_to_focus = 100.0;
@@ -683,6 +683,6 @@ pub fn smallpt(params: &Params) -> (Scene, Camera) {
         ), //Lite
     ];
 
-    let scene = Scene::new(&spheres);
+    let scene = Scene::new(rng, &spheres, params.use_bvh);
     (scene, camera)
 }
