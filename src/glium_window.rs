@@ -177,9 +177,10 @@ pub fn start_loop(params: Params, camera: Camera, scene: Scene, max_frames: Opti
                         EmptyVertexAttributes { len: 4 },
                         NoIndices(PrimitiveType::TriangleStrip),
                         &program,
-                        &uniform!{ tex: &buffer_texture, stride: params.width as i32 },
+                        &uniform! { tex: &buffer_texture, stride: params.width as i32 },
                         &Default::default(),
-                    ).unwrap();
+                    )
+                    .unwrap();
                 target.finish().unwrap();
 
                 frame_num += 1;

@@ -217,8 +217,14 @@ mod test {
         let bvh = BVHNode::new(&mut rng, &mut spheres, 0.0, 0.0);
         assert!(bvh.is_some());
         let bvh = bvh.unwrap();
-        assert_eq!(spheres[0].bounding_box(0.0, 0.0), bvh.bounding_box(0.0, 0.0));
-        let ray = Ray { origin: spheres[0].centre, direction: vec3(1.0, 0.0, 0.0) };
+        assert_eq!(
+            spheres[0].bounding_box(0.0, 0.0),
+            bvh.bounding_box(0.0, 0.0)
+        );
+        let ray = Ray {
+            origin: spheres[0].centre,
+            direction: vec3(1.0, 0.0, 0.0),
+        };
         let hit = bvh.hit(&ray, MIN_T, MAX_T);
         assert!(hit.is_some());
     }

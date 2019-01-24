@@ -147,7 +147,7 @@ pub unsafe fn sinf_cosf_sse2(x: __m128) -> (__m128, __m128) {
     emm2 = _mm_cmpeq_epi32(emm2, _mm_setzero_si128());
     let poly_mask = _mm_castsi128_ps(emm2);
 
-    /* The magic pass: "Extended precision modular arithmetic" 
+    /* The magic pass: "Extended precision modular arithmetic"
     x = ((x - y * DP1) - y * DP2) - y * DP3; */
     let mut xmm1 = PS_MINUS_CEPHES_DP1.m128;
     let mut xmm2 = PS_MINUS_CEPHES_DP2.m128;
