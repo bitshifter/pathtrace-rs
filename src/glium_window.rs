@@ -1,4 +1,5 @@
-use camera::Camera;
+use crate::camera::Camera;
+use crate::scene::{Params, Scene};
 use glium::{
     self,
     glutin::{Api, GlProfile, GlRequest},
@@ -8,7 +9,6 @@ use glium::{
     Surface,
 };
 use image;
-use scene::{Params, Scene};
 use std::sync::mpsc::{channel, RecvTimeoutError};
 use std::thread;
 use std::time::{Duration, SystemTime};
@@ -179,8 +179,7 @@ pub fn start_loop(params: Params, camera: Camera, scene: Scene, max_frames: Opti
                         &program,
                         &uniform!{ tex: &buffer_texture, stride: params.width as i32 },
                         &Default::default(),
-                    )
-                    .unwrap();
+                    ).unwrap();
                 target.finish().unwrap();
 
                 frame_num += 1;

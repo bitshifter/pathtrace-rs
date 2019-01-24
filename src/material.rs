@@ -1,6 +1,6 @@
-use collision::{ray, Ray, RayHit};
+use crate::collision::{ray, Ray, RayHit};
+use crate::math::{random_in_unit_sphere, random_unit_vector, reflect, refract, schlick};
 use glam::{vec3, Vec3};
-use math::{random_in_unit_sphere, random_unit_vector, reflect, refract, schlick};
 use rand::{Rng, XorShiftRng};
 
 // #[derive(Clone, Copy, Debug, Serialize, Deserialize)]

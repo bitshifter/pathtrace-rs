@@ -71,8 +71,7 @@ fn main() {
                 .help("Don't create a preview render window")
                 .short("O")
                 .long("offline"),
-        ])
-        .get_matches();
+        ]).get_matches();
 
     let params = scene::Params {
         width: value_t!(matches, "width", u32).unwrap_or(1280),

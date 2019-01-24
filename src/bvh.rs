@@ -1,6 +1,6 @@
 // TODO: remove
 #![allow(dead_code)]
-use collision::{Hitable, Ray, RayHitEx, Sphere, AABB};
+use crate::collision::{Hitable, Ray, RayHitEx, Sphere, AABB};
 use rand::{Rng, XorShiftRng};
 
 struct BVHNode {
@@ -179,7 +179,7 @@ impl BVHNode {
 #[cfg(test)]
 mod test {
     use super::*;
-    use collision::Sphere;
+    use crate::collision::Sphere;
     use glam::vec3;
     use rand::{SeedableRng, XorShiftRng};
     use std::{f32, iter};
