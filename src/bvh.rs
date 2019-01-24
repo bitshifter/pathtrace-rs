@@ -3,7 +3,7 @@
 use crate::collision::{Hitable, Ray, RayHitEx, Sphere, AABB};
 use rand::{Rng, XorShiftRng};
 
-struct BVHNode {
+pub struct BVHNode {
     aabb: AABB,
     lhs: Box<Hitable>,
     rhs: Box<Hitable>,
@@ -39,7 +39,10 @@ impl Hitable for BVHNode {
 }
 
 impl BVHNode {
-    fn new(rng: &mut XorShiftRng, hitables: &mut [Sphere], t0: f32, t1: f32) -> Option<BVHNode> {
+    pub fn new(rng: &mut XorShiftRng, hitables: &mut [Sphere]) -> Option<BVHNode> {
+        BVHNode::new_split(rng, hitables, 0.0, 0.0)
+    }
+    pub fn new_split(rng: &mut XorShiftRng, hitables: &mut [Sphere], t0: f32, t1: f32) -> Option<BVHNode> {
         let axis = rng.next_u32() % 3;
         hitables.sort_unstable_by(|lhs, rhs| {
             let lhs_min = lhs.bounding_box(t0, t1).unwrap().min;
@@ -70,8 +73,8 @@ impl BVHNode {
             }
             _ => {
                 let pivot = hitables.len() / 2;
-                let lhs = Box::new(BVHNode::new(rng, &mut hitables[0..pivot], t0, t1).unwrap());
-                let rhs = Box::new(BVHNode::new(rng, &mut hitables[pivot + 1..], t0, t1).unwrap());
+                let lhs = Box::new(BVHNode::new_split(rng, &mut hitables[0..pivot], t0, t1).unwrap());
+                let rhs = Box::new(BVHNode::new_split(rng, &mut hitables[pivot + 1..], t0, t1).unwrap());
                 let lhs_aabb = lhs.bounding_box(t0, t1).unwrap();
                 let rhs_aabb = rhs.bounding_box(t0, t1).unwrap();
                 let aabb = lhs_aabb.combine(&rhs_aabb);
@@ -206,7 +209,7 @@ mod test {
     #[test]
     fn test_empty() {
         let mut rng = XorShiftRng::from_seed(FIXED_SEED);
-        let bvh = BVHNode::new(&mut rng, &mut vec![], 0.0, 0.0);
+        let bvh = BVHNode::new(&mut rng, &mut vec![]);
         assert!(bvh.is_none());
     }
 
@@ -214,13 +217,29 @@ mod test {
     fn test_one() {
         let mut rng = XorShiftRng::from_seed(FIXED_SEED);
         let mut spheres = rand_spheres(&mut rng, 1);
-        let bvh = BVHNode::new(&mut rng, &mut spheres, 0.0, 0.0);
+        let bvh = BVHNode::new(&mut rng, &mut spheres);
         assert!(bvh.is_some());
         let bvh = bvh.unwrap();
         assert_eq!(
             spheres[0].bounding_box(0.0, 0.0),
             bvh.bounding_box(0.0, 0.0)
         );
+        let ray = Ray {
+            origin: spheres[0].centre,
+            direction: vec3(1.0, 0.0, 0.0),
+        };
+        let hit = bvh.hit(&ray, MIN_T, MAX_T);
+        assert!(hit.is_some());
+    }
+
+    #[test]
+    fn test_two() {
+        let mut rng = XorShiftRng::from_seed(FIXED_SEED);
+        let mut spheres = rand_spheres(&mut rng, 2);
+        let bvh = BVHNode::new(&mut rng, &mut spheres);
+        assert!(bvh.is_some());
+        let bvh = bvh.unwrap();
+        // assert_eq!(spheres[0].bounding_box(0.0, 0.0), bvh.bounding_box(0.0, 0.0));
         let ray = Ray {
             origin: spheres[0].centre,
             direction: vec3(1.0, 0.0, 0.0),

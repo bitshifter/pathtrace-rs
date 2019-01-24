@@ -1,7 +1,9 @@
+use crate::bvh::BVHNode;
 use crate::material::{Material, MaterialKind};
 use crate::math::align_to;
 use crate::simd::*;
 use glam::{vec3, Vec3};
+use rand::XorShiftRng;
 use std::f32;
 
 pub trait Hitable {
@@ -195,8 +197,15 @@ pub fn sphere(
     )
 }
 
+pub trait Spheres {
+    fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)>;
+    fn sphere_centre(&self, index: u32) -> Vec3;
+    fn sphere_radius_sq(&self, index: u32) -> f32;
+}
+
 #[derive(Debug)]
 pub struct SpheresSoA {
+    feature: TargetFeature,
     centre_x: Vec<f32>,
     centre_y: Vec<f32>,
     centre_z: Vec<f32>,
@@ -209,6 +218,8 @@ pub struct SpheresSoA {
 
 impl SpheresSoA {
     pub fn new(spheres: &[Sphere]) -> SpheresSoA {
+        let feature = TargetFeature::detect();
+        feature.print_version();
         // HACK: make sure there's enough entries for SIMD
         // TODO: conditionally compile this
         let chunk_size = TargetFeature::detect().get_bits() / 32;
@@ -238,6 +249,7 @@ impl SpheresSoA {
             radius_inv.push(0.0);
         }
         SpheresSoA {
+            feature,
             centre_x,
             centre_y,
             centre_z,
@@ -249,22 +261,12 @@ impl SpheresSoA {
         }
     }
 
-    pub fn centre(&self, index: u32) -> Vec3 {
-        let index = index as usize;
-        assert!(index < self.len);
-        unsafe { self.centre_unchecked(index) }
-    }
-
     unsafe fn centre_unchecked(&self, index: usize) -> Vec3 {
         vec3(
             *self.centre_x.get_unchecked(index),
             *self.centre_y.get_unchecked(index),
             *self.centre_z.get_unchecked(index),
         )
-    }
-
-    pub fn radius_sq(&self, index: u32) -> f32 {
-        self.radius_sq[index as usize]
     }
 
     pub fn hit_scalar(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
@@ -513,5 +515,41 @@ impl SpheresSoA {
             }
         }
         None
+    }
+}
+
+impl Spheres for SpheresSoA {
+    fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+        match self.feature {
+            TargetFeature::AVX2 => unsafe { self.hit_avx2(ray, t_min, t_max) },
+            TargetFeature::SSE4_1 => unsafe { self.hit_sse4_1(ray, t_min, t_max) },
+            TargetFeature::FallBack => self.hit_scalar(ray, t_min, t_max),
+        }
+    }
+
+    fn sphere_centre(&self, index: u32) -> Vec3 {
+        let index = index as usize;
+        assert!(index < self.len);
+        unsafe { self.centre_unchecked(index) }
+    }
+
+    fn sphere_radius_sq(&self, index: u32) -> f32 {
+        self.radius_sq[index as usize]
+    }
+}
+
+struct SpheresBVH {
+    bvh: BVHNode,
+    spheres: Box<[Sphere]>,
+}
+
+impl SpheresBVH {
+    pub fn new(rng: &mut XorShiftRng, spheres: &[Sphere]) -> SpheresBVH {
+        let mut spheres: Vec<Sphere> = spheres.iter().map(|s| s.clone()).collect();
+        let bvh = BVHNode::new(rng, &mut spheres[..]);
+        SpheresBVH {
+            bvh: bvh.unwrap(),
+            spheres: spheres.into_boxed_slice(),
+        }
     }
 }
