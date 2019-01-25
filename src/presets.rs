@@ -25,6 +25,7 @@ pub fn from_name(name: &str, params: &Params) -> Option<(Scene, Camera)> {
 }
 
 pub fn random(rng: &mut XorShiftRng, params: &Params) -> (Scene, Camera) {
+    println!("Preset: random (num_spheres: {})", params.num_spheres);
     let lookfrom = vec3(13.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
     let dist_to_focus = 10.0;
@@ -41,16 +42,17 @@ pub fn random(rng: &mut XorShiftRng, params: &Params) -> (Scene, Camera) {
 
     let n = params.num_spheres as usize;
     let mut spheres = Vec::with_capacity(n + 1);
-    spheres.push(sphere(
-        vec3(0.0, -1000.0, 0.0),
-        1000.0,
-        MaterialKind::Lambertian {
-            albedo: vec3(0.5, 0.5, 0.5),
-        },
-        None,
-    ));
-    for a in -11..11 {
-        for b in -11..11 {
+    // spheres.push(sphere(
+    //     vec3(0.0, -1000.0, 0.0),
+    //     1000.0,
+    //     MaterialKind::Lambertian {
+    //         albedo: vec3(0.5, 0.5, 0.5),
+    //     },
+    //     None,
+    // ));
+    let stride = ((n as f64).sqrt() * 0.5).max(1.0) as i64;
+    for a in -stride..stride {
+        for b in -stride..stride {
             let choose_material = rng.next_f32();
             let centre = vec3(
                 a as f32 + 0.9 * rng.next_f32(),
@@ -123,6 +125,7 @@ pub fn random(rng: &mut XorShiftRng, params: &Params) -> (Scene, Camera) {
 }
 
 pub fn small(rng: &mut XorShiftRng, params: &Params) -> (Scene, Camera) {
+    println!("Preset: small");
     let lookfrom = vec3(3.0, 3.0, 2.0);
     let lookat = vec3(0.0, 0.0, -1.0);
     let dist_to_focus = (lookfrom - lookat).length();
@@ -182,6 +185,7 @@ pub fn small(rng: &mut XorShiftRng, params: &Params) -> (Scene, Camera) {
 }
 
 pub fn aras_p(rng: &mut XorShiftRng, params: &Params) -> (Scene, Camera) {
+    println!("Preset: aras_p");
     let lookfrom = vec3(0.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
     let dist_to_focus = 3.0;
@@ -594,6 +598,7 @@ pub fn aras_p(rng: &mut XorShiftRng, params: &Params) -> (Scene, Camera) {
 }
 
 pub fn smallpt(rng: &mut XorShiftRng, params: &Params) -> (Scene, Camera) {
+    println!("Preset: smallpt");
     let lookfrom = vec3(50.0, 52.0, 295.6);
     let lookat = vec3(50.0, 33.0, 0.0);
     let dist_to_focus = 100.0;

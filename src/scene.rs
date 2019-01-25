@@ -31,7 +31,11 @@ pub struct Scene {
 }
 
 impl Scene {
-    pub fn new(rng: &mut XorShiftRng, sphere_materials: &[(Sphere, Material)], use_bvh: bool) -> Scene {
+    pub fn new(
+        rng: &mut XorShiftRng,
+        sphere_materials: &[(Sphere, Material)],
+        use_bvh: bool,
+    ) -> Scene {
         // let (spheres, materials): (Vec<Sphere>, Vec<Material>) =
         //     sphere_materials.iter().cloned().unzip();
         // let mut emissive = vec![];
@@ -41,6 +45,7 @@ impl Scene {
         //     }
         // }
         let spheres: Box<dyn Spheres + Send + Sync> = if use_bvh {
+            println!("BVH: on");
             Box::new(SpheresBVH::new(rng, &sphere_materials))
         } else {
             Box::new(SpheresSoA::new(&sphere_materials))
@@ -224,10 +229,10 @@ impl Scene {
 
 #[cfg(all(feature = "bench", test))]
 mod bench {
-    use presets;
+    use crate::presets;
+    use crate::scene::{Params, MAX_T, MIN_T};
+    use crate::simd::TargetFeature;
     use rand::{SeedableRng, XorShiftRng};
-    use scene::{Params, MAX_T, MIN_T};
-    use simd::TargetFeature;
     use test::{black_box, Bencher};
 
     const FIXED_SEED: [u32; 4] = [0x193a_6754, 0xa8a7_d469, 0x9783_0e05, 0x113b_a7bb];
@@ -237,8 +242,11 @@ mod bench {
         samples: 10,
         max_depth: 10,
         random_seed: false,
+        use_bvh: false,
+        num_spheres: 500,
     };
 
+    /*
     #[bench]
     fn ray_hit_scalar(b: &mut Bencher) {
         let seed = black_box(FIXED_SEED);
@@ -266,7 +274,36 @@ mod bench {
         let (scene, camera) = presets::aras_p(&PARAMS);
         let ray = camera.get_ray(0.5, 0.5, &mut rng);
         if scene.feature == TargetFeature::AVX2 {
-            b.iter(|| unsafe { scene.spheres_soa.hit_avx2(&ray, MIN_T, MAX_T) });
+            b.iter(|| unsafe { scene.spheres.hit_avx2(&ray, MIN_T, MAX_T) });
         }
+    }
+    */
+
+    #[bench]
+    fn ray_hit_bvh(b: &mut Bencher) {
+        let params = Params {
+            use_bvh: true,
+            num_spheres: 10000000,
+            ..PARAMS
+        };
+        let seed = black_box(FIXED_SEED);
+        let mut rng = XorShiftRng::from_seed(seed);
+        let (scene, camera) = presets::random(&mut rng, &params);
+        let ray = camera.get_ray(0.5, 0.5, &mut rng);
+        b.iter(|| scene.spheres.ray_hit(&ray, MIN_T, MAX_T));
+    }
+
+    #[bench]
+    fn ray_hit_no_bvh(b: &mut Bencher) {
+        let params = Params {
+            use_bvh: false,
+            num_spheres: 10000000,
+            ..PARAMS
+        };
+        let seed = black_box(FIXED_SEED);
+        let mut rng = XorShiftRng::from_seed(seed);
+        let (scene, camera) = presets::random(&mut rng, &params);
+        let ray = camera.get_ray(0.5, 0.5, &mut rng);
+        b.iter(|| scene.spheres.ray_hit(&ray, MIN_T, MAX_T));
     }
 }

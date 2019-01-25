@@ -5,8 +5,9 @@ use crate::simd::*;
 use glam::{vec3, Vec3};
 use rand::XorShiftRng;
 use std::f32;
+use std::fmt::Debug;
 
-pub trait Hitable {
+pub trait Hitable: Debug {
     fn ray_hit(&self, ray: &Ray, t0: f32, t1: f32) -> Option<RayHitEx>;
     fn bounding_box(&self, t0: f32, t1: f32) -> Option<AABB>;
 }
@@ -164,13 +165,23 @@ impl Hitable for (Sphere, Material) {
             if t < t_max && t > t_min {
                 let point = ray.point_at_parameter(t);
                 let normal = (point - self.0.centre) / self.0.radius;
-                return Some(RayHitEx { t, point, normal, material: &self.1 });
+                return Some(RayHitEx {
+                    t,
+                    point,
+                    normal,
+                    material: &self.1,
+                });
             }
             let t = (-b + discriminant_sqrt) / a;
             if t < t_max && t > t_min {
                 let point = ray.point_at_parameter(t);
                 let normal = (point - self.0.centre) / self.0.radius;
-                return Some(RayHitEx { t, point, normal, material: &self.1 });
+                return Some(RayHitEx {
+                    t,
+                    point,
+                    normal,
+                    material: &self.1,
+                });
             }
         }
         None
@@ -253,7 +264,12 @@ impl SpheresSoA {
             radius.push(0.0);
             radius_sq.push(0.0);
             radius_inv.push(0.0);
-            materials.push(Material { kind: MaterialKind::Lambertian { albedo: Vec3::zero() }, emissive: Vec3::zero() });
+            materials.push(Material {
+                kind: MaterialKind::Lambertian {
+                    albedo: Vec3::zero(),
+                },
+                emissive: Vec3::zero(),
+            });
         }
         SpheresSoA {
             feature,
@@ -323,7 +339,12 @@ impl SpheresSoA {
         any(target_arch = "x86", target_arch = "x86_64"),
         target_feature(enable = "sse4.1")
     )]
-    pub unsafe fn hit_sse4_1(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
+    pub unsafe fn hit_sse4_1(
+        &self,
+        ray: &Ray,
+        t_min: f32,
+        t_max: f32,
+    ) -> Option<(RayHit, &Material)> {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::*;
         #[cfg(target_arch = "x86_64")]
@@ -411,7 +432,10 @@ impl SpheresSoA {
                         *self.centre_z.get_unchecked(hit_index_scalar),
                     ))
                     * *self.radius_inv.get_unchecked(hit_index_scalar);
-                return Some((RayHit { point, normal }, self.materials.get_unchecked(hit_index_scalar)));
+                return Some((
+                    RayHit { point, normal },
+                    self.materials.get_unchecked(hit_index_scalar),
+                ));
             }
         }
         None
@@ -421,7 +445,12 @@ impl SpheresSoA {
         any(target_arch = "x86", target_arch = "x86_64"),
         target_feature(enable = "avx2")
     )]
-    pub unsafe fn hit_avx2(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
+    pub unsafe fn hit_avx2(
+        &self,
+        ray: &Ray,
+        t_min: f32,
+        t_max: f32,
+    ) -> Option<(RayHit, &Material)> {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::*;
         #[cfg(target_arch = "x86_64")]
@@ -519,7 +548,10 @@ impl SpheresSoA {
                         *self.centre_z.get_unchecked(hit_index_scalar),
                     ))
                     * *self.radius_inv.get_unchecked(hit_index_scalar);
-                return Some((RayHit { point, normal }, self.materials.get_unchecked(hit_index_scalar)));
+                return Some((
+                    RayHit { point, normal },
+                    self.materials.get_unchecked(hit_index_scalar),
+                ));
             }
         }
         None
@@ -556,9 +588,7 @@ impl SpheresBVH {
     pub fn new(rng: &mut XorShiftRng, spheres: &[(Sphere, Material)]) -> SpheresBVH {
         let mut spheres: Vec<(Sphere, Material)> = spheres.iter().map(|s| s.clone()).collect();
         let bvh = BVHNode::new(rng, &mut spheres[..]);
-        SpheresBVH {
-            bvh: bvh.unwrap(),
-        }
+        SpheresBVH { bvh: bvh.unwrap() }
     }
 }
 
@@ -566,7 +596,13 @@ impl Spheres for SpheresBVH {
     fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
         if let Some(result) = self.bvh.ray_hit(ray, t_min, t_max) {
             // TODO: sphere index
-            Some((RayHit { point: result.point, normal: result.normal }, result.material))
+            Some((
+                RayHit {
+                    point: result.point,
+                    normal: result.normal,
+                },
+                result.material,
+            ))
         } else {
             None
         }
