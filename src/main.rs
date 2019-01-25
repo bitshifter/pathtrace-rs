@@ -66,6 +66,11 @@ fn main() {
                 .short("P")
                 .long("preset")
                 .takes_value(true),
+            Arg::with_name("num_spheres")
+                .help("The number of spheres to generate with the random preset")
+                .short("N")
+                .long("num-spheres")
+                .takes_value(true),
             Arg::with_name("frames")
                 .help("Process a fixed number of frames and exit")
                 .short("F")
@@ -83,6 +88,7 @@ fn main() {
         height: value_t!(matches, "height", u32).unwrap_or(720),
         samples: value_t!(matches, "samples", u32).unwrap_or(4),
         max_depth: value_t!(matches, "depth", u32).unwrap_or(10),
+        num_spheres: value_t!(matches, "num_spheres", u32).unwrap_or(500),
         random_seed: matches.is_present("random"),
         use_bvh: matches.is_present("bvh"),
     };

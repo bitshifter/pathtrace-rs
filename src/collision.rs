@@ -130,10 +130,11 @@ pub struct RayHit {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct RayHitEx {
+pub struct RayHitEx<'a> {
     pub t: f32,
     pub point: Vec3,
     pub normal: Vec3,
+    pub material: &'a Material,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -143,40 +144,42 @@ pub struct Sphere {
 }
 
 impl Sphere {
+    #[inline]
+    #[allow(dead_code)]
     pub fn new(centre: Vec3, radius: f32) -> Sphere {
         Sphere { centre, radius }
     }
 }
 
-impl Hitable for Sphere {
+impl Hitable for (Sphere, Material) {
     fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<RayHitEx> {
-        let oc = ray.origin - self.centre;
+        let oc = ray.origin - self.0.centre;
         let a = ray.direction.dot(ray.direction);
         let b = oc.dot(ray.direction);
-        let c = oc.dot(oc) - self.radius * self.radius;
+        let c = oc.dot(oc) - self.0.radius * self.0.radius;
         let discriminant = b * b - a * c;
         if discriminant > 0.0 {
             let discriminant_sqrt = discriminant.sqrt();
             let t = (-b - discriminant_sqrt) / a;
             if t < t_max && t > t_min {
                 let point = ray.point_at_parameter(t);
-                let normal = (point - self.centre) / self.radius;
-                return Some(RayHitEx { t, point, normal });
+                let normal = (point - self.0.centre) / self.0.radius;
+                return Some(RayHitEx { t, point, normal, material: &self.1 });
             }
             let t = (-b + discriminant_sqrt) / a;
             if t < t_max && t > t_min {
                 let point = ray.point_at_parameter(t);
-                let normal = (point - self.centre) / self.radius;
-                return Some(RayHitEx { t, point, normal });
+                let normal = (point - self.0.centre) / self.0.radius;
+                return Some(RayHitEx { t, point, normal, material: &self.1 });
             }
         }
         None
     }
     fn bounding_box(&self, _t0: f32, _t1: f32) -> Option<AABB> {
-        let radius = Vec3::splat(self.radius);
+        let radius = Vec3::splat(self.0.radius);
         Some(AABB {
-            min: self.centre - radius,
-            max: self.centre + radius,
+            min: self.0.centre - radius,
+            max: self.0.centre + radius,
         })
     }
 }
@@ -198,9 +201,9 @@ pub fn sphere(
 }
 
 pub trait Spheres {
-    fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)>;
-    fn sphere_centre(&self, index: u32) -> Vec3;
-    fn sphere_radius_sq(&self, index: u32) -> f32;
+    fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)>;
+    // fn sphere_centre(&self, index: u32) -> Vec3;
+    // fn sphere_radius_sq(&self, index: u32) -> f32;
 }
 
 #[derive(Debug)]
@@ -212,18 +215,19 @@ pub struct SpheresSoA {
     radius: Vec<f32>,
     radius_sq: Vec<f32>,
     radius_inv: Vec<f32>,
+    materials: Vec<Material>,
     len: usize,
     num_spheres: usize,
 }
 
 impl SpheresSoA {
-    pub fn new(spheres: &[Sphere]) -> SpheresSoA {
+    pub fn new(sphere_materials: &[(Sphere, Material)]) -> SpheresSoA {
         let feature = TargetFeature::detect();
         feature.print_version();
         // HACK: make sure there's enough entries for SIMD
         // TODO: conditionally compile this
         let chunk_size = TargetFeature::detect().get_bits() / 32;
-        let num_spheres = spheres.len();
+        let num_spheres = sphere_materials.len();
         let len = align_to(num_spheres, chunk_size);
         let mut centre_x = Vec::with_capacity(len);
         let mut centre_y = Vec::with_capacity(len);
@@ -231,13 +235,15 @@ impl SpheresSoA {
         let mut radius = Vec::with_capacity(len);
         let mut radius_inv = Vec::with_capacity(len);
         let mut radius_sq = Vec::with_capacity(len);
-        for sphere in spheres {
+        let mut materials = Vec::with_capacity(len);
+        for (sphere, material) in sphere_materials {
             centre_x.push(sphere.centre.get_x());
             centre_y.push(sphere.centre.get_y());
             centre_z.push(sphere.centre.get_z());
             radius.push(sphere.radius);
             radius_sq.push(sphere.radius * sphere.radius);
             radius_inv.push(1.0 / sphere.radius);
+            materials.push(*material);
         }
         let padding = len - num_spheres;
         for _ in 0..padding {
@@ -247,6 +253,7 @@ impl SpheresSoA {
             radius.push(0.0);
             radius_sq.push(0.0);
             radius_inv.push(0.0);
+            materials.push(Material { kind: MaterialKind::Lambertian { albedo: Vec3::zero() }, emissive: Vec3::zero() });
         }
         SpheresSoA {
             feature,
@@ -256,20 +263,21 @@ impl SpheresSoA {
             radius,
             radius_sq,
             radius_inv,
+            materials,
             len,
             num_spheres,
         }
     }
 
-    unsafe fn centre_unchecked(&self, index: usize) -> Vec3 {
-        vec3(
-            *self.centre_x.get_unchecked(index),
-            *self.centre_y.get_unchecked(index),
-            *self.centre_z.get_unchecked(index),
-        )
-    }
+    // unsafe fn centre_unchecked(&self, index: usize) -> Vec3 {
+    //     vec3(
+    //         *self.centre_x.get_unchecked(index),
+    //         *self.centre_y.get_unchecked(index),
+    //         *self.centre_z.get_unchecked(index),
+    //     )
+    // }
 
-    pub fn hit_scalar(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+    pub fn hit_scalar(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
         let mut hit_t = t_max;
         let mut hit_index = self.len;
         for ((((index, centre_x), centre_y), centre_z), radius_sq) in self
@@ -305,7 +313,7 @@ impl SpheresSoA {
                     self.centre_z[hit_index],
                 ))
                 * self.radius_inv[hit_index];
-            Some((RayHit { point, normal }, hit_index as u32))
+            Some((RayHit { point, normal }, &self.materials[hit_index]))
         } else {
             None
         }
@@ -315,7 +323,7 @@ impl SpheresSoA {
         any(target_arch = "x86", target_arch = "x86_64"),
         target_feature(enable = "sse4.1")
     )]
-    pub unsafe fn hit_sse4_1(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+    pub unsafe fn hit_sse4_1(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::*;
         #[cfg(target_arch = "x86_64")]
@@ -403,7 +411,7 @@ impl SpheresSoA {
                         *self.centre_z.get_unchecked(hit_index_scalar),
                     ))
                     * *self.radius_inv.get_unchecked(hit_index_scalar);
-                return Some((RayHit { point, normal }, hit_index_scalar as u32));
+                return Some((RayHit { point, normal }, self.materials.get_unchecked(hit_index_scalar)));
             }
         }
         None
@@ -413,7 +421,7 @@ impl SpheresSoA {
         any(target_arch = "x86", target_arch = "x86_64"),
         target_feature(enable = "avx2")
     )]
-    pub unsafe fn hit_avx2(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+    pub unsafe fn hit_avx2(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::*;
         #[cfg(target_arch = "x86_64")]
@@ -511,7 +519,7 @@ impl SpheresSoA {
                         *self.centre_z.get_unchecked(hit_index_scalar),
                     ))
                     * *self.radius_inv.get_unchecked(hit_index_scalar);
-                return Some((RayHit { point, normal }, hit_index_scalar as u32));
+                return Some((RayHit { point, normal }, self.materials.get_unchecked(hit_index_scalar)));
             }
         }
         None
@@ -519,7 +527,7 @@ impl SpheresSoA {
 }
 
 impl Spheres for SpheresSoA {
-    fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+    fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
         match self.feature {
             TargetFeature::AVX2 => unsafe { self.hit_avx2(ray, t_min, t_max) },
             TargetFeature::SSE4_1 => unsafe { self.hit_sse4_1(ray, t_min, t_max) },
@@ -527,6 +535,7 @@ impl Spheres for SpheresSoA {
         }
     }
 
+    /*
     fn sphere_centre(&self, index: u32) -> Vec3 {
         let index = index as usize;
         assert!(index < self.len);
@@ -536,38 +545,30 @@ impl Spheres for SpheresSoA {
     fn sphere_radius_sq(&self, index: u32) -> f32 {
         self.radius_sq[index as usize]
     }
+    */
 }
 
 pub struct SpheresBVH {
     bvh: BVHNode,
-    spheres: Box<[Sphere]>,
 }
 
 impl SpheresBVH {
-    pub fn new(rng: &mut XorShiftRng, spheres: &[Sphere]) -> SpheresBVH {
-        let mut spheres: Vec<Sphere> = spheres.iter().map(|s| s.clone()).collect();
+    pub fn new(rng: &mut XorShiftRng, spheres: &[(Sphere, Material)]) -> SpheresBVH {
+        let mut spheres: Vec<(Sphere, Material)> = spheres.iter().map(|s| s.clone()).collect();
         let bvh = BVHNode::new(rng, &mut spheres[..]);
         SpheresBVH {
             bvh: bvh.unwrap(),
-            spheres: spheres.into_boxed_slice(),
         }
     }
 }
 
 impl Spheres for SpheresBVH {
-    fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+    fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
         if let Some(result) = self.bvh.ray_hit(ray, t_min, t_max) {
             // TODO: sphere index
-            Some((RayHit { point: result.point, normal: result.normal }, 0))
+            Some((RayHit { point: result.point, normal: result.normal }, result.material))
         } else {
             None
         }
-    }
-    fn sphere_centre(&self, index: u32) -> Vec3 {
-        self.spheres[index as usize].centre
-    }
-    fn sphere_radius_sq(&self, index: u32) -> f32 {
-        let radius = self.spheres[index as usize].radius;
-        radius * radius
     }
 }

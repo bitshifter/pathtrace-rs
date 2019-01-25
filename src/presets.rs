@@ -39,7 +39,7 @@ pub fn random(rng: &mut XorShiftRng, params: &Params) -> (Scene, Camera) {
         dist_to_focus,
     );
 
-    let n = 500;
+    let n = params.num_spheres as usize;
     let mut spheres = Vec::with_capacity(n + 1);
     spheres.push(sphere(
         vec3(0.0, -1000.0, 0.0),

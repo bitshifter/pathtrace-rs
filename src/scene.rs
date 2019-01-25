@@ -1,8 +1,8 @@
 use crate::camera::Camera;
-use crate::collision::{ray, Ray, RayHit, Sphere, Spheres, SpheresBVH, SpheresSoA};
+use crate::collision::{Ray, Sphere, Spheres, SpheresBVH, SpheresSoA};
 use crate::material::Material;
-use crate::math::maxf;
-use crate::simd::{sinf_cosf};
+// use crate::math::maxf;
+// use crate::simd::{sinf_cosf};
 use glam::{vec3, Vec3};
 use rand::{weak_rng, Rng, SeedableRng, XorShiftRng};
 use rayon::prelude::*;
@@ -18,40 +18,42 @@ pub struct Params {
     pub height: u32,
     pub samples: u32,
     pub max_depth: u32,
+    pub num_spheres: u32,
     pub random_seed: bool,
     pub use_bvh: bool,
 }
 
 pub struct Scene {
-    spheres: Box<Spheres>,
-    materials: Vec<Material>,
-    emissive: Vec<u32>,
+    spheres: Box<dyn Spheres + Send + Sync>,
+    // materials: Vec<Material>,
+    // emissive: Vec<u32>,
     ray_count: AtomicUsize,
 }
 
 impl Scene {
     pub fn new(rng: &mut XorShiftRng, sphere_materials: &[(Sphere, Material)], use_bvh: bool) -> Scene {
-        let (spheres, materials): (Vec<Sphere>, Vec<Material>) =
-            sphere_materials.iter().cloned().unzip();
-        let mut emissive = vec![];
-        for (index, material) in materials.iter().enumerate() {
-            if material.emissive.length_squared() > 0.0 {
-                emissive.push(index as u32);
-            }
-        }
-        let spheres: Box<dyn Spheres> = if use_bvh {
-            Box::new(SpheresBVH::new(rng, &mut spheres))
+        // let (spheres, materials): (Vec<Sphere>, Vec<Material>) =
+        //     sphere_materials.iter().cloned().unzip();
+        // let mut emissive = vec![];
+        // for (index, material) in materials.iter().enumerate() {
+        //     if material.emissive.length_squared() > 0.0 {
+        //         emissive.push(index as u32);
+        //     }
+        // }
+        let spheres: Box<dyn Spheres + Send + Sync> = if use_bvh {
+            Box::new(SpheresBVH::new(rng, &sphere_materials))
         } else {
-            Box::new(SpheresSoA::new(&spheres))
+            Box::new(SpheresSoA::new(&sphere_materials))
         };
         Scene {
             spheres,
-            materials,
-            emissive,
+            // materials,
+            // emissive,
             ray_count: AtomicUsize::new(0),
         }
     }
 
+    /*
     fn sample_lights(
         &self,
         ray_in: &Ray,
@@ -113,6 +115,7 @@ impl Scene {
         }
         emissive_out
     }
+    */
 
     fn ray_trace(
         &self,
@@ -124,17 +127,18 @@ impl Scene {
         ray_count: &mut usize,
     ) -> Vec3 {
         *ray_count += 1;
-        if let Some((ray_hit, hit_index)) = self.spheres.ray_hit(ray_in, MIN_T, MAX_T) {
-            let material = &self.materials[hit_index as usize];
+        if let Some((ray_hit, material)) = self.spheres.ray_hit(ray_in, MIN_T, MAX_T) {
             if depth < max_depth {
                 if let Some((attenuation, scattered, do_light_sampling)) =
                     material.scatter(ray_in, &ray_hit, rng)
                 {
+                    /*
                     let light_emission = if do_light_sampling {
                         self.sample_lights(ray_in, &ray_hit, hit_index, attenuation, rng, ray_count)
                     } else {
                         Vec3::zero()
                     };
+                    */
                     // don't do material emission if a previous call has already done explicit
                     // light sampling and added the contribution
                     let material_emission = if do_material_emission {
@@ -144,7 +148,7 @@ impl Scene {
                     };
                     let do_material_emission = !do_light_sampling;
                     return material_emission
-                        + light_emission
+                        // + light_emission
                         + attenuation
                             * self.ray_trace(
                                 &scattered,

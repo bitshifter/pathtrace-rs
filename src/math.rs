@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::simd::sinf_cosf;
 use glam::{vec3, Vec3};
 use rand::Rng;

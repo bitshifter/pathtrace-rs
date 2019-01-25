@@ -1,12 +1,13 @@
 // TODO: remove
 #![allow(dead_code)]
 use crate::collision::{Hitable, Ray, RayHitEx, Sphere, AABB};
+use crate::material::Material;
 use rand::{Rng, XorShiftRng};
 
 pub struct BVHNode {
     aabb: AABB,
-    lhs: Box<Hitable>,
-    rhs: Box<Hitable>,
+    lhs: Box<dyn Hitable + Sync + Send>,
+    rhs: Box<dyn Hitable + Sync + Send>,
 }
 
 impl Hitable for BVHNode {
@@ -39,10 +40,10 @@ impl Hitable for BVHNode {
 }
 
 impl BVHNode {
-    pub fn new(rng: &mut XorShiftRng, hitables: &mut [Sphere]) -> Option<BVHNode> {
+    pub fn new(rng: &mut XorShiftRng, hitables: &mut [(Sphere, Material)]) -> Option<BVHNode> {
         BVHNode::new_split(rng, hitables, 0.0, 0.0)
     }
-    pub fn new_split(rng: &mut XorShiftRng, hitables: &mut [Sphere], t0: f32, t1: f32) -> Option<BVHNode> {
+    pub fn new_split(rng: &mut XorShiftRng, hitables: &mut [(Sphere, Material)], t0: f32, t1: f32) -> Option<BVHNode> {
         let axis = rng.next_u32() % 3;
         hitables.sort_unstable_by(|lhs, rhs| {
             let lhs_min = lhs.bounding_box(t0, t1).unwrap().min;
