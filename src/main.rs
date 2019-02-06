@@ -80,19 +80,12 @@ fn main() {
         random_seed: matches.is_present("random"),
     };
 
-    let preset = matches.value_of("preset").unwrap_or("aras");
-
-    println!(
-        "generating '{}' preset at {}x{} with {} samples per pixel",
-        preset, params.width, params.height, params.samples
-    );
-
-    let (scene, camera) = presets::from_name(preset, &params).expect("unrecognised preset");
+    let preset = matches.value_of("preset").unwrap_or("small");
 
     if matches.is_present("offline") {
-        offline::render_offline(&params, &camera, &scene);
+        offline::render_offline(preset, params);
     } else {
         let max_frames = value_t!(matches, "frames", u32).ok().and_then(Some);
-        glium_window::start_loop(params, camera, scene, max_frames);
+        glium_window::start_loop(preset, params, max_frames);
     }
 }

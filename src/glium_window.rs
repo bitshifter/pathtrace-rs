@@ -1,5 +1,7 @@
-use crate::camera::Camera;
-use crate::scene::{Params, Scene};
+use crate::{
+    scene::Params,
+    presets,
+};
 use glium::{
     self,
     glutin::{Api, GlProfile, GlRequest},
@@ -9,11 +11,14 @@ use glium::{
     Surface,
 };
 use image;
-use std::sync::mpsc::{channel, RecvTimeoutError};
-use std::thread;
-use std::time::{Duration, SystemTime};
+use std::{
+    sync::mpsc::{channel, RecvTimeoutError},
+    thread,
+    time::{Duration, SystemTime},
+};
+use typed_arena::Arena;
 
-pub fn start_loop(params: Params, camera: Camera, scene: Scene, max_frames: Option<u32>) {
+pub fn start_loop<'a>(preset: &str, params: Params, max_frames: Option<u32>) {
     let mut events_loop = glium::glutin::EventsLoop::new();
     let window = glium::glutin::WindowBuilder::new()
         .with_dimensions((params.width, params.height).into())
@@ -77,7 +82,11 @@ pub fn start_loop(params: Params, camera: Camera, scene: Scene, max_frames: Opti
     let (main_send, worker_recv) = channel::<Option<Vec<(f32, f32, f32)>>>();
     let (worker_send, main_recv) = channel::<Vec<(f32, f32, f32)>>();
 
+    let preset = preset.to_string();
     thread::spawn(move || {
+        let arena = Arena::new();
+        let (scene, camera) = presets::from_name(&preset, &params, &arena).expect("unrecognised preset");
+
         let mut frame_num = 0;
         let mut elapsed_secs = 0.0;
         let mut ray_count = 0;

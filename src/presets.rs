@@ -1,23 +1,32 @@
 extern crate rand;
 
-use crate::camera::Camera;
-use crate::collision::sphere;
-use crate::material::MaterialKind;
-use crate::scene::{Params, Scene};
-use crate::vmath::vec3;
-use rand::{Rng, SeedableRng, XorShiftRng};
+use crate::{
+    camera::Camera,
+    collision::Sphere,
+    material::{Material, MaterialKind},
+    scene::{Params, Scene},
+    vmath::{vec3, Vec3},
+};
+// use rand::{Rng, SeedableRng, XorShiftRng};
+use typed_arena::Arena;
 
-pub fn from_name(name: &str, params: &Params) -> Option<(Scene, Camera)> {
+pub fn from_name<'a>(name: &str, params: &Params, arena: &'a Arena<Material>) -> Option<(Scene<'a>, Camera)> {
+    println!(
+        "generating '{}' preset at {}x{} with {} samples per pixel",
+        name, params.width, params.height, params.samples
+    );
+
     match name {
-        "random" => Some(random(params)),
-        "small" => Some(small(params)),
-        "aras" => Some(aras_p(params)),
-        "smallpt" => Some(smallpt(params)),
+        // "random" => Some(random(params)),
+        "small" => Some(small(params, arena)),
+        // "aras" => Some(aras_p(params)),
+        // "smallpt" => Some(smallpt(params)),
         _ => None,
     }
 }
 
-pub fn random(params: &Params) -> (Scene, Camera) {
+/*
+pub fn random(params: &Params, arena: arena: &'a Arena<Material>) -> (Scene<'a>, Camera) {
     let mut rng = if params.random_seed {
         rand::weak_rng()
     } else {
@@ -118,11 +127,12 @@ pub fn random(params: &Params) -> (Scene, Camera) {
         None,
     ));
 
-    let scene = Scene::new(&spheres);
+    let scene = Scene::new(&spheres[..]);
     (scene, camera)
 }
+*/
 
-pub fn small(params: &Params) -> (Scene, Camera) {
+pub fn small<'a>(params: &Params, arena: &'a Arena<Material>) -> (Scene<'a>, Camera) {
     let lookfrom = vec3(3.0, 3.0, 2.0);
     let lookat = vec3(0.0, 0.0, -1.0);
     let dist_to_focus = (lookfrom - lookat).length();
@@ -137,6 +147,8 @@ pub fn small(params: &Params) -> (Scene, Camera) {
         dist_to_focus,
     );
 
+    let sphere = |centre, radius, kind, emissive: Option<Vec3>| -> (Sphere, &Material) {
+        (Sphere { centre, radius }, arena.alloc(Material { kind, emissive: emissive.unwrap_or(Vec3::zero()) })) };
     let spheres = [
         sphere(
             vec3(0.0, 0.0, -1.0),
@@ -181,7 +193,8 @@ pub fn small(params: &Params) -> (Scene, Camera) {
     (scene, camera)
 }
 
-pub fn aras_p(params: &Params) -> (Scene, Camera) {
+/*
+pub fn aras_p(params: &Params, arena: &'a Arena<Material>) -> (Scene<'a>, Camera) {
     let lookfrom = vec3(0.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
     let dist_to_focus = 3.0;
@@ -593,7 +606,7 @@ pub fn aras_p(params: &Params) -> (Scene, Camera) {
     (scene, camera)
 }
 
-pub fn smallpt(params: &Params) -> (Scene, Camera) {
+pub fn smallpt(params: &Params, arena: &'a Arena<Material>) -> (Scene<'a>, Camera) {
     let lookfrom = vec3(50.0, 52.0, 295.6);
     let lookat = vec3(50.0, 33.0, 0.0);
     let dist_to_focus = 100.0;
@@ -686,3 +699,4 @@ pub fn smallpt(params: &Params) -> (Scene, Camera) {
     let scene = Scene::new(&spheres);
     (scene, camera)
 }
+*/

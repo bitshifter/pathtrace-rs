@@ -21,19 +21,19 @@ pub struct Params {
     pub random_seed: bool,
 }
 
-pub struct Scene {
+pub struct Scene<'a> {
     spheres: SpheresSoA,
-    materials: Vec<Material>,
+    materials: Vec<&'a Material>,
     emissive: Vec<u32>,
     feature: TargetFeature,
     ray_count: AtomicUsize,
 }
 
-impl Scene {
-    pub fn new(sphere_materials: &[(Sphere, Material)]) -> Scene {
+impl<'a> Scene<'a> {
+    pub fn new(sphere_materials: &[(Sphere, &'a Material)]) -> Scene<'a> {
         let feature = TargetFeature::detect();
         feature.print_version();
-        let (spheres, materials): (Vec<Sphere>, Vec<Material>) =
+        let (spheres, materials): (Vec<Sphere>, Vec<&'a Material>) =
             sphere_materials.iter().cloned().unzip();
         let mut emissive = vec![];
         for (index, material) in materials.iter().enumerate() {

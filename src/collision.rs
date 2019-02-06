@@ -1,7 +1,8 @@
-use crate::material::{Material, MaterialKind};
-use crate::math::align_to;
-use crate::simd::*;
-use crate::vmath::{vec3, Vec3};
+use crate::{
+    math::align_to,
+    simd::*,
+    vmath::{vec3, Vec3},
+};
 use std::f32;
 
 #[inline]
@@ -88,22 +89,6 @@ pub struct RayHit {
 pub struct Sphere {
     pub centre: Vec3,
     pub radius: f32,
-}
-
-#[inline]
-pub fn sphere(
-    centre: Vec3,
-    radius: f32,
-    kind: MaterialKind,
-    emissive: Option<Vec3>,
-) -> (Sphere, Material) {
-    (
-        Sphere { centre, radius },
-        Material {
-            kind,
-            emissive: emissive.unwrap_or(Vec3::zero()),
-        },
-    )
 }
 
 #[derive(Debug)]
