@@ -1,5 +1,6 @@
 use crate::{
     math::align_to,
+    material::Material,
     simd::*,
     vmath::{vec3, Vec3},
 };
@@ -92,18 +93,19 @@ pub struct Sphere {
 }
 
 #[derive(Debug)]
-pub struct SpheresSoA {
+pub struct SpheresSoA<'a> {
     centre_x: Vec<f32>,
     centre_y: Vec<f32>,
     centre_z: Vec<f32>,
     radius_sq: Vec<f32>,
     radius_inv: Vec<f32>,
+    material: Vec<Option<&'a Material>>,
     len: usize,
     num_spheres: usize,
 }
 
-impl SpheresSoA {
-    pub fn new(spheres: &[Sphere]) -> SpheresSoA {
+impl<'a> SpheresSoA<'a> {
+    pub fn new(spheres: &[(Sphere, &'a Material)]) -> SpheresSoA<'a> {
         // HACK: make sure there's enough entries for SIMD
         // TODO: conditionally compile this
         let chunk_size = TargetFeature::detect().get_bits() / 32;
@@ -114,12 +116,14 @@ impl SpheresSoA {
         let mut centre_z = Vec::with_capacity(len);
         let mut radius_inv = Vec::with_capacity(len);
         let mut radius_sq = Vec::with_capacity(len);
-        for sphere in spheres {
+        let mut material: Vec<Option<&'a Material>> = Vec::with_capacity(len);
+        for (sphere, mat) in spheres {
             centre_x.push(sphere.centre.get_x());
             centre_y.push(sphere.centre.get_y());
             centre_z.push(sphere.centre.get_z());
             radius_sq.push(sphere.radius * sphere.radius);
             radius_inv.push(1.0 / sphere.radius);
+            material.push(Some(mat));
         }
         let padding = len - num_spheres;
         for _ in 0..padding {
@@ -128,6 +132,7 @@ impl SpheresSoA {
             centre_z.push(f32::MAX);
             radius_sq.push(0.0);
             radius_inv.push(0.0);
+            material.push(None);
         }
         SpheresSoA {
             centre_x,
@@ -135,6 +140,7 @@ impl SpheresSoA {
             centre_z,
             radius_sq,
             radius_inv,
+            material,
             len,
             num_spheres,
         }
@@ -156,7 +162,7 @@ impl SpheresSoA {
         self.radius_sq[index as usize]
     }
 
-    pub fn hit_scalar(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+    pub fn hit_scalar(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
         let mut hit_t = t_max;
         let mut hit_index = self.len;
         for ((((index, centre_x), centre_y), centre_z), radius_sq) in self
@@ -190,7 +196,7 @@ impl SpheresSoA {
                 self.centre_y[hit_index],
                 self.centre_z[hit_index],
             )) * self.radius_inv[hit_index];
-            Some((RayHit { point, normal }, hit_index as u32))
+            Some((RayHit { point, normal }, self.material[hit_index].unwrap()))
         } else {
             None
         }
@@ -200,7 +206,7 @@ impl SpheresSoA {
         any(target_arch = "x86", target_arch = "x86_64"),
         target_feature(enable = "sse4.1")
     )]
-    pub unsafe fn hit_sse4_1(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+    pub unsafe fn hit_sse4_1(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::*;
         #[cfg(target_arch = "x86_64")]
@@ -286,7 +292,7 @@ impl SpheresSoA {
                     *self.centre_y.get_unchecked(hit_index_scalar),
                     *self.centre_z.get_unchecked(hit_index_scalar),
                 )) * *self.radius_inv.get_unchecked(hit_index_scalar);
-                return Some((RayHit { point, normal }, hit_index_scalar as u32));
+                return Some((RayHit { point, normal }, self.material.get_unchecked(hit_index_scalar).unwrap()));
             }
         }
         None
@@ -296,7 +302,7 @@ impl SpheresSoA {
         any(target_arch = "x86", target_arch = "x86_64"),
         target_feature(enable = "avx2")
     )]
-    pub unsafe fn hit_avx2(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+    pub unsafe fn hit_avx2(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::*;
         #[cfg(target_arch = "x86_64")]
@@ -392,7 +398,7 @@ impl SpheresSoA {
                     *self.centre_y.get_unchecked(hit_index_scalar),
                     *self.centre_z.get_unchecked(hit_index_scalar),
                 )) * *self.radius_inv.get_unchecked(hit_index_scalar);
-                return Some((RayHit { point, normal }, hit_index_scalar as u32));
+                return Some((RayHit { point, normal }, self.material.get_unchecked(hit_index_scalar).unwrap()));
             }
         }
         None

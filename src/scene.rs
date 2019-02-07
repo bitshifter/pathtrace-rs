@@ -22,9 +22,8 @@ pub struct Params {
 }
 
 pub struct Scene<'a> {
-    spheres: SpheresSoA,
-    materials: Vec<&'a Material>,
-    emissive: Vec<u32>,
+    spheres: SpheresSoA<'a>,
+    // emissive: Vec<&'a Material>,
     feature: TargetFeature,
     ray_count: AtomicUsize,
 }
@@ -33,24 +32,21 @@ impl<'a> Scene<'a> {
     pub fn new(sphere_materials: &[(Sphere, &'a Material)]) -> Scene<'a> {
         let feature = TargetFeature::detect();
         feature.print_version();
-        let (spheres, materials): (Vec<Sphere>, Vec<&'a Material>) =
-            sphere_materials.iter().cloned().unzip();
-        let mut emissive = vec![];
-        for (index, material) in materials.iter().enumerate() {
-            if material.emissive.length_squared() > 0.0 {
-                emissive.push(index as u32);
-            }
-        }
+        // let mut emissive: Vec<&'a Material> = vec![];
+        // for (_, material) in sphere_materials {
+        //     if material.emissive.length_squared() > 0.0 {
+        //         emissive.push(material);
+        //     }
+        // }
         Scene {
-            spheres: SpheresSoA::new(&spheres),
-            materials,
-            emissive,
+            spheres: SpheresSoA::new(&sphere_materials),
+            // emissive,
             feature,
             ray_count: AtomicUsize::new(0),
         }
     }
 
-    fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+    fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
         match self.feature {
             TargetFeature::AVX2 => unsafe { self.spheres.hit_avx2(ray, t_min, t_max) },
             TargetFeature::SSE4_1 => unsafe { self.spheres.hit_sse4_1(ray, t_min, t_max) },
@@ -58,18 +54,19 @@ impl<'a> Scene<'a> {
         }
     }
 
+/*
     fn sample_lights(
         &self,
         ray_in: &Ray,
         ray_in_hit: &RayHit,
-        in_hit_index: u32,
+        hit_mat: &Material,
         attenuation: Vec3,
         rng: &mut XorShiftRng,
         ray_count: &mut usize,
     ) -> Vec3 {
         let mut emissive_out = Vec3::zero();
-        for index in &self.emissive {
-            if *index == in_hit_index {
+        for emissive_mat in &self.emissive {
+            if emissive_mat as *const _ == hit_mat as *const _ {
                 // skip self
                 continue;
             }
@@ -100,8 +97,8 @@ impl<'a> Scene<'a> {
 
             *ray_count += 1;
             let ray_out = ray(ray_in_hit.point, l);
-            if let Some((_, out_hit_index)) = self.ray_hit(&ray_out, MIN_T, MAX_T) {
-                if *index == out_hit_index {
+            if let Some((_, out_mat)) = self.ray_hit(&ray_out, MIN_T, MAX_T) {
+                if emissive_mat as *const _ == out_mat as *const _ {
                     let omega = 2.0 * f32::consts::PI * (1.0 - cos_a_max);
                     let rdir = ray_in.direction;
                     let nl = if ray_in_hit.normal.dot(rdir) < 0.0 {
@@ -109,7 +106,7 @@ impl<'a> Scene<'a> {
                     } else {
                         -ray_in_hit.normal
                     };
-                    let light_emission = self.materials[*index as usize].emissive;
+                    let light_emission = emissive_mat.emissive;
                     emissive_out += (attenuation * light_emission)
                         * (maxf(0.0, l.dot(nl)) * omega / f32::consts::PI);
                 }
@@ -117,41 +114,41 @@ impl<'a> Scene<'a> {
         }
         emissive_out
     }
+*/
 
     fn ray_trace(
         &self,
         ray_in: &Ray,
         depth: u32,
         max_depth: u32,
-        do_material_emission: bool,
+        // do_material_emission: bool,
         rng: &mut XorShiftRng,
         ray_count: &mut usize,
     ) -> Vec3 {
         *ray_count += 1;
-        if let Some((ray_hit, hit_index)) = self.ray_hit(ray_in, MIN_T, MAX_T) {
-            let material = &self.materials[hit_index as usize];
+        if let Some((ray_hit, material)) = self.ray_hit(ray_in, MIN_T, MAX_T) {
             if depth < max_depth {
-                if let Some((attenuation, scattered, do_light_sampling)) =
+                if let Some((attenuation, scattered, _)) =
                     material.scatter(ray_in, &ray_hit, rng)
                 {
-                    let light_emission = if do_light_sampling {
-                        self.sample_lights(ray_in, &ray_hit, hit_index, attenuation, rng, ray_count)
-                    } else {
-                        Vec3::zero()
-                    };
+                    // let light_emission = if do_light_sampling {
+                    //     self.sample_lights(ray_in, &ray_hit, material, attenuation, rng, ray_count)
+                    // } else {
+                    //     Vec3::zero()
+                    // };
                     // don't do material emission if a previous call has already done explicit
                     // light sampling and added the contribution
-                    let material_emission = if do_material_emission {
-                        material.emissive
-                    } else {
-                        Vec3::zero()
-                    };
-                    let do_material_emission = !do_light_sampling;
-                    return material_emission + light_emission + attenuation * self.ray_trace(
+                    // let material_emission = if do_material_emission {
+                    //     material.emissive
+                    // } else {
+                    //     Vec3::zero()
+                    // };
+                    // let do_material_emission = !do_light_sampling;
+                    return material.emissive + attenuation * self.ray_trace(
                         &scattered,
                         depth + 1,
                         max_depth,
-                        do_material_emission,
+                        // do_material_emission,
                         rng,
                         ray_count,
                     );
@@ -203,7 +200,7 @@ impl<'a> Scene<'a> {
                             &ray,
                             0,
                             params.max_depth,
-                            true,
+                            // true,
                             &mut rng,
                             &mut ray_count,
                         );
