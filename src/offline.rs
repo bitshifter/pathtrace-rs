@@ -4,8 +4,9 @@ use std::time::SystemTime;
 use typed_arena::Arena;
 
 pub fn render_offline(preset: &str, params: Params) {
-    let arena = Arena::new();
-    let (scene, camera) = presets::from_name(preset, &params, &arena).expect("unrecognised preset");
+    let texture_arena = Arena::new();
+    let material_arena = Arena::new();
+    let (scene, camera) = presets::from_name(preset, &params, &texture_arena, &material_arena).expect("unrecognised preset");
     let mut rgb_buffer = vec![(0.0, 0.0, 0.0); (params.width * params.height) as usize];
 
     let start_time = SystemTime::now();

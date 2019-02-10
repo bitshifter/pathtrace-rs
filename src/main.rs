@@ -24,6 +24,7 @@ mod presets;
 mod scene;
 #[macro_use]
 mod simd;
+mod texture;
 mod vmath;
 
 use clap::{App, Arg};

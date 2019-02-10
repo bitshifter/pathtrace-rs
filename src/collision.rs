@@ -100,7 +100,7 @@ pub struct SpheresSoA<'a> {
     centre_z: Vec<f32>,
     radius_sq: Vec<f32>,
     radius_inv: Vec<f32>,
-    material: Vec<Option<&'a Material>>,
+    material: Vec<Option<&'a Material<'a>>>,
     len: usize,
     num_spheres: usize,
 }

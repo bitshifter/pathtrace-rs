@@ -5,15 +5,16 @@ use crate::{
     collision::Sphere,
     material::{Material, MaterialKind},
     scene::{Params, Scene},
+    texture::Texture,
     vmath::{vec3, Vec3},
 };
-// use rand::{Rng, SeedableRng, XorShiftRng};
 use typed_arena::Arena;
 
 pub fn from_name<'a>(
     name: &str,
     params: &Params,
-    arena: &'a Arena<Material>,
+    texture_arena: &'a Arena<Texture>,
+    material_arena: &'a Arena<Material<'a>>,
 ) -> Option<(Scene<'a>, Camera)> {
     println!(
         "generating '{}' preset at {}x{} with {} samples per pixel",
@@ -22,7 +23,7 @@ pub fn from_name<'a>(
 
     match name {
         // "random" => Some(random(params)),
-        "small" => Some(small(params, arena)),
+        "small" => Some(small(params, texture_arena, material_arena)),
         // "aras" => Some(aras_p(params)),
         // "smallpt" => Some(smallpt(params)),
         _ => None,
@@ -136,7 +137,7 @@ pub fn random(params: &Params, arena: arena: &'a Arena<Material>) -> (Scene<'a>,
 }
 */
 
-pub fn small<'a>(params: &Params, arena: &'a Arena<Material>) -> (Scene<'a>, Camera) {
+pub fn small<'a>(params: &Params, texture_arena: &'a Arena<Texture>, material_arena: &'a Arena<Material<'a>>) -> (Scene<'a>, Camera) {
     let lookfrom = vec3(3.0, 3.0, 2.0);
     let lookat = vec3(0.0, 0.0, -1.0);
     let dist_to_focus = (lookfrom - lookat).length();
@@ -154,7 +155,7 @@ pub fn small<'a>(params: &Params, arena: &'a Arena<Material>) -> (Scene<'a>, Cam
     let sphere = |centre, radius, kind, emissive: Option<Vec3>| -> (Sphere, &Material) {
         (
             Sphere { centre, radius },
-            arena.alloc(Material {
+            material_arena.alloc(Material {
                 kind,
                 emissive: emissive.unwrap_or(Vec3::zero()),
             }),
@@ -165,7 +166,7 @@ pub fn small<'a>(params: &Params, arena: &'a Arena<Material>) -> (Scene<'a>, Cam
             vec3(0.0, 0.0, -1.0),
             0.5,
             MaterialKind::Lambertian {
-                albedo: vec3(0.1, 0.2, 0.5),
+                albedo: texture_arena.alloc(Texture::Constant { color: vec3(0.1, 0.2, 0.5) }),
             },
             None,
         ),
@@ -173,7 +174,7 @@ pub fn small<'a>(params: &Params, arena: &'a Arena<Material>) -> (Scene<'a>, Cam
             vec3(0.0, -100.5, -1.0),
             100.0,
             MaterialKind::Lambertian {
-                albedo: vec3(0.8, 0.8, 0.0),
+                albedo: texture_arena.alloc(Texture::Constant { color: vec3(0.8, 0.8, 0.0) }),
             },
             None,
         ),

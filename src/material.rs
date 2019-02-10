@@ -1,32 +1,33 @@
 use crate::collision::{ray, Ray, RayHit};
 use crate::math::{random_in_unit_sphere, random_unit_vector, reflect, refract, schlick};
 use crate::vmath::{vec3, Vec3};
+use crate::texture::Texture;
 use rand::{Rng, XorShiftRng};
 
 // #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[derive(Clone, Copy, Debug)]
-pub enum MaterialKind {
-    Lambertian { albedo: Vec3 },
+pub enum MaterialKind<'a> {
+    Lambertian { albedo: &'a Texture<'a> },
     Metal { albedo: Vec3, fuzz: f32 },
     Dielectric { ref_idx: f32 },
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct Material {
-    pub kind: MaterialKind,
+pub struct Material<'a> {
+    pub kind: MaterialKind<'a>,
     pub emissive: Vec3,
 }
 
-impl MaterialKind {
+impl<'a> MaterialKind<'a> {
     fn scatter_lambertian(
-        albedo: Vec3,
+        albedo: &Texture,
         _: &Ray,
         ray_hit: &RayHit,
         rng: &mut XorShiftRng,
     ) -> Option<(Vec3, Ray, bool)> {
         let target = ray_hit.point + ray_hit.normal + random_unit_vector(rng);
         Some((
-            albedo,
+            albedo.value(0.0, 0.0, ray_hit.point),
             ray(ray_hit.point, (target - ray_hit.point).normalize()),
             true,
         ))
@@ -89,7 +90,7 @@ impl MaterialKind {
     }
 }
 
-impl Material {
+impl<'a> Material<'a> {
     pub fn scatter(
         &self,
         ray: &Ray,
