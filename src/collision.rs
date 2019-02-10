@@ -108,6 +108,7 @@ pub fn sphere(
 
 #[derive(Debug)]
 pub struct SpheresSoA {
+    feature: TargetFeature,
     centre_x: Vec<f32>,
     centre_y: Vec<f32>,
     centre_z: Vec<f32>,
@@ -119,6 +120,8 @@ pub struct SpheresSoA {
 
 impl SpheresSoA {
     pub fn new(spheres: &[Sphere]) -> SpheresSoA {
+        let feature = TargetFeature::detect();
+        feature.print_version();
         // HACK: make sure there's enough entries for SIMD
         // TODO: conditionally compile this
         let chunk_size = TargetFeature::detect().get_bits() / 32;
@@ -145,6 +148,7 @@ impl SpheresSoA {
             radius_inv.push(0.0);
         }
         SpheresSoA {
+            feature,
             centre_x,
             centre_y,
             centre_z,
@@ -169,6 +173,14 @@ impl SpheresSoA {
 
     pub fn radius_sq(&self, index: u32) -> f32 {
         self.radius_sq[index as usize]
+    }
+
+    pub fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
+        match self.feature {
+            TargetFeature::AVX2 => unsafe { self.hit_avx2(ray, t_min, t_max) },
+            TargetFeature::SSE4_1 => unsafe { self.hit_sse4_1(ray, t_min, t_max) },
+            TargetFeature::FallBack => self.hit_scalar(ray, t_min, t_max),
+        }
     }
 
     pub fn hit_scalar(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {

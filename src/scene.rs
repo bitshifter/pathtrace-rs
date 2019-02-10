@@ -2,7 +2,7 @@ use crate::camera::Camera;
 use crate::collision::{ray, Ray, RayHit, Sphere, SpheresSoA};
 use crate::material::Material;
 use crate::math::maxf;
-use crate::simd::{sinf_cosf, TargetFeature};
+use crate::simd::sinf_cosf;
 use crate::vmath::{vec3, Vec3};
 use rand::{weak_rng, Rng, SeedableRng, XorShiftRng};
 use rayon::prelude::*;
@@ -25,14 +25,11 @@ pub struct Scene {
     spheres: SpheresSoA,
     materials: Vec<Material>,
     emissive: Vec<u32>,
-    feature: TargetFeature,
     ray_count: AtomicUsize,
 }
 
 impl Scene {
     pub fn new(sphere_materials: &[(Sphere, Material)]) -> Scene {
-        let feature = TargetFeature::detect();
-        feature.print_version();
         let (spheres, materials): (Vec<Sphere>, Vec<Material>) =
             sphere_materials.iter().cloned().unzip();
         let mut emissive = vec![];
@@ -45,16 +42,7 @@ impl Scene {
             spheres: SpheresSoA::new(&spheres),
             materials,
             emissive,
-            feature,
             ray_count: AtomicUsize::new(0),
-        }
-    }
-
-    fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, u32)> {
-        match self.feature {
-            TargetFeature::AVX2 => unsafe { self.spheres.hit_avx2(ray, t_min, t_max) },
-            TargetFeature::SSE4_1 => unsafe { self.spheres.hit_sse4_1(ray, t_min, t_max) },
-            TargetFeature::FallBack => self.spheres.hit_scalar(ray, t_min, t_max),
         }
     }
 
@@ -100,7 +88,7 @@ impl Scene {
 
             *ray_count += 1;
             let ray_out = ray(ray_in_hit.point, l);
-            if let Some((_, out_hit_index)) = self.ray_hit(&ray_out, MIN_T, MAX_T) {
+            if let Some((_, out_hit_index)) = self.spheres.ray_hit(&ray_out, MIN_T, MAX_T) {
                 if *index == out_hit_index {
                     let omega = 2.0 * f32::consts::PI * (1.0 - cos_a_max);
                     let rdir = ray_in.direction;
@@ -128,7 +116,7 @@ impl Scene {
         ray_count: &mut usize,
     ) -> Vec3 {
         *ray_count += 1;
-        if let Some((ray_hit, hit_index)) = self.ray_hit(ray_in, MIN_T, MAX_T) {
+        if let Some((ray_hit, hit_index)) = self.spheres.ray_hit(ray_in, MIN_T, MAX_T) {
             let material = &self.materials[hit_index as usize];
             if depth < max_depth {
                 if let Some((attenuation, scattered, do_light_sampling)) =
