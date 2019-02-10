@@ -38,5 +38,6 @@ pub fn render_offline(params: &Params, camera: &Camera, scene: &Scene) {
         params.width,
         params.height,
         image::RGB(8),
-    ).expect("Failed to save output image");
+    )
+    .expect("Failed to save output image");
 }

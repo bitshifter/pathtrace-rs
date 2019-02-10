@@ -29,7 +29,8 @@ pub fn start_loop(params: Params, camera: Camera, scene: Scene, max_frames: Opti
         &display,
         (params.width * params.height * 4) as usize,
         BufferTextureType::Float,
-    ).expect("Failed to create rgb_buffer texture");
+    )
+    .expect("Failed to create rgb_buffer texture");
     {
         // init buffer texture to something
         let mut mapping = buffer_texture.map();
@@ -67,7 +68,8 @@ pub fn start_loop(params: Params, camera: Camera, scene: Scene, max_frames: Opti
             }
         ",
         None,
-    ).expect("Failed to create shader");
+    )
+    .expect("Failed to create shader");
 
     let mut rgb_buffer = Some(vec![
         (0.0, 0.0, 0.0);
@@ -175,9 +177,10 @@ pub fn start_loop(params: Params, camera: Camera, scene: Scene, max_frames: Opti
                         EmptyVertexAttributes { len: 4 },
                         NoIndices(PrimitiveType::TriangleStrip),
                         &program,
-                        &uniform!{ tex: &buffer_texture, stride: params.width as i32 },
+                        &uniform! { tex: &buffer_texture, stride: params.width as i32 },
                         &Default::default(),
-                    ).unwrap();
+                    )
+                    .unwrap();
                 target.finish().unwrap();
 
                 frame_num += 1;
