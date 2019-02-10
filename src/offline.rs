@@ -1,8 +1,4 @@
-use crate::{
-    math::linear_to_srgb,
-    presets,
-    scene::Params,
-};
+use crate::{math::linear_to_srgb, presets, scene::Params};
 use image;
 use std::time::SystemTime;
 use typed_arena::Arena;
@@ -43,5 +39,6 @@ pub fn render_offline(preset: &str, params: Params) {
         params.width,
         params.height,
         image::RGB(8),
-    ).expect("Failed to save output image");
+    )
+    .expect("Failed to save output image");
 }

@@ -48,6 +48,7 @@ pub fn linear_to_srgb(rgb: (f32, f32, f32)) -> (u8, u8, u8) {
 }
 
 #[inline]
+#[allow(dead_code)]
 pub fn maxf(a: f32, b: f32) -> f32 {
     if a > b {
         a

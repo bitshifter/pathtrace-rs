@@ -10,7 +10,11 @@ use crate::{
 // use rand::{Rng, SeedableRng, XorShiftRng};
 use typed_arena::Arena;
 
-pub fn from_name<'a>(name: &str, params: &Params, arena: &'a Arena<Material>) -> Option<(Scene<'a>, Camera)> {
+pub fn from_name<'a>(
+    name: &str,
+    params: &Params,
+    arena: &'a Arena<Material>,
+) -> Option<(Scene<'a>, Camera)> {
     println!(
         "generating '{}' preset at {}x{} with {} samples per pixel",
         name, params.width, params.height, params.samples
@@ -148,7 +152,14 @@ pub fn small<'a>(params: &Params, arena: &'a Arena<Material>) -> (Scene<'a>, Cam
     );
 
     let sphere = |centre, radius, kind, emissive: Option<Vec3>| -> (Sphere, &Material) {
-        (Sphere { centre, radius }, arena.alloc(Material { kind, emissive: emissive.unwrap_or(Vec3::zero()) })) };
+        (
+            Sphere { centre, radius },
+            arena.alloc(Material {
+                kind,
+                emissive: emissive.unwrap_or(Vec3::zero()),
+            }),
+        )
+    };
     let spheres = [
         sphere(
             vec3(0.0, 0.0, -1.0),

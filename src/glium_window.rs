@@ -1,7 +1,4 @@
-use crate::{
-    scene::Params,
-    presets,
-};
+use crate::{presets, scene::Params};
 use glium::{
     self,
     glutin::{Api, GlProfile, GlRequest},
@@ -34,7 +31,8 @@ pub fn start_loop<'a>(preset: &str, params: Params, max_frames: Option<u32>) {
         &display,
         (params.width * params.height * 4) as usize,
         BufferTextureType::Float,
-    ).expect("Failed to create rgb_buffer texture");
+    )
+    .expect("Failed to create rgb_buffer texture");
     {
         // init buffer texture to something
         let mut mapping = buffer_texture.map();
@@ -72,7 +70,8 @@ pub fn start_loop<'a>(preset: &str, params: Params, max_frames: Option<u32>) {
             }
         ",
         None,
-    ).expect("Failed to create shader");
+    )
+    .expect("Failed to create shader");
 
     let mut rgb_buffer = Some(vec![
         (0.0, 0.0, 0.0);
@@ -85,7 +84,8 @@ pub fn start_loop<'a>(preset: &str, params: Params, max_frames: Option<u32>) {
     let preset = preset.to_string();
     thread::spawn(move || {
         let arena = Arena::new();
-        let (scene, camera) = presets::from_name(&preset, &params, &arena).expect("unrecognised preset");
+        let (scene, camera) =
+            presets::from_name(&preset, &params, &arena).expect("unrecognised preset");
 
         let mut frame_num = 0;
         let mut elapsed_secs = 0.0;
@@ -184,9 +184,10 @@ pub fn start_loop<'a>(preset: &str, params: Params, max_frames: Option<u32>) {
                         EmptyVertexAttributes { len: 4 },
                         NoIndices(PrimitiveType::TriangleStrip),
                         &program,
-                        &uniform!{ tex: &buffer_texture, stride: params.width as i32 },
+                        &uniform! { tex: &buffer_texture, stride: params.width as i32 },
                         &Default::default(),
-                    ).unwrap();
+                    )
+                    .unwrap();
                 target.finish().unwrap();
 
                 frame_num += 1;

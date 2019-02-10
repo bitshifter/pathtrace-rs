@@ -1,8 +1,6 @@
 use crate::camera::Camera;
-use crate::collision::{ray, Ray, RayHit, Sphere, SpheresSoA};
+use crate::collision::{Ray, Sphere, SpheresSoA};
 use crate::material::Material;
-use crate::math::maxf;
-use crate::simd::{sinf_cosf, TargetFeature};
 use crate::vmath::{vec3, Vec3};
 use rand::{weak_rng, Rng, SeedableRng, XorShiftRng};
 use rayon::prelude::*;
@@ -24,14 +22,11 @@ pub struct Params {
 pub struct Scene<'a> {
     spheres: SpheresSoA<'a>,
     // emissive: Vec<&'a Material>,
-    feature: TargetFeature,
     ray_count: AtomicUsize,
 }
 
 impl<'a> Scene<'a> {
     pub fn new(sphere_materials: &[(Sphere, &'a Material)]) -> Scene<'a> {
-        let feature = TargetFeature::detect();
-        feature.print_version();
         // let mut emissive: Vec<&'a Material> = vec![];
         // for (_, material) in sphere_materials {
         //     if material.emissive.length_squared() > 0.0 {
@@ -41,80 +36,73 @@ impl<'a> Scene<'a> {
         Scene {
             spheres: SpheresSoA::new(&sphere_materials),
             // emissive,
-            feature,
             ray_count: AtomicUsize::new(0),
         }
     }
 
-    fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
-        match self.feature {
-            TargetFeature::AVX2 => unsafe { self.spheres.hit_avx2(ray, t_min, t_max) },
-            TargetFeature::SSE4_1 => unsafe { self.spheres.hit_sse4_1(ray, t_min, t_max) },
-            TargetFeature::FallBack => self.spheres.hit_scalar(ray, t_min, t_max),
-        }
-    }
+    /*
+        fn sample_lights(
+            &self,
+            ray_in: &Ray,
+            ray_in_hit: &RayHit,
+            hit_mat: &Material,
+            attenuation: Vec3,
+            rng: &mut XorShiftRng,
+            ray_count: &mut usize,
+        ) -> Vec3 {
+            let mut emissive_out = Vec3::zero();
+            for emissive_mat in &self.emissive {
+                if emissive_mat as *const _ == hit_mat as *const _ {
+                    // skip self
+                    continue;
+                }
 
-/*
-    fn sample_lights(
-        &self,
-        ray_in: &Ray,
-        ray_in_hit: &RayHit,
-        hit_mat: &Material,
-        attenuation: Vec3,
-        rng: &mut XorShiftRng,
-        ray_count: &mut usize,
-    ) -> Vec3 {
-        let mut emissive_out = Vec3::zero();
-        for emissive_mat in &self.emissive {
-            if emissive_mat as *const _ == hit_mat as *const _ {
-                // skip self
-                continue;
-            }
+                // create a random direction towards sphere
+                // coord system for sampling: sw, su, sv
+                let sphere_centre = self.spheres.centre(*index);
+                let sphere_radius_sq = self.spheres.radius_sq(*index);
+                let sw = (sphere_centre - ray_in_hit.point).normalize();
+                let su = (if sw.get_x().abs() > 0.01 {
+                    vec3(0.0, 1.0, 0.0)
+                } else {
+                    vec3(1.0, 0.0, 0.0)
+                })
+                .cross(sw)
+                .normalize();
+                let sv = sw.cross(su);
+                // sample sphere by solid angle
+                let cos_a_max = (1.0
+                    - sphere_radius_sq / (ray_in_hit.point - sphere_centre).length_squared())
+                .sqrt();
+                let eps1 = rng.next_f32();
+                let eps2 = rng.next_f32();
+                let cos_a = 1.0 - eps1 + eps1 * cos_a_max;
+                let sin_a = (1.0 - cos_a * cos_a).sqrt();
+                let phi = 2.0 * f32::consts::PI * eps2;
+                let (sin_phi, cos_phi) = sinf_cosf(phi);
+                let l = su * (cos_phi * sin_a) + sv * (sin_phi * sin_a) + sw * cos_a;
+                //l = normalize(l); // NOTE(fg): This is already normalized, by construction.
 
-            // create a random direction towards sphere
-            // coord system for sampling: sw, su, sv
-            let sphere_centre = self.spheres.centre(*index);
-            let sphere_radius_sq = self.spheres.radius_sq(*index);
-            let sw = (sphere_centre - ray_in_hit.point).normalize();
-            let su = (if sw.get_x().abs() > 0.01 {
-                vec3(0.0, 1.0, 0.0)
-            } else {
-                vec3(1.0, 0.0, 0.0)
-            }).cross(sw)
-            .normalize();
-            let sv = sw.cross(su);
-            // sample sphere by solid angle
-            let cos_a_max = (1.0
-                - sphere_radius_sq / (ray_in_hit.point - sphere_centre).length_squared()).sqrt();
-            let eps1 = rng.next_f32();
-            let eps2 = rng.next_f32();
-            let cos_a = 1.0 - eps1 + eps1 * cos_a_max;
-            let sin_a = (1.0 - cos_a * cos_a).sqrt();
-            let phi = 2.0 * f32::consts::PI * eps2;
-            let (sin_phi, cos_phi) = sinf_cosf(phi);
-            let l = su * (cos_phi * sin_a) + sv * (sin_phi * sin_a) + sw * cos_a;
-            //l = normalize(l); // NOTE(fg): This is already normalized, by construction.
-
-            *ray_count += 1;
-            let ray_out = ray(ray_in_hit.point, l);
-            if let Some((_, out_mat)) = self.ray_hit(&ray_out, MIN_T, MAX_T) {
-                if emissive_mat as *const _ == out_mat as *const _ {
-                    let omega = 2.0 * f32::consts::PI * (1.0 - cos_a_max);
-                    let rdir = ray_in.direction;
-                    let nl = if ray_in_hit.normal.dot(rdir) < 0.0 {
-                        ray_in_hit.normal
-                    } else {
-                        -ray_in_hit.normal
-                    };
-                    let light_emission = emissive_mat.emissive;
-                    emissive_out += (attenuation * light_emission)
-                        * (maxf(0.0, l.dot(nl)) * omega / f32::consts::PI);
+                *ray_count += 1;
+                let ray_out = ray(ray_in_hit.point, l);
+                if let Some((_, out_hit_index)) = self.spheres.ray_hit(&ray_out, MIN_T, MAX_T) {
+                    if *index == out_hit_index {
+                        let omega = 2.0 * f32::consts::PI * (1.0 - cos_a_max);
+                        let rdir = ray_in.direction;
+                        let nl = if ray_in_hit.normal.dot(rdir) < 0.0 {
+                            ray_in_hit.normal
+                        } else {
+                            -ray_in_hit.normal
+                        };
+                        let light_emission = emissive_mat.emissive;
+                        emissive_out += (attenuation * light_emission)
+                            * (maxf(0.0, l.dot(nl)) * omega / f32::consts::PI);
+                    }
                 }
             }
+            emissive_out
         }
-        emissive_out
-    }
-*/
+    */
 
     fn ray_trace(
         &self,
@@ -126,11 +114,9 @@ impl<'a> Scene<'a> {
         ray_count: &mut usize,
     ) -> Vec3 {
         *ray_count += 1;
-        if let Some((ray_hit, material)) = self.ray_hit(ray_in, MIN_T, MAX_T) {
+        if let Some((ray_hit, material)) = self.spheres.ray_hit(ray_in, MIN_T, MAX_T) {
             if depth < max_depth {
-                if let Some((attenuation, scattered, _)) =
-                    material.scatter(ray_in, &ray_hit, rng)
-                {
+                if let Some((attenuation, scattered, _)) = material.scatter(ray_in, &ray_hit, rng) {
                     // let light_emission = if do_light_sampling {
                     //     self.sample_lights(ray_in, &ray_hit, material, attenuation, rng, ray_count)
                     // } else {
@@ -144,14 +130,16 @@ impl<'a> Scene<'a> {
                     //     Vec3::zero()
                     // };
                     // let do_material_emission = !do_light_sampling;
-                    return material.emissive + attenuation * self.ray_trace(
-                        &scattered,
-                        depth + 1,
-                        max_depth,
-                        // do_material_emission,
-                        rng,
-                        ray_count,
-                    );
+                    return material.emissive
+                        + attenuation
+                            * self.ray_trace(
+                                &scattered,
+                                depth + 1,
+                                max_depth,
+                                // do_material_emission,
+                                rng,
+                                ray_count,
+                            );
                 }
             }
             return material.emissive;
