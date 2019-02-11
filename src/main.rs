@@ -82,7 +82,7 @@ fn main() {
         random_seed: matches.is_present("random"),
     };
 
-    let preset = matches.value_of("preset").unwrap_or("small");
+    let preset = matches.value_of("preset").unwrap_or("random");
 
     if matches.is_present("offline") {
         offline::render_offline(preset, params);

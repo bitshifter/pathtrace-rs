@@ -3,16 +3,27 @@ use crate::vmath::{vec3, Vec3};
 
 #[derive(Copy, Clone, Debug)]
 pub enum Texture<'a> {
-    Constant { color: Vec3 },
-    Checker { odd: &'a Texture<'a>, even: &'a Texture<'a> },
+    Constant {
+        color: Vec3,
+    },
+    Checker {
+        odd: &'a Texture<'a>,
+        even: &'a Texture<'a>,
+    },
+}
+
+pub fn constant<'a>(color: Vec3) -> Texture<'a> {
+    Texture::Constant { color }
+}
+
+pub fn checker<'a>(odd: &'a Texture<'a>, even: &'a Texture<'a>) -> Texture<'a> {
+    Texture::Checker { odd, even }
 }
 
 impl<'a> Texture<'a> {
     pub fn value(&self, u: f32, v: f32, p: Vec3) -> Vec3 {
         match self {
-            Texture::Constant { color } => {
-                *color
-            }
+            Texture::Constant { color } => *color,
             Texture::Checker { odd, even } => {
                 // TODO: not implemented
                 let s = vec3(10.0, 10.0, 10.0) * p;

@@ -85,8 +85,8 @@ pub fn start_loop<'a>(preset: &str, params: Params, max_frames: Option<u32>) {
     thread::spawn(move || {
         let texture_arena = Arena::new();
         let material_arena = Arena::new();
-        let (scene, camera) =
-            presets::from_name(&preset, &params, &texture_arena, &material_arena).expect("unrecognised preset");
+        let (scene, camera) = presets::from_name(&preset, &params, &texture_arena, &material_arena)
+            .expect("unrecognised preset");
 
         let mut frame_num = 0;
         let mut elapsed_secs = 0.0;

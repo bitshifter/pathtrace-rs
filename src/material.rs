@@ -1,7 +1,7 @@
 use crate::collision::{ray, Ray, RayHit};
 use crate::math::{random_in_unit_sphere, random_unit_vector, reflect, refract, schlick};
-use crate::vmath::{vec3, Vec3};
 use crate::texture::Texture;
+use crate::vmath::{vec3, Vec3};
 use rand::{Rng, XorShiftRng};
 
 // #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -16,6 +16,34 @@ pub enum MaterialKind<'a> {
 pub struct Material<'a> {
     pub kind: MaterialKind<'a>,
     pub emissive: Vec3,
+}
+
+pub fn lambertian<'a>(albedo: &'a Texture<'a>) -> Material<'a> {
+    Material {
+        kind: MaterialKind::Lambertian { albedo },
+        emissive: Vec3::zero(),
+    }
+}
+
+pub fn lambertian_emissive<'a>(albedo: &'a Texture<'a>, emissive: Vec3) -> Material<'a> {
+    Material {
+        kind: MaterialKind::Lambertian { albedo },
+        emissive,
+    }
+}
+
+pub fn metal<'a>(albedo: Vec3, fuzz: f32) -> Material<'a> {
+    Material {
+        kind: MaterialKind::Metal { albedo, fuzz },
+        emissive: Vec3::zero(),
+    }
+}
+
+pub fn dielectric<'a>(ref_idx: f32) -> Material<'a> {
+    Material {
+        kind: MaterialKind::Dielectric { ref_idx },
+        emissive: Vec3::zero(),
+    }
 }
 
 impl<'a> MaterialKind<'a> {

@@ -92,6 +92,12 @@ pub struct Sphere {
     pub radius: f32,
 }
 
+impl Sphere {
+    pub fn new(centre: Vec3, radius: f32) -> Sphere {
+        Sphere { centre, radius }
+    }
+}
+
 #[derive(Debug)]
 pub struct SpheresSoA<'a> {
     feature: TargetFeature,
