@@ -1,5 +1,8 @@
 #![allow(dead_code)]
-use crate::vmath::{vec3, Vec3};
+use crate::{
+    perlin::Perlin,
+    vmath::{vec3, Vec3},
+};
 
 #[derive(Copy, Clone, Debug)]
 pub enum Texture<'a> {
@@ -10,6 +13,9 @@ pub enum Texture<'a> {
         odd: &'a Texture<'a>,
         even: &'a Texture<'a>,
     },
+    Noise {
+        perlin: &'a Perlin,
+    },
 }
 
 pub fn constant<'a>(color: Vec3) -> Texture<'a> {
@@ -18,6 +24,10 @@ pub fn constant<'a>(color: Vec3) -> Texture<'a> {
 
 pub fn checker<'a>(odd: &'a Texture<'a>, even: &'a Texture<'a>) -> Texture<'a> {
     Texture::Checker { odd, even }
+}
+
+pub fn noise<'a>(perlin: &'a Perlin) -> Texture<'a> {
+    Texture::Noise { perlin }
 }
 
 impl<'a> Texture<'a> {
@@ -34,6 +44,7 @@ impl<'a> Texture<'a> {
                     even.value(u, v, p)
                 }
             }
+            Texture::Noise { perlin } => vec3(1.0, 1.0, 1.0) * perlin.noise(p),
         }
     }
 }

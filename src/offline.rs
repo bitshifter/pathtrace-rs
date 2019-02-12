@@ -1,13 +1,28 @@
-use crate::{math::linear_to_srgb, presets, scene::Params};
+use crate::{math::linear_to_srgb, perlin::Perlin, presets, scene::Params};
 use image;
+use rand::{SeedableRng, XorShiftRng};
 use std::time::SystemTime;
 use typed_arena::Arena;
 
 pub fn render_offline(preset: &str, params: Params) {
+    let mut rng = if params.random_seed {
+        rand::weak_rng()
+    } else {
+        const FIXED_SEED: [u32; 4] = [0x193a_6754, 0xa8a7_d469, 0x9783_0e05, 0x113b_a7bb];
+        XorShiftRng::from_seed(FIXED_SEED)
+    };
+    let perlin = Perlin::new(&mut rng);
     let texture_arena = Arena::new();
     let material_arena = Arena::new();
-    let (scene, camera) = presets::from_name(preset, &params, &texture_arena, &material_arena)
-        .expect("unrecognised preset");
+    let (scene, camera) = presets::from_name(
+        preset,
+        &params,
+        &mut rng,
+        &texture_arena,
+        &material_arena,
+        &perlin,
+    )
+    .expect("unrecognised preset");
     let mut rgb_buffer = vec![(0.0, 0.0, 0.0); (params.width * params.height) as usize];
 
     let start_time = SystemTime::now();

@@ -4,18 +4,21 @@ use crate::{
     camera::Camera,
     collision::Sphere,
     material::{self, Material},
+    perlin::Perlin,
     scene::{Params, Scene},
     texture::{self, Texture},
     vmath::vec3,
 };
-use rand::{Rng, SeedableRng, XorShiftRng};
+use rand::{Rng, XorShiftRng};
 use typed_arena::Arena;
 
 pub fn from_name<'a>(
     name: &str,
     params: &Params,
+    rng: &mut XorShiftRng,
     texture_arena: &'a Arena<Texture<'a>>,
     material_arena: &'a Arena<Material<'a>>,
+    perlin: &'a Perlin,
 ) -> Option<(Scene<'a>, Camera)> {
     println!(
         "generating '{}' preset at {}x{} with {} samples per pixel",
@@ -23,26 +26,26 @@ pub fn from_name<'a>(
     );
 
     match name {
-        "random" => Some(random(params, texture_arena, material_arena)),
+        "random" => Some(random(params, rng, texture_arena, material_arena)),
         "small" => Some(small(params, texture_arena, material_arena)),
         "aras" => Some(aras_p(params, texture_arena, material_arena)),
         "smallpt" => Some(smallpt(params, texture_arena, material_arena)),
+        "two_perlin_spheres" => Some(two_perlin_spheres(
+            params,
+            texture_arena,
+            material_arena,
+            perlin,
+        )),
         _ => None,
     }
 }
 
 pub fn random<'a>(
     params: &Params,
+    rng: &mut XorShiftRng,
     texture_arena: &'a Arena<Texture<'a>>,
     material_arena: &'a Arena<Material<'a>>,
 ) -> (Scene<'a>, Camera) {
-    let mut rng = if params.random_seed {
-        rand::weak_rng()
-    } else {
-        const FIXED_SEED: [u32; 4] = [0x193a_6754, 0xa8a7_d469, 0x9783_0e05, 0x113b_a7bb];
-        XorShiftRng::from_seed(FIXED_SEED)
-    };
-
     let lookfrom = vec3(13.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
     let dist_to_focus = 10.0;
@@ -170,6 +173,49 @@ pub fn small<'a>(
         ),
         sphere(vec3(-1.0, 0.0, -1.0), 0.5, material::dielectric(1.5)),
         sphere(vec3(-1.0, 0.0, -1.0), -0.45, material::dielectric(1.5)),
+    ];
+
+    let scene = Scene::new(&spheres);
+    (scene, camera)
+}
+
+pub fn two_perlin_spheres<'a>(
+    params: &Params,
+    texture_arena: &'a Arena<Texture<'a>>,
+    material_arena: &'a Arena<Material<'a>>,
+    perlin: &'a Perlin,
+) -> (Scene<'a>, Camera) {
+    let lookfrom = vec3(13.0, 2.0, 3.0);
+    let lookat = vec3(0.0, 0.0, 0.0);
+    let dist_to_focus = 10.0;
+    let aperture = 0.0;
+    let camera = Camera::new(
+        lookfrom,
+        lookat,
+        vec3(0.0, 1.0, 0.0),
+        20.0,
+        params.width as f32 / params.height as f32,
+        aperture,
+        dist_to_focus,
+    );
+
+    let sphere = |centre, radius, material| -> (Sphere, &Material) {
+        (Sphere::new(centre, radius), material_arena.alloc(material))
+    };
+
+    let noise_texture = texture_arena.alloc(Texture::Noise { perlin });
+
+    let spheres = [
+        sphere(
+            vec3(0.0, -1000.0, 0.0),
+            1000.0,
+            material::lambertian(noise_texture),
+        ),
+        sphere(
+            vec3(0.0, 2.0, 0.0),
+            2.0,
+            material::lambertian(noise_texture),
+        ),
     ];
 
     let scene = Scene::new(&spheres);

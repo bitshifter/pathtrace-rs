@@ -20,6 +20,7 @@ mod glium_window;
 mod material;
 mod math;
 mod offline;
+mod perlin;
 mod presets;
 mod scene;
 #[macro_use]
@@ -82,7 +83,7 @@ fn main() {
         random_seed: matches.is_present("random"),
     };
 
-    let preset = matches.value_of("preset").unwrap_or("random");
+    let preset = matches.value_of("preset").unwrap_or("two_perlin_spheres");
 
     if matches.is_present("offline") {
         offline::render_offline(preset, params);
