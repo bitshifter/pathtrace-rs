@@ -45,7 +45,9 @@ impl<'a> Texture<'a> {
                     even.value(u, v, p)
                 }
             }
-            Texture::Noise { noise, scale } => vec3(1.0, 1.0, 1.0) * noise.noise(*scale * p),
+            Texture::Noise { noise, scale } => {
+                vec3(1.0, 1.0, 1.0) * 0.5 * (1.0 + (scale * p.get_z() + 10.0 * noise.turb(p)).sin())
+            }
         }
     }
 }
