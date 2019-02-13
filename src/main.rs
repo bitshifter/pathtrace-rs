@@ -1,18 +1,5 @@
 #![cfg_attr(feature = "core_intrinsics", feature(core_intrinsics))] // for cttz
 #![cfg_attr(feature = "bench", feature(test))] // for bench
-#[cfg(feature = "bench")]
-extern crate test;
-
-#[macro_use]
-extern crate clap;
-#[macro_use]
-extern crate glium;
-extern crate image;
-extern crate rand;
-extern crate rayon;
-// #[macro_use]
-// extern crate serde_derive;
-// extern crate serde_json;
 
 mod camera;
 mod collision;
@@ -22,11 +9,9 @@ mod math;
 mod offline;
 mod presets;
 mod scene;
-#[macro_use]
 mod simd;
-mod vmath;
 
-use clap::{App, Arg};
+use clap::{value_t, App, Arg};
 
 fn main() {
     let matches = App::new("Toy Path Tracer")

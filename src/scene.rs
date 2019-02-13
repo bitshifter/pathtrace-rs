@@ -3,7 +3,7 @@ use crate::collision::{ray, Ray, RayHit, Sphere, SpheresSoA};
 use crate::material::Material;
 use crate::math::maxf;
 use crate::simd::sinf_cosf;
-use crate::vmath::{vec3, Vec3};
+use glam::{vec3, Vec3};
 use rand::{weak_rng, Rng, SeedableRng, XorShiftRng};
 use rayon::prelude::*;
 use std::f32;

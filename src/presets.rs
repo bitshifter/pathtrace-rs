@@ -4,7 +4,7 @@ use crate::camera::Camera;
 use crate::collision::sphere;
 use crate::material::MaterialKind;
 use crate::scene::{Params, Scene};
-use crate::vmath::vec3;
+use glam::vec3;
 use rand::{Rng, SeedableRng, XorShiftRng};
 
 pub fn from_name(name: &str, params: &Params) -> Option<(Scene, Camera)> {
