@@ -203,7 +203,7 @@ pub fn two_perlin_spheres<'a>(
         (Sphere::new(centre, radius), material_arena.alloc(material))
     };
 
-    let noise_texture = texture_arena.alloc(Texture::Noise { perlin });
+    let noise_texture = texture_arena.alloc(texture::noise(perlin, 4.0));
 
     let spheres = [
         sphere(

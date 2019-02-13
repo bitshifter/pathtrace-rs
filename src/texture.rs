@@ -14,7 +14,8 @@ pub enum Texture<'a> {
         even: &'a Texture<'a>,
     },
     Noise {
-        perlin: &'a Perlin,
+        noise: &'a Perlin,
+        scale: f32,
     },
 }
 
@@ -26,8 +27,8 @@ pub fn checker<'a>(odd: &'a Texture<'a>, even: &'a Texture<'a>) -> Texture<'a> {
     Texture::Checker { odd, even }
 }
 
-pub fn noise<'a>(perlin: &'a Perlin) -> Texture<'a> {
-    Texture::Noise { perlin }
+pub fn noise<'a>(noise: &'a Perlin, scale: f32) -> Texture<'a> {
+    Texture::Noise { noise, scale }
 }
 
 impl<'a> Texture<'a> {
@@ -44,7 +45,7 @@ impl<'a> Texture<'a> {
                     even.value(u, v, p)
                 }
             }
-            Texture::Noise { perlin } => vec3(1.0, 1.0, 1.0) * perlin.noise(p),
+            Texture::Noise { noise, scale } => vec3(1.0, 1.0, 1.0) * noise.noise(*scale * p),
         }
     }
 }

@@ -10,6 +10,22 @@ pub struct Perlin {
     perm_z: Vec<u32>,
 }
 
+#[inline]
+fn trilinear_interpolate(c: [[[f32; 2]; 2]; 2], u: f32, v: f32, w: f32) -> f32 {
+    let mut accum = 0.0;
+    for i in 0..2 {
+        for j in 0..2 {
+            for k in 0..2 {
+                accum += (i as f32 * u + (1.0 - i as f32) * (1.0 - u))
+                    * (j as f32 * v + (1.0 - j as f32) * (1.0 - v))
+                    * (k as f32 * w + (1.0 - k as f32) * (1.0 - w))
+                    * c[i][j][k];
+            }
+        }
+    }
+    accum
+}
+
 impl Perlin {
     fn generate(rng: &mut XorShiftRng) -> Vec<f32> {
         let mut ranfloat = vec![0.0; 256];
@@ -48,12 +64,26 @@ impl Perlin {
         let x = p.get_x();
         let y = p.get_y();
         let z = p.get_z();
-        // let u = x - x.floor();
-        // let v = y - y.floor();
-        // let w = z - z.floor();
-        let i = self.perm_x[(4.0 * x) as usize & 255] as usize;
-        let j = self.perm_y[(4.0 * y) as usize & 255] as usize;
-        let k = self.perm_z[(4.0 * z) as usize & 255] as usize;
-        self.ranfloat[i ^ j ^ k]
+        let mut u = x - x.floor();
+        let mut v = y - y.floor();
+        let mut w = z - z.floor();
+        u = u * u * (3.0 - 2.0 * u);
+        v = v * v * (3.0 - 2.0 * v);
+        w = w * w * (3.0 - 2.0 * w);
+        let i = x.floor() as usize;
+        let j = y.floor() as usize;
+        let k = z.floor() as usize;
+        let mut c = [[[0.0; 2]; 2]; 2];
+        for di in 0..2 {
+            for dj in 0..2 {
+                for dk in 0..2 {
+                    c[di][dj][dk] = self.ranfloat[(self.perm_x[(i + di) & 255]
+                        ^ self.perm_y[(j + dj) & 255]
+                        ^ self.perm_z[(k + dk) & 255])
+                        as usize]
+                }
+            }
+        }
+        trilinear_interpolate(c, u, v, w)
     }
 }
