@@ -1,8 +1,6 @@
 #![allow(dead_code)]
-use crate::{
-    perlin::Perlin,
-    vmath::{vec3, Vec3},
-};
+use crate::perlin::Perlin;
+use glam::{vec3, Vec3};
 
 #[derive(Copy, Clone, Debug)]
 pub enum Texture<'a> {

@@ -7,8 +7,8 @@ use crate::{
     perlin::Perlin,
     scene::{Params, Scene},
     texture::{self, Texture},
-    vmath::vec3,
 };
+use glam::vec3;
 use rand::{Rng, XorShiftRng};
 use typed_arena::Arena;
 

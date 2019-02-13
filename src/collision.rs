@@ -1,9 +1,5 @@
-use crate::{
-    material::Material,
-    math::align_to,
-    simd::*,
-    vmath::{vec3, Vec3},
-};
+use crate::{material::Material, math::align_to, simd::*};
+use glam::{vec3, Vec3};
 use std::f32;
 
 #[inline]
@@ -243,12 +239,12 @@ impl<'a> SpheresSoA<'a> {
         let mut hit_t = _mm_set_ps1(t_max);
         let mut hit_index = _mm_set_epi32(-1, -1, -1, -1);
         // load ray origin
-        let ro = ray.origin.unwrap();
+        let ro = ray.origin.into();
         let ro_x = _mm_shuffle_ps(ro, ro, 0b00_00_00_00);
         let ro_y = _mm_shuffle_ps(ro, ro, 0b01_01_01_01);
         let ro_z = _mm_shuffle_ps(ro, ro, 0b10_10_10_10);
         // load ray direction
-        let rd = ray.direction.unwrap();
+        let rd = ray.direction.into();
         let rd_x = _mm_shuffle_ps(rd, rd, 0b00_00_00_00);
         let rd_y = _mm_shuffle_ps(rd, rd, 0b01_01_01_01);
         let rd_z = _mm_shuffle_ps(rd, rd, 0b10_10_10_10);
@@ -349,7 +345,7 @@ impl<'a> SpheresSoA<'a> {
         let mut hit_t = _mm256_set1_ps(t_max);
         let mut hit_index = _mm256_set1_epi32(-1);
         // load ray origin
-        let ro = ray.origin.unwrap();
+        let ro = ray.origin.into();
         let ro_x = _mm_shuffle_ps(ro, ro, 0b00_00_00_00);
         let ro_y = _mm_shuffle_ps(ro, ro, 0b01_01_01_01);
         let ro_z = _mm_shuffle_ps(ro, ro, 0b10_10_10_10);
@@ -357,7 +353,7 @@ impl<'a> SpheresSoA<'a> {
         let ro_y = _mm256_set_m128(ro_y, ro_y);
         let ro_z = _mm256_set_m128(ro_z, ro_z);
         // load ray direction
-        let rd = ray.direction.unwrap();
+        let rd = ray.direction.into();
         let rd_x = _mm_shuffle_ps(rd, rd, 0b00_00_00_00);
         let rd_y = _mm_shuffle_ps(rd, rd, 0b01_01_01_01);
         let rd_z = _mm_shuffle_ps(rd, rd, 0b10_10_10_10);

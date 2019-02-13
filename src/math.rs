@@ -1,5 +1,5 @@
 use crate::simd::sinf_cosf;
-use crate::vmath::{vec3, Vec3};
+use glam::{vec3, Vec3};
 use rand::Rng;
 use std::f32;
 

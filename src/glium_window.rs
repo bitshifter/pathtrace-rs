@@ -4,6 +4,7 @@ use glium::{
     glutin::{Api, GlProfile, GlRequest},
     index::{NoIndices, PrimitiveType},
     texture::buffer_texture::{BufferTexture, BufferTextureType},
+    uniform,
     vertex::EmptyVertexAttributes,
     Surface,
 };

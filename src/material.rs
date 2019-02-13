@@ -1,7 +1,7 @@
 use crate::collision::{ray, Ray, RayHit};
 use crate::math::{random_in_unit_sphere, random_unit_vector, reflect, refract, schlick};
 use crate::texture::Texture;
-use crate::vmath::{vec3, Vec3};
+use glam::{vec3, Vec3};
 use rand::{Rng, XorShiftRng};
 
 // #[derive(Clone, Copy, Debug, Serialize, Deserialize)]

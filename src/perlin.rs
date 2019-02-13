@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::vmath::{vec3, Vec3};
+use glam::{vec3, Vec3};
 use rand::{Rng, XorShiftRng};
 
 #[derive(Debug)]
