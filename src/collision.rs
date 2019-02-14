@@ -94,6 +94,16 @@ impl Sphere {
     }
 }
 
+#[allow(dead_code)]
+pub fn get_sphere_uv(p: Vec3) -> (f32, f32) {
+    const FRAC_1_2PI: f32 = 1.0 / (2.0 * f32::consts::PI);
+    let phi = p.get_x().atan2(p.get_y());
+    let theta = p.get_y().asin();
+    let u = 1.0 - (phi + f32::consts::PI) * FRAC_1_2PI;
+    let v = (theta + f32::consts::FRAC_PI_2) * f32::consts::FRAC_1_PI;
+    (u, v)
+}
+
 #[derive(Debug)]
 pub struct SpheresSoA<'a> {
     feature: TargetFeature,
