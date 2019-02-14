@@ -1,6 +1,8 @@
-use crate::collision::{ray, Ray, RayHit};
-use crate::math::{random_in_unit_sphere, random_unit_vector, reflect, refract, schlick};
-use crate::texture::Texture;
+use crate::{
+    collision::{ray, Ray, RayHit},
+    math::{random_in_unit_sphere, random_unit_vector, reflect, refract, schlick},
+    texture::Texture,
+};
 use glam::{vec3, Vec3};
 use rand::{Rng, XorShiftRng};
 

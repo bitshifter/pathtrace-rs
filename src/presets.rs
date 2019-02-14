@@ -1,5 +1,3 @@
-extern crate rand;
-
 use crate::{
     camera::Camera,
     collision::Sphere,
