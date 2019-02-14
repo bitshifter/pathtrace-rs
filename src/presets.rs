@@ -1,9 +1,9 @@
-extern crate rand;
-
-use crate::camera::Camera;
-use crate::collision::sphere;
-use crate::material::MaterialKind;
-use crate::scene::{Params, Scene};
+use crate::{
+    camera::Camera,
+    collision::sphere,
+    material::MaterialKind,
+    scene::{Params, Scene},
+};
 use glam::vec3;
 use rand::{Rng, SeedableRng, XorShiftRng};
 

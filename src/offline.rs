@@ -1,6 +1,8 @@
-use crate::camera::Camera;
-use crate::math::linear_to_srgb;
-use crate::scene::{Params, Scene};
+use crate::{
+    camera::Camera,
+    math::linear_to_srgb,
+    scene::{Params, Scene},
+};
 use image;
 use std::time::SystemTime;
 

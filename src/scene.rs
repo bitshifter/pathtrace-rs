@@ -1,13 +1,17 @@
-use crate::camera::Camera;
-use crate::collision::{ray, Ray, RayHit, Sphere, SpheresSoA};
-use crate::material::Material;
-use crate::math::maxf;
-use crate::simd::sinf_cosf;
+use crate::{
+    camera::Camera,
+    collision::{ray, Ray, RayHit, Sphere, SpheresSoA},
+    material::Material,
+    math::maxf,
+    simd::sinf_cosf,
+};
 use glam::{vec3, Vec3};
 use rand::{weak_rng, Rng, SeedableRng, XorShiftRng};
 use rayon::prelude::*;
-use std::f32;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::{
+    f32,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 const MAX_T: f32 = f32::MAX;
 const MIN_T: f32 = 0.001;

@@ -1,5 +1,7 @@
-use crate::camera::Camera;
-use crate::scene::{Params, Scene};
+use crate::{
+    camera::Camera,
+    scene::{Params, Scene},
+};
 use glium::{
     self,
     glutin::{Api, GlProfile, GlRequest},
@@ -10,9 +12,11 @@ use glium::{
     Surface,
 };
 use image;
-use std::sync::mpsc::{channel, RecvTimeoutError};
-use std::thread;
-use std::time::{Duration, SystemTime};
+use std::{
+    sync::mpsc::{channel, RecvTimeoutError},
+    thread,
+    time::{Duration, SystemTime},
+};
 
 pub fn start_loop(params: Params, camera: Camera, scene: Scene, max_frames: Option<u32>) {
     let mut events_loop = glium::glutin::EventsLoop::new();

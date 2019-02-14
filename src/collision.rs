@@ -1,6 +1,8 @@
-use crate::material::{Material, MaterialKind};
-use crate::math::align_to;
-use crate::simd::*;
+use crate::{
+    material::{Material, MaterialKind},
+    math::align_to,
+    simd::*,
+};
 use glam::{vec3, Vec3};
 use std::f32;
 

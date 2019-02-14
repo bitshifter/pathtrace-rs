@@ -1,5 +1,7 @@
-use crate::collision::{ray, Ray};
-use crate::math::random_in_unit_disk;
+use crate::{
+    collision::{ray, Ray},
+    math::random_in_unit_disk,
+};
 use glam::Vec3;
 use rand::Rng;
 use std::f32;
