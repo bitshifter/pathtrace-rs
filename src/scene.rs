@@ -2,8 +2,8 @@ use crate::{
     camera::Camera,
     collision::{Ray, Sphere, SpheresSoA},
     material::Material,
-    // math::maxf,
-    // simd::sinf_cosf,
+    perlin::Perlin,
+    texture::{RgbImage, Texture},
 };
 use glam::{vec3, Vec3};
 use rand::{weak_rng, Rng, SeedableRng, XorShiftRng};
@@ -12,9 +12,40 @@ use std::{
     f32,
     sync::atomic::{AtomicUsize, Ordering},
 };
+use typed_arena::Arena;
 
 const MAX_T: f32 = f32::MAX;
 const MIN_T: f32 = 0.001;
+
+pub struct Storage<'a> {
+    pub texture_arena: Arena<Texture<'a>>,
+    pub material_arena: Arena<Material<'a>>,
+    pub image_arena: Arena<RgbImage>,
+    pub perlin_noise: Perlin,
+}
+
+impl<'a> Storage<'a> {
+    pub fn new(rng: &mut XorShiftRng) -> Storage<'a> {
+        Storage {
+            texture_arena: Arena::new(),
+            material_arena: Arena::new(),
+            image_arena: Arena::new(),
+            perlin_noise: Perlin::new(rng),
+        }
+    }
+
+    pub fn alloc_texture(&self, texture: Texture<'a>) -> &mut Texture<'a> {
+        self.texture_arena.alloc(texture)
+    }
+
+    pub fn alloc_material(&self, material: Material<'a>) -> &mut Material<'a> {
+        self.material_arena.alloc(material)
+    }
+
+    pub fn alloc_image(&self, rgb_image: RgbImage) -> &mut RgbImage {
+        self.image_arena.alloc(rgb_image)
+    }
+}
 
 #[derive(Copy, Clone)]
 pub struct Params {

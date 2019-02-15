@@ -79,6 +79,9 @@ impl Ray {
 pub struct RayHit {
     pub point: Vec3,
     pub normal: Vec3,
+    // TODO: it would be better to calculate this lazily as not everything needs it
+    pub u: f32,
+    pub v: f32,
 }
 
 // #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -217,14 +220,23 @@ impl<'a> SpheresSoA<'a> {
         }
         if hit_index < self.len {
             let point = ray.point_at_parameter(hit_t);
-            let normal = (point
-                - vec3(
-                    self.centre_x[hit_index],
-                    self.centre_y[hit_index],
-                    self.centre_z[hit_index],
-                ))
-                * self.radius_inv[hit_index];
-            Some((RayHit { point, normal }, self.material[hit_index].unwrap()))
+            let centre = vec3(
+                self.centre_x[hit_index],
+                self.centre_y[hit_index],
+                self.centre_z[hit_index],
+            );
+            let delta = point - centre;
+            let normal = delta * self.radius_inv[hit_index];
+            let (u, v) = get_sphere_uv(delta);
+            Some((
+                RayHit {
+                    point,
+                    normal,
+                    u,
+                    v,
+                },
+                self.material[hit_index].unwrap(),
+            ))
         } else {
             None
         }
@@ -320,15 +332,21 @@ impl<'a> SpheresSoA<'a> {
                 let hit_t_scalar = *hit_t_array.get_unchecked(hit_t_lane);
 
                 let point = ray.point_at_parameter(hit_t_scalar);
-                let normal = (point
-                    - vec3(
-                        *self.centre_x.get_unchecked(hit_index_scalar),
-                        *self.centre_y.get_unchecked(hit_index_scalar),
-                        *self.centre_z.get_unchecked(hit_index_scalar),
-                    ))
-                    * *self.radius_inv.get_unchecked(hit_index_scalar);
+                let centre = vec3(
+                    *self.centre_x.get_unchecked(hit_index_scalar),
+                    *self.centre_y.get_unchecked(hit_index_scalar),
+                    *self.centre_z.get_unchecked(hit_index_scalar),
+                );
+                let delta = point - centre;
+                let normal = delta * *self.radius_inv.get_unchecked(hit_index_scalar);
+                let (u, v) = get_sphere_uv(delta);
                 return Some((
-                    RayHit { point, normal },
+                    RayHit {
+                        point,
+                        normal,
+                        u,
+                        v,
+                    },
                     self.material.get_unchecked(hit_index_scalar).unwrap(),
                 ));
             }
@@ -436,15 +454,21 @@ impl<'a> SpheresSoA<'a> {
                 let hit_t_scalar = *hit_t_array.get_unchecked(hit_t_lane);
 
                 let point = ray.point_at_parameter(hit_t_scalar);
-                let normal = (point
-                    - vec3(
-                        *self.centre_x.get_unchecked(hit_index_scalar),
-                        *self.centre_y.get_unchecked(hit_index_scalar),
-                        *self.centre_z.get_unchecked(hit_index_scalar),
-                    ))
-                    * *self.radius_inv.get_unchecked(hit_index_scalar);
+                let centre = vec3(
+                    *self.centre_x.get_unchecked(hit_index_scalar),
+                    *self.centre_y.get_unchecked(hit_index_scalar),
+                    *self.centre_z.get_unchecked(hit_index_scalar),
+                );
+                let delta = point - centre;
+                let normal = delta * *self.radius_inv.get_unchecked(hit_index_scalar);
+                let (u, v) = get_sphere_uv(delta);
                 return Some((
-                    RayHit { point, normal },
+                    RayHit {
+                        point,
+                        normal,
+                        u,
+                        v,
+                    },
                     self.material.get_unchecked(hit_index_scalar).unwrap(),
                 ));
             }

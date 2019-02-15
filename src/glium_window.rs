@@ -1,4 +1,7 @@
-use crate::{perlin::Perlin, presets, scene::Params};
+use crate::{
+    presets,
+    scene::{Params, Storage},
+};
 use glium::{
     self,
     glutin::{Api, GlProfile, GlRequest},
@@ -15,7 +18,6 @@ use std::{
     thread,
     time::{Duration, SystemTime},
 };
-use typed_arena::Arena;
 
 pub fn start_loop<'a>(preset: &str, params: Params, max_frames: Option<u32>) {
     let mut events_loop = glium::glutin::EventsLoop::new();
@@ -91,18 +93,10 @@ pub fn start_loop<'a>(preset: &str, params: Params, max_frames: Option<u32>) {
             const FIXED_SEED: [u32; 4] = [0x193a_6754, 0xa8a7_d469, 0x9783_0e05, 0x113b_a7bb];
             XorShiftRng::from_seed(FIXED_SEED)
         };
-        let perlin = Perlin::new(&mut rng);
-        let texture_arena = Arena::new();
-        let material_arena = Arena::new();
-        let (scene, camera) = presets::from_name(
-            &preset,
-            &params,
-            &mut rng,
-            &texture_arena,
-            &material_arena,
-            &perlin,
-        )
-        .expect("unrecognised preset");
+
+        let storage = Storage::new(&mut rng);
+        let (scene, camera) =
+            presets::from_name(&preset, &params, &mut rng, &storage).expect("unrecognised preset");
 
         let mut frame_num = 0;
         let mut elapsed_secs = 0.0;

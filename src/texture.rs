@@ -11,7 +11,7 @@ pub struct RgbImage {
 
 impl RgbImage {
     // TODO: error handling
-    fn open(path: &str) -> RgbImage {
+    pub fn open(path: &str) -> RgbImage {
         let image = image::open(path).unwrap();
         let image = image.to_rgb();
         let width = image.width();
@@ -64,6 +64,10 @@ pub fn checker<'a>(odd: &'a Texture<'a>, even: &'a Texture<'a>) -> Texture<'a> {
 
 pub fn noise<'a>(noise: &'a Perlin, scale: f32) -> Texture<'a> {
     Texture::Noise { noise, scale }
+}
+
+pub fn rgb_image<'a>(image: &'a RgbImage) -> Texture<'a> {
+    Texture::Image { image }
 }
 
 impl<'a> Texture<'a> {

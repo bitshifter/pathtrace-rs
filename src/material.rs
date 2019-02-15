@@ -57,7 +57,7 @@ impl<'a> MaterialKind<'a> {
     ) -> Option<(Vec3, Ray, bool)> {
         let target = ray_hit.point + ray_hit.normal + random_unit_vector(rng);
         Some((
-            albedo.value(0.0, 0.0, ray_hit.point),
+            albedo.value(ray_hit.u, ray_hit.v, ray_hit.point),
             ray(ray_hit.point, (target - ray_hit.point).normalize()),
             true,
         ))

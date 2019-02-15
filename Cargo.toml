@@ -29,7 +29,7 @@ default-features = false
 [dependencies.image]
 version = "~0.21"
 default-features = false
-features = ["png_codec", "jpeg_rayon"]
+features = ["png_codec", "jpeg", "jpeg_rayon"]
 
 [profile.dev]
 opt-level = 3

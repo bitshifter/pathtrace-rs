@@ -2,21 +2,17 @@ use crate::{
     camera::Camera,
     collision::Sphere,
     material::{self, Material},
-    perlin::Perlin,
-    scene::{Params, Scene},
-    texture::{self, Texture},
+    scene::{Params, Scene, Storage},
+    texture::{self, RgbImage, Texture},
 };
 use glam::vec3;
 use rand::{Rng, XorShiftRng};
-use typed_arena::Arena;
 
 pub fn from_name<'a>(
     name: &str,
     params: &Params,
     rng: &mut XorShiftRng,
-    texture_arena: &'a Arena<Texture<'a>>,
-    material_arena: &'a Arena<Material<'a>>,
-    perlin: &'a Perlin,
+    storage: &'a Storage<'a>,
 ) -> Option<(Scene<'a>, Camera)> {
     println!(
         "generating '{}' preset at {}x{} with {} samples per pixel",
@@ -24,16 +20,12 @@ pub fn from_name<'a>(
     );
 
     match name {
-        "random" => Some(random(params, rng, texture_arena, material_arena)),
-        "small" => Some(small(params, texture_arena, material_arena)),
-        "aras" => Some(aras_p(params, texture_arena, material_arena)),
-        "smallpt" => Some(smallpt(params, texture_arena, material_arena)),
-        "two_perlin_spheres" => Some(two_perlin_spheres(
-            params,
-            texture_arena,
-            material_arena,
-            perlin,
-        )),
+        "random" => Some(random(params, rng, storage)),
+        "small" => Some(small(params, storage)),
+        "aras" => Some(aras_p(params, storage)),
+        "smallpt" => Some(smallpt(params, storage)),
+        "two_perlin_spheres" => Some(two_perlin_spheres(params, storage)),
+        "earth" => Some(earth(params, storage)),
         _ => None,
     }
 }
@@ -41,8 +33,7 @@ pub fn from_name<'a>(
 pub fn random<'a>(
     params: &Params,
     rng: &mut XorShiftRng,
-    texture_arena: &'a Arena<Texture<'a>>,
-    material_arena: &'a Arena<Material<'a>>,
+    storage: &'a Storage<'a>,
 ) -> (Scene<'a>, Camera) {
     let lookfrom = vec3(13.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
@@ -62,12 +53,15 @@ pub fn random<'a>(
     let mut spheres = Vec::with_capacity(n + 1);
 
     let sphere = |centre, radius, material| -> (Sphere, &Material) {
-        (Sphere::new(centre, radius), material_arena.alloc(material))
+        (
+            Sphere::new(centre, radius),
+            storage.alloc_material(material),
+        )
     };
 
-    let constant = |albedo| -> &Texture { texture_arena.alloc(texture::constant(albedo)) };
+    let constant = |albedo| -> &Texture { storage.alloc_texture(texture::constant(albedo)) };
 
-    let checker = |odd, even| -> &Texture { texture_arena.alloc(texture::checker(odd, even)) };
+    let checker = |odd, even| -> &Texture { storage.alloc_texture(texture::checker(odd, even)) };
 
     spheres.push(sphere(
         vec3(0.0, -1000.0, 0.0),
@@ -130,11 +124,7 @@ pub fn random<'a>(
     (scene, camera)
 }
 
-pub fn small<'a>(
-    params: &Params,
-    texture_arena: &'a Arena<Texture>,
-    material_arena: &'a Arena<Material<'a>>,
-) -> (Scene<'a>, Camera) {
+pub fn small<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Camera) {
     let lookfrom = vec3(3.0, 3.0, 2.0);
     let lookat = vec3(0.0, 0.0, -1.0);
     let dist_to_focus = (lookfrom - lookat).length();
@@ -150,19 +140,22 @@ pub fn small<'a>(
     );
 
     let sphere = |centre, radius, material| -> (Sphere, &Material) {
-        (Sphere::new(centre, radius), material_arena.alloc(material))
+        (
+            Sphere::new(centre, radius),
+            storage.alloc_material(material),
+        )
     };
 
     let spheres = [
         sphere(
             vec3(0.0, 0.0, -1.0),
             0.5,
-            material::lambertian(texture_arena.alloc(texture::constant(vec3(0.1, 0.2, 0.5)))),
+            material::lambertian(storage.alloc_texture(texture::constant(vec3(0.1, 0.2, 0.5)))),
         ),
         sphere(
             vec3(0.0, -100.5, -1.0),
             100.0,
-            material::lambertian(texture_arena.alloc(texture::constant(vec3(0.8, 0.8, 0.0)))),
+            material::lambertian(storage.alloc_texture(texture::constant(vec3(0.8, 0.8, 0.0)))),
         ),
         sphere(
             vec3(1.0, 0.0, -1.0),
@@ -177,12 +170,7 @@ pub fn small<'a>(
     (scene, camera)
 }
 
-pub fn two_perlin_spheres<'a>(
-    params: &Params,
-    texture_arena: &'a Arena<Texture<'a>>,
-    material_arena: &'a Arena<Material<'a>>,
-    perlin: &'a Perlin,
-) -> (Scene<'a>, Camera) {
+pub fn two_perlin_spheres<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Camera) {
     let lookfrom = vec3(13.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
     let dist_to_focus = 10.0;
@@ -198,10 +186,13 @@ pub fn two_perlin_spheres<'a>(
     );
 
     let sphere = |centre, radius, material| -> (Sphere, &Material) {
-        (Sphere::new(centre, radius), material_arena.alloc(material))
+        (
+            Sphere::new(centre, radius),
+            storage.alloc_material(material),
+        )
     };
 
-    let noise_texture = texture_arena.alloc(texture::noise(perlin, 4.0));
+    let noise_texture = storage.alloc_texture(texture::noise(&storage.perlin_noise, 4.0));
 
     let spheres = [
         sphere(
@@ -220,11 +211,41 @@ pub fn two_perlin_spheres<'a>(
     (scene, camera)
 }
 
-pub fn aras_p<'a>(
-    params: &Params,
-    texture_arena: &'a Arena<Texture<'a>>,
-    material_arena: &'a Arena<Material<'a>>,
-) -> (Scene<'a>, Camera) {
+pub fn earth<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Camera) {
+    let lookfrom = vec3(13.0, 2.0, 3.0);
+    let lookat = vec3(0.0, 0.0, 0.0);
+    let dist_to_focus = 10.0;
+    let aperture = 0.0;
+    let camera = Camera::new(
+        lookfrom,
+        lookat,
+        vec3(0.0, 1.0, 0.0),
+        20.0,
+        params.width as f32 / params.height as f32,
+        aperture,
+        dist_to_focus,
+    );
+
+    let sphere = |centre, radius, material| -> (Sphere, &Material) {
+        (
+            Sphere::new(centre, radius),
+            storage.alloc_material(material),
+        )
+    };
+
+    let earth_image = storage.alloc_image(RgbImage::open("media/earthmap.jpg"));
+    let earth_texture = storage.alloc_texture(texture::rgb_image(earth_image));
+
+    let spheres = [sphere(
+        vec3(0.0, 2.0, 0.0),
+        2.0,
+        material::lambertian(earth_texture),
+    )];
+
+    let scene = Scene::new(&spheres);
+    (scene, camera)
+}
+pub fn aras_p<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Camera) {
     let lookfrom = vec3(0.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
     let dist_to_focus = 3.0;
@@ -241,10 +262,13 @@ pub fn aras_p<'a>(
     );
 
     let sphere = |centre, radius, material| -> (Sphere, &Material) {
-        (Sphere::new(centre, radius), material_arena.alloc(material))
+        (
+            Sphere::new(centre, radius),
+            storage.alloc_material(material),
+        )
     };
 
-    let constant = |albedo| -> &Texture { texture_arena.alloc(texture::constant(albedo)) };
+    let constant = |albedo| -> &Texture { storage.alloc_texture(texture::constant(albedo)) };
 
     let spheres = [
         sphere(
@@ -479,11 +503,7 @@ pub fn aras_p<'a>(
     (scene, camera)
 }
 
-pub fn smallpt<'a>(
-    params: &Params,
-    texture_arena: &'a Arena<Texture<'a>>,
-    material_arena: &'a Arena<Material<'a>>,
-) -> (Scene<'a>, Camera) {
+pub fn smallpt<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Camera) {
     let lookfrom = vec3(50.0, 52.0, 295.6);
     let lookat = vec3(50.0, 33.0, 0.0);
     let dist_to_focus = 100.0;
@@ -500,10 +520,13 @@ pub fn smallpt<'a>(
     );
 
     let sphere = |centre, radius, material| -> (Sphere, &Material) {
-        (Sphere::new(centre, radius), material_arena.alloc(material))
+        (
+            Sphere::new(centre, radius),
+            storage.alloc_material(material),
+        )
     };
 
-    let constant = |albedo| -> &Texture { texture_arena.alloc(texture::constant(albedo)) };
+    let constant = |albedo| -> &Texture { storage.alloc_texture(texture::constant(albedo)) };
 
     let spheres = [
         sphere(
