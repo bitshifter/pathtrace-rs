@@ -237,7 +237,7 @@ pub fn earth<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Camer
     let earth_texture = storage.alloc_texture(texture::rgb_image(earth_image));
 
     let spheres = [sphere(
-        vec3(0.0, 2.0, 0.0),
+        vec3(0.0, 0.0, 0.0),
         2.0,
         material::lambertian(earth_texture),
     )];
@@ -245,6 +245,7 @@ pub fn earth<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Camer
     let scene = Scene::new(&spheres);
     (scene, camera)
 }
+
 pub fn aras_p<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Camera) {
     let lookfrom = vec3(0.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);

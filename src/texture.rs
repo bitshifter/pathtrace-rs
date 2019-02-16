@@ -27,8 +27,8 @@ impl RgbImage {
     pub fn value(&self, u: f32, v: f32) -> Vec3 {
         let i = (u * self.width as f32) as i32;
         let j = ((1.0 - v) * self.height as f32 - 0.001) as i32;
-        let i = i.min(0).max(self.width as i32 - 1) as usize;
-        let j = j.min(0).max(self.height as i32 - 1) as usize;
+        let i = i.max(0).min(self.width as i32 - 1) as usize;
+        let j = j.max(0).min(self.height as i32 - 1) as usize;
         let r = self.data[3 * i + 3 * self.width as usize * j] as f32 / 255.0;
         let g = self.data[3 * i + 3 * self.width as usize * j + 1] as f32 / 255.0;
         let b = self.data[3 * i + 3 * self.width as usize * j + 2] as f32 / 255.0;

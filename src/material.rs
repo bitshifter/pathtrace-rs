@@ -5,6 +5,7 @@ use crate::{
 };
 use glam::{vec3, Vec3};
 use rand::{Rng, XorShiftRng};
+use std::f32;
 
 // #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[derive(Clone, Copy, Debug)]
@@ -139,4 +140,18 @@ impl<'a> Material<'a> {
             }
         }
     }
+    pub fn get_sphere_uv(&self, p: Vec3) -> (f32, f32) {
+        if let MaterialKind::Lambertian { albedo } = self.kind {
+            if let Texture::Image { image: _ } = albedo {
+                const FRAC_1_2PI: f32 = 1.0 / (2.0 * f32::consts::PI);
+                let phi = p.get_x().atan2(p.get_y());
+                let theta = p.get_y().asin();
+                let u = 1.0 - (phi + f32::consts::PI) * FRAC_1_2PI;
+                let v = (theta + f32::consts::FRAC_PI_2) * f32::consts::FRAC_1_PI;
+                return (u, v);
+            }
+        }
+        (0.0, 0.0)
+    }
+
 }

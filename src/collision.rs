@@ -97,16 +97,6 @@ impl Sphere {
     }
 }
 
-#[allow(dead_code)]
-pub fn get_sphere_uv(p: Vec3) -> (f32, f32) {
-    const FRAC_1_2PI: f32 = 1.0 / (2.0 * f32::consts::PI);
-    let phi = p.get_x().atan2(p.get_y());
-    let theta = p.get_y().asin();
-    let u = 1.0 - (phi + f32::consts::PI) * FRAC_1_2PI;
-    let v = (theta + f32::consts::FRAC_PI_2) * f32::consts::FRAC_1_PI;
-    (u, v)
-}
-
 #[derive(Debug)]
 pub struct SpheresSoA<'a> {
     feature: TargetFeature,
@@ -225,9 +215,9 @@ impl<'a> SpheresSoA<'a> {
                 self.centre_y[hit_index],
                 self.centre_z[hit_index],
             );
-            let delta = point - centre;
-            let normal = delta * self.radius_inv[hit_index];
-            let (u, v) = get_sphere_uv(delta);
+            let normal = (point - centre) * self.radius_inv[hit_index];
+            let material = self.material[hit_index].unwrap();
+            let (u, v) = material.get_sphere_uv(normal);
             Some((
                 RayHit {
                     point,
@@ -235,7 +225,7 @@ impl<'a> SpheresSoA<'a> {
                     u,
                     v,
                 },
-                self.material[hit_index].unwrap(),
+                material,
             ))
         } else {
             None
@@ -337,9 +327,9 @@ impl<'a> SpheresSoA<'a> {
                     *self.centre_y.get_unchecked(hit_index_scalar),
                     *self.centre_z.get_unchecked(hit_index_scalar),
                 );
-                let delta = point - centre;
-                let normal = delta * *self.radius_inv.get_unchecked(hit_index_scalar);
-                let (u, v) = get_sphere_uv(delta);
+                let normal = (point - centre) * *self.radius_inv.get_unchecked(hit_index_scalar);
+                let material = self.material.get_unchecked(hit_index_scalar).unwrap();
+                let (u, v) = material.get_sphere_uv(normal);
                 return Some((
                     RayHit {
                         point,
@@ -347,7 +337,7 @@ impl<'a> SpheresSoA<'a> {
                         u,
                         v,
                     },
-                    self.material.get_unchecked(hit_index_scalar).unwrap(),
+                    material,
                 ));
             }
         }
@@ -459,9 +449,9 @@ impl<'a> SpheresSoA<'a> {
                     *self.centre_y.get_unchecked(hit_index_scalar),
                     *self.centre_z.get_unchecked(hit_index_scalar),
                 );
-                let delta = point - centre;
-                let normal = delta * *self.radius_inv.get_unchecked(hit_index_scalar);
-                let (u, v) = get_sphere_uv(delta);
+                let normal = (point - centre) * *self.radius_inv.get_unchecked(hit_index_scalar);
+                let material = self.material.get_unchecked(hit_index_scalar).unwrap();
+                let (u, v) = material.get_sphere_uv(normal);
                 return Some((
                     RayHit {
                         point,
@@ -469,7 +459,7 @@ impl<'a> SpheresSoA<'a> {
                         u,
                         v,
                     },
-                    self.material.get_unchecked(hit_index_scalar).unwrap(),
+                    material,
                 ));
             }
         }
