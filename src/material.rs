@@ -9,87 +9,80 @@ use std::f32;
 
 // #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[derive(Clone, Copy, Debug)]
-pub enum MaterialKind<'a> {
+pub enum Material<'a> {
     Lambertian { albedo: &'a Texture<'a> },
     Metal { albedo: Vec3, fuzz: f32 },
     Dielectric { ref_idx: f32 },
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct Material<'a> {
-    pub kind: MaterialKind<'a>,
-    pub emissive: Vec3,
+    DiffuseLight { emit: &'a Texture<'a> },
 }
 
 pub fn lambertian<'a>(albedo: &'a Texture<'a>) -> Material<'a> {
-    Material {
-        kind: MaterialKind::Lambertian { albedo },
-        emissive: Vec3::zero(),
-    }
-}
-
-pub fn lambertian_emissive<'a>(albedo: &'a Texture<'a>, emissive: Vec3) -> Material<'a> {
-    Material {
-        kind: MaterialKind::Lambertian { albedo },
-        emissive,
-    }
+    Material::Lambertian { albedo }
 }
 
 pub fn metal<'a>(albedo: Vec3, fuzz: f32) -> Material<'a> {
-    Material {
-        kind: MaterialKind::Metal { albedo, fuzz },
-        emissive: Vec3::zero(),
-    }
+    Material::Metal { albedo, fuzz }
 }
 
 pub fn dielectric<'a>(ref_idx: f32) -> Material<'a> {
-    Material {
-        kind: MaterialKind::Dielectric { ref_idx },
-        emissive: Vec3::zero(),
-    }
+    Material::Dielectric { ref_idx }
 }
 
-impl<'a> MaterialKind<'a> {
+pub fn diffuse_light<'a>(emit: &'a Texture<'a>) -> Material<'a> {
+    Material::DiffuseLight { emit }
+}
+
+fn get_sphere_uv(normal: Vec3) -> (f32, f32) {
+    const FRAC_1_2PI: f32 = 1.0 / (2.0 * f32::consts::PI);
+    let (x, y, _) = normal.into();
+    let phi = x.atan2(y);
+    let theta = y.asin();
+    let u = 1.0 - (phi + f32::consts::PI) * FRAC_1_2PI;
+    let v = (theta + f32::consts::FRAC_PI_2) * f32::consts::FRAC_1_PI;
+    return (u, v);
+}
+
+impl<'a> Material<'a> {
     fn scatter_lambertian(
         albedo: &Texture,
         _: &Ray,
         ray_hit: &RayHit,
         rng: &mut XorShiftRng,
-    ) -> Option<(Vec3, Ray, bool)> {
+    ) -> Option<(Vec3, Ray)> {
         let target = ray_hit.point + ray_hit.normal + random_unit_vector(rng);
         Some((
             albedo.value(ray_hit.u, ray_hit.v, ray_hit.point),
             ray(ray_hit.point, (target - ray_hit.point).normalize()),
-            true,
         ))
     }
+
     fn scatter_metal(
-        albedo: Vec3,
+        albedo: &Vec3,
         fuzz: f32,
         ray_in: &Ray,
         ray_hit: &RayHit,
         rng: &mut XorShiftRng,
-    ) -> Option<(Vec3, Ray, bool)> {
+    ) -> Option<(Vec3, Ray)> {
         let reflected = reflect(ray_in.direction, ray_hit.normal);
         if reflected.dot(ray_hit.normal) > 0.0 {
             Some((
-                albedo,
+                *albedo,
                 ray(
                     ray_hit.point,
                     (reflected + fuzz * random_in_unit_sphere(rng)).normalize(),
                 ),
-                false,
             ))
         } else {
             None
         }
     }
+
     fn scatter_dielectric(
         ref_idx: f32,
         ray_in: &Ray,
         ray_hit: &RayHit,
         rng: &mut XorShiftRng,
-    ) -> Option<(Vec3, Ray, bool)> {
+    ) -> Option<(Vec3, Ray)> {
         let attenuation = vec3(1.0, 1.0, 1.0);
         let rdotn = ray_in.direction.dot(ray_hit.normal);
         let (outward_normal, ni_over_nt, cosine) = if rdotn > 0.0 {
@@ -103,11 +96,7 @@ impl<'a> MaterialKind<'a> {
         if let Some(refracted) = refract(ray_in.direction, outward_normal, ni_over_nt) {
             let reflect_prob = schlick(cosine, ref_idx);
             if rng.next_f32() > reflect_prob {
-                return Some((
-                    attenuation,
-                    ray(ray_hit.point, refracted.normalize()),
-                    false,
-                ));
+                return Some((attenuation, ray(ray_hit.point, refracted.normalize())));
             }
         }
         Some((
@@ -116,42 +105,47 @@ impl<'a> MaterialKind<'a> {
                 ray_hit.point,
                 reflect(ray_in.direction, ray_hit.normal).normalize(),
             ),
-            false,
         ))
     }
-}
 
-impl<'a> Material<'a> {
     pub fn scatter(
         &self,
         ray: &Ray,
         ray_hit: &RayHit,
         rng: &mut XorShiftRng,
-    ) -> Option<(Vec3, Ray, bool)> {
-        match self.kind {
-            MaterialKind::Lambertian { albedo } => {
-                MaterialKind::scatter_lambertian(albedo, ray, ray_hit, rng)
+    ) -> Option<(Vec3, Ray)> {
+        match self {
+            Material::Lambertian { albedo } => {
+                Material::scatter_lambertian(albedo, ray, ray_hit, rng)
             }
-            MaterialKind::Metal { albedo, fuzz } => {
-                MaterialKind::scatter_metal(albedo, fuzz, ray, ray_hit, rng)
+            Material::Metal { albedo, fuzz } => {
+                Material::scatter_metal(albedo, *fuzz, ray, ray_hit, rng)
             }
-            MaterialKind::Dielectric { ref_idx } => {
-                MaterialKind::scatter_dielectric(ref_idx, ray, ray_hit, rng)
+            Material::Dielectric { ref_idx } => {
+                Material::scatter_dielectric(*ref_idx, ray, ray_hit, rng)
             }
+            Material::DiffuseLight { emit: _ } => None,
         }
     }
-    pub fn get_sphere_uv(&self, p: Vec3) -> (f32, f32) {
-        if let MaterialKind::Lambertian { albedo } = self.kind {
+
+    pub fn emitted(&self, u: f32, v: f32, point: Vec3) -> Vec3 {
+        if let Material::DiffuseLight { emit } = self {
+            emit.value(u, v, point)
+        } else {
+            Vec3::zero()
+        }
+    }
+
+    pub fn get_sphere_uv(&self, normal: Vec3) -> (f32, f32) {
+        if let Material::Lambertian { albedo } = self {
             if let Texture::Image { image: _ } = albedo {
-                const FRAC_1_2PI: f32 = 1.0 / (2.0 * f32::consts::PI);
-                let phi = p.get_x().atan2(p.get_y());
-                let theta = p.get_y().asin();
-                let u = 1.0 - (phi + f32::consts::PI) * FRAC_1_2PI;
-                let v = (theta + f32::consts::FRAC_PI_2) * f32::consts::FRAC_1_PI;
-                return (u, v);
+                return get_sphere_uv(normal);
+            }
+        } else if let Material::DiffuseLight { emit } = self {
+            if let Texture::Image { image: _ } = emit {
+                return get_sphere_uv(normal);
             }
         }
         (0.0, 0.0)
     }
-
 }

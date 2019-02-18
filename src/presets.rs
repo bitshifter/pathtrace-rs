@@ -311,7 +311,7 @@ pub fn aras_p<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Came
         sphere(
             vec3(-1.5, 1.5, 0.0),
             0.3,
-            material::lambertian_emissive(constant(vec3(0.8, 0.6, 0.2)), vec3(30.0, 25.0, 15.0)),
+            material::diffuse_light(constant(vec3(30.0, 25.0, 15.0))),
         ),
         sphere(
             vec3(4.0, 0.0, -3.0),
@@ -496,7 +496,7 @@ pub fn aras_p<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Came
         sphere(
             vec3(1.5, 1.5, -2.0),
             0.3,
-            material::lambertian_emissive(constant(vec3(0.1, 0.2, 0.5)), vec3(3.0, 10.0, 20.0)),
+            material::diffuse_light(constant(vec3(3.0, 10.0, 20.0))),
         ),
     ];
 
@@ -571,10 +571,7 @@ pub fn smallpt<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Cam
         sphere(
             vec3(50.0, 81.6 - 16.5, 81.6),
             1.5,
-            material::lambertian_emissive(
-                constant(vec3(0.0, 0.0, 0.0)),
-                vec3(4.0, 4.0, 4.0) * 100.0,
-            ),
+            material::diffuse_light(constant(vec3(4.0, 4.0, 4.0) * 100.0)),
         ), //Lite
     ];
 
