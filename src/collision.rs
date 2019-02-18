@@ -1,6 +1,9 @@
+#![allow(dead_code)]
 use crate::{material::Material, math::align_to, simd::*};
 use glam::{vec3, Vec3};
-use std::f32;
+use std::{
+    f32,
+};
 
 #[inline]
 fn cttz_8bits_nonzero(x: u32) -> u32 {
@@ -52,6 +55,77 @@ fn cttz_4bits_nonzero(x: u32) -> u32 {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AABB {
+    pub min: Vec3,
+    pub max: Vec3,
+}
+
+impl AABB {
+    #[inline]
+    pub fn new(min: Vec3, max: Vec3) -> AABB {
+        debug_assert!(!AABB::is_invalid_helper(&min, &max));
+        AABB { min, max }
+    }
+
+    #[inline]
+    pub fn invalid() -> AABB {
+        AABB { min: Vec3::splat(f32::MAX), max: Vec3::splat(-f32::MAX) }
+    }
+
+    #[inline]
+    pub fn zero() -> AABB {
+        AABB { min: Vec3::zero(), max: Vec3::zero() }
+    }
+
+    #[inline]
+    pub fn is_invalid(&self) -> bool {
+        // TODO: SIMD
+        self.min.get_x() > self.max.get_x() || self.min.get_y() > self.max.get_y() || self.min.get_z() > self.max.get_z()
+    }
+
+    #[inline]
+    fn is_invalid_helper(min: &Vec3, max: &Vec3) -> bool {
+        // TODO: SIMD
+        min.get_x() > max.get_x() || min.get_y() > max.get_y() || min.get_z() > max.get_z()
+    }
+
+    #[inline]
+    pub fn ray_hit(&self, r: &Ray, tmin: f32, tmax: f32) -> bool {
+        // note if not using SSE this might be faster to calc per component to early out
+        let min_delta = (self.min - r.origin) / r.direction;
+        let max_delta = (self.max - r.origin) / r.direction;
+        let t0 = min_delta.min(max_delta);
+        let t1 = min_delta.max(max_delta);
+        let tmin = t0.max(Vec3::splat(tmin));
+        let tmax = t1.min(Vec3::splat(tmax));
+        tmax > tmin
+    }
+
+    #[inline]
+    pub fn slabs(&self, p0: Vec3, p1: Vec3, ray_origin: Vec3, inv_ray_dir: Vec3) -> bool {
+        let t0 = (p0 - ray_origin) * inv_ray_dir;
+        let t1 = (p1 - ray_origin) * inv_ray_dir;
+        let tmin = t0.min(t1);
+        let tmax = t0.max(t1);
+        tmin.hmax() <= tmax.hmin()
+    }
+
+    #[inline]
+    pub fn add(&self, rhs: &AABB) -> AABB {
+        AABB {
+            min: self.min.min(rhs.min),
+            max: self.max.max(rhs.max),
+        }
+    }
+
+    #[inline]
+    pub fn add_assign(&mut self, rhs: &AABB) {
+        self.min = self.min.min(rhs.min);
+        self.max = self.max.max(rhs.max);
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Ray {
     pub origin: Vec3,
@@ -65,7 +139,6 @@ pub fn ray(origin: Vec3, direction: Vec3) -> Ray {
 
 impl Ray {
     #[inline]
-    #[allow(dead_code)]
     pub fn new(origin: Vec3, direction: Vec3) -> Ray {
         Ray { origin, direction }
     }
@@ -95,10 +168,20 @@ impl Sphere {
     pub fn new(centre: Vec3, radius: f32) -> Sphere {
         Sphere { centre, radius }
     }
+
+    #[inline]
+    pub fn aabb(&self) -> AABB {
+        let radius = Vec3::splat(self.radius);
+        AABB {
+            min: self.centre - radius,
+            max: self.centre + radius,
+        }
+    }
 }
 
 #[derive(Debug)]
 pub struct SpheresSoA<'a> {
+    bounds: AABB,
     feature: TargetFeature,
     centre_x: Vec<f32>,
     centre_y: Vec<f32>,
@@ -114,8 +197,8 @@ impl<'a> SpheresSoA<'a> {
     pub fn new(spheres: &[(Sphere, &'a Material)]) -> SpheresSoA<'a> {
         let feature = TargetFeature::detect();
         feature.print_version();
-        // HACK: make sure there's enough entries for SIMD
-        // TODO: conditionally compile this
+
+        let mut bounds = AABB::invalid();
         let chunk_size = TargetFeature::detect().get_bits() / 32;
         let num_spheres = spheres.len();
         let len = align_to(num_spheres, chunk_size);
@@ -126,6 +209,7 @@ impl<'a> SpheresSoA<'a> {
         let mut radius_sq = Vec::with_capacity(len);
         let mut material: Vec<Option<&'a Material>> = Vec::with_capacity(len);
         for (sphere, mat) in spheres {
+            bounds.add_assign(&sphere.aabb());
             centre_x.push(sphere.centre.get_x());
             centre_y.push(sphere.centre.get_y());
             centre_z.push(sphere.centre.get_z());
@@ -143,6 +227,7 @@ impl<'a> SpheresSoA<'a> {
             material.push(None);
         }
         SpheresSoA {
+            bounds,
             feature,
             centre_x,
             centre_y,
@@ -155,7 +240,11 @@ impl<'a> SpheresSoA<'a> {
         }
     }
 
-    #[allow(dead_code)]
+    #[inline]
+    pub fn in_bounds(&self, ray: &Ray, t_min: f32, t_max: f32) -> bool {
+        self.bounds.ray_hit(ray, t_min, t_max)
+    }
+
     pub fn centre(&self, index: u32) -> Vec3 {
         let index = index as usize;
         assert!(index < self.len);
@@ -168,7 +257,6 @@ impl<'a> SpheresSoA<'a> {
         }
     }
 
-    #[allow(dead_code)]
     pub fn radius_sq(&self, index: u32) -> f32 {
         self.radius_sq[index as usize]
     }

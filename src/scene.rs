@@ -5,7 +5,7 @@ use crate::{
     perlin::Perlin,
     texture::{RgbImage, Texture},
 };
-use glam::Vec3;
+use glam::{vec3, Vec3};
 use rand::{weak_rng, Rng, SeedableRng, XorShiftRng};
 use rayon::prelude::*;
 use std::{
@@ -69,7 +69,14 @@ impl<'a> Scene<'a> {
         }
     }
 
-    fn ray_trace(
+    #[inline]
+    fn sky(ray: &Ray) -> Vec3 {
+        // sky
+        let t = 0.5 * (ray.direction.get_y() + 1.0);
+        (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0) * 0.3
+    }
+
+    fn ray_trace_n(
         &self,
         ray_in: &Ray,
         depth: u32,
@@ -84,13 +91,35 @@ impl<'a> Scene<'a> {
                 if let Some((attenuation, scattered)) = material.scatter(ray_in, &ray_hit, rng) {
                     return emitted
                         + attenuation
-                            * self.ray_trace(&scattered, depth + 1, max_depth, rng, ray_count);
+                            * self.ray_trace_n(&scattered, depth + 1, max_depth, rng, ray_count);
                 }
             }
             emitted
         } else {
-            Vec3::zero()
+            Scene::sky(ray_in)
         }
+    }
+
+    fn ray_trace_0(
+        &self,
+        ray_in: &Ray,
+        max_depth: u32,
+        rng: &mut XorShiftRng,
+        ray_count: &mut usize,
+    ) -> Vec3 {
+        *ray_count += 1;
+        if self.spheres.in_bounds(&ray_in, MIN_T, MAX_T) {
+            if let Some((ray_hit, material)) = self.spheres.ray_hit(ray_in, MIN_T, MAX_T) {
+                let emitted = material.emitted(ray_hit.u, ray_hit.v, ray_hit.point);
+                if let Some((attenuation, scattered)) = material.scatter(ray_in, &ray_hit, rng) {
+                    return emitted
+                        + attenuation
+                        * self.ray_trace_n(&scattered, 1, max_depth, rng, ray_count);
+                }
+                return emitted;
+            }
+        }
+        Scene::sky(ray_in)
     }
 
     pub fn update(
@@ -127,11 +156,9 @@ impl<'a> Scene<'a> {
                         let u = (i as f32 + rng.next_f32()) * inv_nx;
                         let v = (j as f32 + rng.next_f32()) * inv_ny;
                         let ray = camera.get_ray(u, v, &mut rng);
-                        col += self.ray_trace(
+                        col += self.ray_trace_0(
                             &ray,
-                            0,
                             params.max_depth,
-                            // true,
                             &mut rng,
                             &mut ray_count,
                         );
