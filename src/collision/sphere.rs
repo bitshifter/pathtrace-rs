@@ -21,8 +21,43 @@ impl Sphere {
         Sphere { centre, radius }
     }
 
+    // this isn't used, it's just here for reference
+    pub fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<RayHit> {
+        let oc = ray.origin - self.centre;
+        let a = ray.direction.dot(ray.direction);
+        let b = oc.dot(ray.direction);
+        let c = oc.dot(oc) - self.radius * self.radius;
+        let discriminant = b * b - a * c;
+        if discriminant > 0.0 {
+            let discriminant_sqrt = discriminant.sqrt();
+            let t = (-b - discriminant_sqrt) / a;
+            if t < t_max && t > t_min {
+                let point = ray.point_at_parameter(t);
+                let normal = (point - self.centre) / self.radius;
+                return Some(RayHit {
+                    point,
+                    normal,
+                    u: 0.0,
+                    v: 0.0,
+                });
+            }
+            let t = (-b + discriminant_sqrt) / a;
+            if t < t_max && t > t_min {
+                let point = ray.point_at_parameter(t);
+                let normal = (point - self.centre) / self.radius;
+                return Some(RayHit {
+                    point,
+                    normal,
+                    u: 0.0,
+                    v: 0.0,
+                });
+            }
+        }
+        None
+    }
+
     #[inline]
-    pub fn aabb(&self) -> AABB {
+    pub fn calc_bounds(&self) -> AABB {
         let radius = Vec3::splat(self.radius);
         AABB {
             min: self.centre - radius,
@@ -61,7 +96,7 @@ impl<'a> SpheresSoA<'a> {
         let mut radius_sq = Vec::with_capacity(len);
         let mut material: Vec<Option<&'a Material>> = Vec::with_capacity(len);
         for (sphere, mat) in spheres {
-            bounds.add_assign(&sphere.aabb());
+            bounds.add_assign(&sphere.calc_bounds());
             centre_x.push(sphere.centre.get_x());
             centre_y.push(sphere.centre.get_y());
             centre_z.push(sphere.centre.get_z());
