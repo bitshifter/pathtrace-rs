@@ -1,5 +1,5 @@
 use crate::{
-    collision::{ray, Ray, RayHit},
+    collision::{Ray, RayHit},
     math::{random_in_unit_sphere, random_unit_vector, reflect, refract, schlick},
     texture::Texture,
 };
@@ -52,7 +52,7 @@ impl<'a> Material<'a> {
         let target = ray_hit.point + ray_hit.normal + random_unit_vector(rng);
         Some((
             albedo.value(ray_hit.u, ray_hit.v, ray_hit.point),
-            ray(ray_hit.point, (target - ray_hit.point).normalize()),
+            Ray::new(ray_hit.point, (target - ray_hit.point).normalize()),
         ))
     }
 
@@ -67,7 +67,7 @@ impl<'a> Material<'a> {
         if reflected.dot(ray_hit.normal) > 0.0 {
             Some((
                 *albedo,
-                ray(
+                Ray::new(
                     ray_hit.point,
                     (reflected + fuzz * random_in_unit_sphere(rng)).normalize(),
                 ),
@@ -96,12 +96,12 @@ impl<'a> Material<'a> {
         if let Some(refracted) = refract(ray_in.direction, outward_normal, ni_over_nt) {
             let reflect_prob = schlick(cosine, ref_idx);
             if rng.next_f32() > reflect_prob {
-                return Some((attenuation, ray(ray_hit.point, refracted.normalize())));
+                return Some((attenuation, Ray::new(ray_hit.point, refracted.normalize())));
             }
         }
         Some((
             attenuation,
-            ray(
+            Ray::new(
                 ray_hit.point,
                 reflect(ray_in.direction, ray_hit.normal).normalize(),
             ),

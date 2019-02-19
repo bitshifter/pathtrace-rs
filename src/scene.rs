@@ -113,8 +113,7 @@ impl<'a> Scene<'a> {
                 let emitted = material.emitted(ray_hit.u, ray_hit.v, ray_hit.point);
                 if let Some((attenuation, scattered)) = material.scatter(ray_in, &ray_hit, rng) {
                     return emitted
-                        + attenuation
-                        * self.ray_trace_n(&scattered, 1, max_depth, rng, ray_count);
+                        + attenuation * self.ray_trace_n(&scattered, 1, max_depth, rng, ray_count);
                 }
                 return emitted;
             }
@@ -156,12 +155,7 @@ impl<'a> Scene<'a> {
                         let u = (i as f32 + rng.next_f32()) * inv_nx;
                         let v = (j as f32 + rng.next_f32()) * inv_ny;
                         let ray = camera.get_ray(u, v, &mut rng);
-                        col += self.ray_trace_0(
-                            &ray,
-                            params.max_depth,
-                            &mut rng,
-                            &mut ray_count,
-                        );
+                        col += self.ray_trace_0(&ray, params.max_depth, &mut rng, &mut ray_count);
                     }
                     col *= inv_ns;
                     color_out.0 = color_out.0 * mix_prev + col.get_x() * mix_new;
