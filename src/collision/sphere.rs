@@ -37,6 +37,7 @@ impl Sphere {
                 return Some(RayHit {
                     point,
                     normal,
+                    t,
                     u: 0.0,
                     v: 0.0,
                 });
@@ -48,6 +49,7 @@ impl Sphere {
                 return Some(RayHit {
                     point,
                     normal,
+                    t,
                     u: 0.0,
                     v: 0.0,
                 });
@@ -57,7 +59,7 @@ impl Sphere {
     }
 
     #[inline]
-    pub fn calc_bounds(&self) -> AABB {
+    pub fn bounding_box(&self) -> AABB {
         let radius = Vec3::splat(self.radius);
         AABB {
             min: self.centre - radius,
@@ -96,7 +98,7 @@ impl<'a> SpheresSoA<'a> {
         let mut radius_sq = Vec::with_capacity(len);
         let mut material: Vec<Option<&'a Material>> = Vec::with_capacity(len);
         for (sphere, mat) in spheres {
-            bounds.add_assign(&sphere.calc_bounds());
+            bounds.add_assign(&sphere.bounding_box());
             centre_x.push(sphere.centre.get_x());
             centre_y.push(sphere.centre.get_y());
             centre_z.push(sphere.centre.get_z());
@@ -197,6 +199,7 @@ impl<'a> SpheresSoA<'a> {
                 RayHit {
                     point,
                     normal,
+                    t: hit_t,
                     u,
                     v,
                 },
@@ -309,6 +312,7 @@ impl<'a> SpheresSoA<'a> {
                     RayHit {
                         point,
                         normal,
+                        t: hit_t_scalar,
                         u,
                         v,
                     },
@@ -431,6 +435,7 @@ impl<'a> SpheresSoA<'a> {
                     RayHit {
                         point,
                         normal,
+                        t: hit_t_scalar,
                         u,
                         v,
                     },

@@ -21,6 +21,7 @@ impl Ray {
 pub struct RayHit {
     pub point: Vec3,
     pub normal: Vec3,
+    pub t: f32,
     // TODO: it would be better to calculate this lazily as not everything needs it
     pub u: f32,
     pub v: f32,

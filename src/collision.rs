@@ -1,4 +1,5 @@
 mod aabb;
+mod hitable;
 mod ray;
 mod rect;
 mod sphere;
