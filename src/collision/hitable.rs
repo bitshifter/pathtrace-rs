@@ -46,7 +46,7 @@ impl<'a> BVHNode<'a> {
                 (Some(hit_lhs), None) => Some(hit_lhs),
                 (None, Some(hit_rhs)) => Some(hit_rhs),
                 (None, None) => {
-                    unreachable!()
+                    None
                 }
             }
         } else {
@@ -177,16 +177,8 @@ impl<'a> Hitable<'a> {
         let (ray_hit, material) = match self {
             Hitable::Sphere(sphere, material) => (sphere.ray_hit(ray, t_min, t_max), material),
             Hitable::XYRect(rect, material) => (rect.ray_hit(ray, t_min, t_max), material),
-            Hitable::List(list) => {
-                return list.ray_hit(ray, t_min, t_max);
-                // // TODO: this is kind of dumb
-                // if let Some(ray_hit, material) = list.ray_hit(ray, t_min, t_max) {
-                //     (Some(ray_hit), material)
-                // } else {
-                //     None
-                // }
-            },
-            Hitable::BVHNode(_) => unreachable!(),
+            Hitable::List(list) => return list.ray_hit(ray, t_min, t_max),
+            Hitable::BVHNode(node) => return node.ray_hit(ray, t_min, t_max),
         };
         if let Some(ray_hit) = ray_hit {
             Some((ray_hit, material))

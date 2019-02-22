@@ -99,6 +99,7 @@ pub fn start_loop<'a>(preset: &str, params: Params, max_frames: Option<u32>) {
             presets::from_name(&preset, &params, &mut rng, &storage).expect("unrecognised preset");
 
         let mut frame_num = 0;
+        let mut elapsed_count = 0;
         let mut elapsed_secs = 0.0;
         let mut ray_count = 0;
         loop {
@@ -107,6 +108,7 @@ pub fn start_loop<'a>(preset: &str, params: Params, max_frames: Option<u32>) {
                 let start_time = SystemTime::now();
                 ray_count += scene.update(&params, &camera, frame_num, &mut rgb_buffer);
                 frame_num += 1;
+                elapsed_count += 1;
 
                 let elapsed = start_time
                     .elapsed()
@@ -115,18 +117,20 @@ pub fn start_loop<'a>(preset: &str, params: Params, max_frames: Option<u32>) {
                     elapsed.as_secs() as f64 + f64::from(elapsed.subsec_nanos()) / 1_000_000_000.0;
 
                 const RATE: u32 = 10;
-                if frame_num % RATE == 0 {
+
+                if elapsed_secs > 10.0 || elapsed_count == RATE {
                     let million_ray_count = ray_count as f64 / 1_000_000.0;
 
                     println!(
                         "{:.2}secs {:.2}Mrays/s {:.2}Mrays/frame {} frames",
-                        elapsed_secs / RATE as f64,
+                        elapsed_secs / elapsed_count as f64,
                         million_ray_count / elapsed_secs,
-                        million_ray_count / RATE as f64,
+                        million_ray_count / elapsed_count as f64,
                         frame_num
                     );
 
                     elapsed_secs = 0.0;
+                    elapsed_count = 0;
                     ray_count = 0;
                 }
 

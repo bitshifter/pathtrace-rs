@@ -2,7 +2,7 @@
 #![allow(unused_imports)]
 use crate::{
     camera::Camera,
-    collision::{Hitable, HitableList, Sphere},
+    collision::{BVHNode, Hitable, HitableList, Sphere},
     material::{self, Material},
     scene::{Params, Scene, Storage},
     texture::{self, RgbImage, Texture},
@@ -41,7 +41,7 @@ pub fn from_name<'a>(
         // "aras" => Some(aras_p(params, storage)),
         "smallpt" => Some(smallpt(params, storage)),
         "two_perlin_spheres" => Some(two_perlin_spheres(params, storage)),
-        // "earth" => Some(earth(params, storage)),
+        "earth" => Some(earth(params, storage)),
         _ => None,
     }
 }
@@ -136,9 +136,10 @@ pub fn random<'a>(
         material::metal(vec3(0.7, 0.6, 0.5), 0.0),
     ));
 
-    let hitable_list = Hitable::List(storage.alloc_hitables(hitables));
+    // let hitable_list = Hitable::List(storage.alloc_hitables(hitables));
+    let hitable_root = Hitable::BVHNode(BVHNode::new(rng, &mut hitables, &storage.bvhnode_arena).unwrap());
 
-    let scene = Scene::new(hitable_list);
+    let scene = Scene::new(hitable_root);
     (scene, camera)
 }
 
