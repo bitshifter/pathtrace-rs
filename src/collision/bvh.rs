@@ -114,9 +114,9 @@ impl<'a> BVHNode<'a> {
             }
             _ => {
                 let pivot = hitables.len() / 2;
-                let lhs = BVHNode::new_split(rng, &mut hitables[0..pivot], arena, t0, t1).unwrap();
+                let lhs = BVHNode::new_split(rng, &mut hitables[..pivot], arena, t0, t1).unwrap();
                 let rhs =
-                    BVHNode::new_split(rng, &mut hitables[pivot + 1..], arena, t0, t1).unwrap();
+                    BVHNode::new_split(rng, &mut hitables[pivot..], arena, t0, t1).unwrap();
                 let lhs_aabb = lhs.aabb;
                 let rhs_aabb = rhs.aabb;
                 let aabb = lhs_aabb.add(&rhs_aabb);
