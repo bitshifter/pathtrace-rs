@@ -70,8 +70,8 @@ pub fn random<'a>(
 
     // TODO: DRY somehow
     let sphere = |centre, radius, material| -> Hitable {
-        Hitable::Sphere(storage.alloc_sphere(
-            Sphere::new(centre, radius)),
+        Hitable::Sphere(
+            storage.alloc_sphere(Sphere::new(centre, radius)),
             storage.alloc_material(material),
         )
     };
@@ -137,7 +137,8 @@ pub fn random<'a>(
     ));
 
     // let hitable_list = Hitable::List(storage.alloc_hitables(hitables));
-    let hitable_root = Hitable::BVHNode(BVHNode::new(rng, &mut hitables, &storage.bvhnode_arena).unwrap());
+    let hitable_root =
+        Hitable::BVHNode(BVHNode::new(rng, &mut hitables, &storage.bvhnode_arena).unwrap());
 
     let scene = Scene::new(hitable_root);
     (scene, camera)
@@ -159,8 +160,8 @@ pub fn small<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Camer
     );
 
     let sphere = |centre, radius, material| -> Hitable {
-        Hitable::Sphere(storage.alloc_sphere(
-            Sphere::new(centre, radius)),
+        Hitable::Sphere(
+            storage.alloc_sphere(Sphere::new(centre, radius)),
             storage.alloc_material(material),
         )
     };
@@ -208,8 +209,8 @@ pub fn two_perlin_spheres<'a>(params: &Params, storage: &'a Storage<'a>) -> (Sce
 
     // TODO: DRY somehow
     let sphere = |centre, radius, material| -> Hitable {
-        Hitable::Sphere(storage.alloc_sphere(
-            Sphere::new(centre, radius)),
+        Hitable::Sphere(
+            storage.alloc_sphere(Sphere::new(centre, radius)),
             storage.alloc_material(material),
         )
     };
@@ -252,8 +253,8 @@ pub fn earth<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Camer
 
     // TODO: DRY somehow
     let sphere = |centre, radius, material| -> Hitable {
-        Hitable::Sphere(storage.alloc_sphere(
-            Sphere::new(centre, radius)),
+        Hitable::Sphere(
+            storage.alloc_sphere(Sphere::new(centre, radius)),
             storage.alloc_material(material),
         )
     };
@@ -546,8 +547,8 @@ pub fn smallpt<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Cam
     );
 
     let sphere = |centre, radius, material| -> Hitable {
-        Hitable::Sphere(storage.alloc_sphere(
-            Sphere::new(centre, radius)),
+        Hitable::Sphere(
+            storage.alloc_sphere(Sphere::new(centre, radius)),
             storage.alloc_material(material),
         )
     };

@@ -70,11 +70,6 @@ impl<'a> Storage<'a> {
     }
 
     #[inline]
-    pub fn alloc_bvhnode(&self, node: BVHNode<'a>) -> &mut BVHNode<'a> {
-        self.bvhnode_arena.alloc(node)
-    }
-
-    #[inline]
     pub fn alloc_hitables(&self, hitables: Vec<Hitable<'a>>) -> &mut HitableList<'a> {
         self.hitables_arena.alloc(HitableList::new(hitables))
     }
@@ -142,14 +137,14 @@ impl<'a> Scene<'a> {
     ) -> Vec3 {
         *ray_count += 1;
         // if self.world.in_bounds(&ray_in, MIN_T, MAX_T) {
-            if let Some((ray_hit, material)) = self.world.ray_hit(ray_in, MIN_T, MAX_T) {
-                let emitted = material.emitted(ray_hit.u, ray_hit.v, ray_hit.point);
-                if let Some((attenuation, scattered)) = material.scatter(ray_in, &ray_hit, rng) {
-                    return emitted
-                        + attenuation * self.ray_trace_n(&scattered, 1, max_depth, rng, ray_count);
-                }
-                return emitted;
+        if let Some((ray_hit, material)) = self.world.ray_hit(ray_in, MIN_T, MAX_T) {
+            let emitted = material.emitted(ray_hit.u, ray_hit.v, ray_hit.point);
+            if let Some((attenuation, scattered)) = material.scatter(ray_in, &ray_hit, rng) {
+                return emitted
+                    + attenuation * self.ray_trace_n(&scattered, 1, max_depth, rng, ray_count);
             }
+            return emitted;
+        }
         // }
         Scene::sky(ray_in)
     }

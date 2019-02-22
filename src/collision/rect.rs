@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::collision::{AABB, Ray, RayHit};
+use crate::collision::{Ray, RayHit, AABB};
 use glam::vec3;
 
 #[derive(Copy, Clone, Debug)]
@@ -42,4 +42,3 @@ impl XYRect {
         }
     }
 }
-
