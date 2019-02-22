@@ -1,6 +1,8 @@
+// TODO: remove
+#![allow(unused_imports)]
 use crate::{
     camera::Camera,
-    collision::{Ray, Sphere, SpheresSoA},
+    collision::{BVHNode, Hitable, HitableList, Ray, Sphere, SpheresSoA, XYRect},
     material::Material,
     perlin::Perlin,
     texture::{RgbImage, Texture},
@@ -21,6 +23,10 @@ pub struct Storage<'a> {
     pub texture_arena: Arena<Texture<'a>>,
     pub material_arena: Arena<Material<'a>>,
     pub image_arena: Arena<RgbImage>,
+    pub sphere_arena: Arena<Sphere>,
+    pub xyrect_arena: Arena<XYRect>,
+    pub bvhnode_arena: Arena<BVHNode<'a>>,
+    pub hitables_arena: Arena<HitableList<'a>>,
     pub perlin_noise: Perlin,
 }
 
@@ -30,20 +36,47 @@ impl<'a> Storage<'a> {
             texture_arena: Arena::new(),
             material_arena: Arena::new(),
             image_arena: Arena::new(),
+            sphere_arena: Arena::new(),
+            xyrect_arena: Arena::new(),
+            bvhnode_arena: Arena::new(),
+            hitables_arena: Arena::new(),
             perlin_noise: Perlin::new(rng),
         }
     }
 
+    #[inline]
     pub fn alloc_texture(&self, texture: Texture<'a>) -> &mut Texture<'a> {
         self.texture_arena.alloc(texture)
     }
 
+    #[inline]
     pub fn alloc_material(&self, material: Material<'a>) -> &mut Material<'a> {
         self.material_arena.alloc(material)
     }
 
+    #[inline]
     pub fn alloc_image(&self, rgb_image: RgbImage) -> &mut RgbImage {
         self.image_arena.alloc(rgb_image)
+    }
+
+    #[inline]
+    pub fn alloc_sphere(&self, sphere: Sphere) -> &mut Sphere {
+        self.sphere_arena.alloc(sphere)
+    }
+
+    #[inline]
+    pub fn alloc_xyrect(&self, rect: XYRect) -> &mut XYRect {
+        self.xyrect_arena.alloc(rect)
+    }
+
+    #[inline]
+    pub fn alloc_bvhnode(&self, node: BVHNode<'a>) -> &mut BVHNode<'a> {
+        self.bvhnode_arena.alloc(node)
+    }
+
+    #[inline]
+    pub fn alloc_hitables(&self, hitables: Vec<Hitable<'a>>) -> &mut HitableList<'a> {
+        self.hitables_arena.alloc(HitableList::new(hitables))
     }
 }
 
@@ -57,14 +90,14 @@ pub struct Params {
 }
 
 pub struct Scene<'a> {
-    spheres: SpheresSoA<'a>,
+    world: Hitable<'a>,
     ray_count: AtomicUsize,
 }
 
 impl<'a> Scene<'a> {
-    pub fn new(sphere_materials: &[(Sphere, &'a Material)]) -> Scene<'a> {
+    pub fn new(world: Hitable<'a>) -> Scene<'a> {
         Scene {
-            spheres: SpheresSoA::new(&sphere_materials),
+            world,
             ray_count: AtomicUsize::new(0),
         }
     }
@@ -85,7 +118,7 @@ impl<'a> Scene<'a> {
         ray_count: &mut usize,
     ) -> Vec3 {
         *ray_count += 1;
-        if let Some((ray_hit, material)) = self.spheres.ray_hit(ray_in, MIN_T, MAX_T) {
+        if let Some((ray_hit, material)) = self.world.ray_hit(ray_in, MIN_T, MAX_T) {
             let emitted = material.emitted(ray_hit.u, ray_hit.v, ray_hit.point);
             if depth < max_depth {
                 if let Some((attenuation, scattered)) = material.scatter(ray_in, &ray_hit, rng) {
@@ -108,8 +141,8 @@ impl<'a> Scene<'a> {
         ray_count: &mut usize,
     ) -> Vec3 {
         *ray_count += 1;
-        if self.spheres.in_bounds(&ray_in, MIN_T, MAX_T) {
-            if let Some((ray_hit, material)) = self.spheres.ray_hit(ray_in, MIN_T, MAX_T) {
+        // if self.world.in_bounds(&ray_in, MIN_T, MAX_T) {
+            if let Some((ray_hit, material)) = self.world.ray_hit(ray_in, MIN_T, MAX_T) {
                 let emitted = material.emitted(ray_hit.u, ray_hit.v, ray_hit.point);
                 if let Some((attenuation, scattered)) = material.scatter(ray_in, &ray_hit, rng) {
                     return emitted
@@ -117,7 +150,7 @@ impl<'a> Scene<'a> {
                 }
                 return emitted;
             }
-        }
+        // }
         Scene::sky(ray_in)
     }
 
