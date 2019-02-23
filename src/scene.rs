@@ -1,8 +1,6 @@
-// TODO: remove
-#![allow(unused_imports)]
 use crate::{
     camera::Camera,
-    collision::{BVHNode, Hitable, HitableList, Ray, Sphere, SpheresSoA, XYRect},
+    collision::{BVHNode, Hitable, HitableList, Ray, Sphere, XYRect},
     material::Material,
     perlin::Perlin,
     texture::{RgbImage, Texture},
@@ -65,10 +63,9 @@ impl<'a> Storage<'a> {
     }
 
     #[inline]
-    pub fn alloc_xyrect(&self, rect: XYRect) -> &mut XYRect {
-        self.xyrect_arena.alloc(rect)
-    }
-
+    // pub fn alloc_xyrect(&self, rect: XYRect) -> &mut XYRect {
+    //     self.xyrect_arena.alloc(rect)
+    // }
     #[inline]
     pub fn alloc_hitables(&self, hitables: Vec<Hitable<'a>>) -> &mut HitableList<'a> {
         self.hitables_arena.alloc(HitableList::new(hitables))

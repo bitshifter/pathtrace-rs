@@ -5,39 +5,19 @@ use crate::{
 use rand::{Rng, XorShiftRng};
 use typed_arena::Arena;
 
+#[derive(Copy, Clone, Debug, Default)]
+pub struct BVHStats {
+    num_nodes: usize,
+    max_depth: usize,
+    num_spheres: usize,
+    num_rects: usize,
+}
+
 #[derive(Copy, Clone, Debug)]
 pub struct BVHNode<'a> {
     aabb: AABB,
     lhs: Hitable<'a>,
     rhs: Hitable<'a>,
-}
-
-#[inline]
-fn alloc_from_nodes<'a>(
-    arena: &'a Arena<BVHNode<'a>>,
-    lhs: &'a BVHNode<'a>,
-    rhs: &'a BVHNode<'a>,
-    aabb: AABB,
-) -> &'a BVHNode<'a> {
-    arena.alloc(BVHNode {
-        aabb,
-        lhs: Hitable::BVHNode(lhs),
-        rhs: Hitable::BVHNode(rhs),
-    })
-}
-
-#[inline]
-fn alloc_from_hittables<'a>(
-    arena: &'a Arena<BVHNode<'a>>,
-    lhs: Hitable<'a>,
-    rhs: Hitable<'a>,
-    aabb: AABB,
-) -> &'a BVHNode<'a> {
-    arena.alloc(BVHNode {
-        aabb,
-        lhs: lhs,
-        rhs: rhs,
-    })
 }
 
 impl<'a> BVHNode<'a> {
@@ -46,6 +26,7 @@ impl<'a> BVHNode<'a> {
         self.aabb
     }
 
+    #[inline]
     pub fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
         if self.aabb.ray_hit(ray, t_min, t_max) {
             let hit_lhs = self.lhs.ray_hit(ray, t_min, t_max);
@@ -77,48 +58,59 @@ impl<'a> BVHNode<'a> {
         match hitables.len() {
             0 => None,
             1 => {
+                // special case for 1 hitable where lhs == rhs
                 let lhs = hitables[0];
                 let rhs = lhs;
                 let aabb = lhs.bounding_box(t0, t1).unwrap();
-                Some(alloc_from_hittables(arena, lhs, rhs, aabb))
+                Some(BVHNode::alloc_bvhnode(arena, lhs, rhs, aabb))
             }
             2 => {
+                // special case for 2 hitables returns a single node
                 let lhs = hitables[0];
                 let rhs = hitables[1];
                 let lhs_aabb = lhs.bounding_box(t0, t1).unwrap();
                 let rhs_aabb = rhs.bounding_box(t0, t1).unwrap();
                 let aabb = lhs_aabb.add(&rhs_aabb);
-                Some(alloc_from_hittables(arena, lhs, rhs, aabb))
+                Some(BVHNode::alloc_bvhnode(arena, lhs, rhs, aabb))
             }
             _ => {
-                Some(BVHNode::new_split(rng, hitables, arena, t0, t1))
-                // Some(BVHNode::new_root(rng, hitables, areana)),
+                // create a new bvh root node
+                Some(BVHNode::new_root(rng, hitables, arena, t0, t1))
             }
         }
     }
 
-    // fn new_root(
-    //     rng: &mut XorShiftRng,
-    //     hitables: &mut [Hitable<'a>],
-    //     arena: &'a Arena<BVHNode<'a>>,
-    // ) -> &'a BVHNode<'a> {
-    //     BVHNode::new_split(rng, hitables, arena, 0.0, 0.0);
-    // }
+    pub fn get_stats(&self) -> BVHStats {
+        let mut stats = BVHStats::default();
+        stats.max_depth = self.get_node_stats(0, &mut stats);
+        stats
+    }
 
-    // fn new_branch(
-    //     rng: &mut XorShiftRng,
-    //     hitables: &mut [Hitable<'a>],
-    //     arena: &'a Arena<BVHNode<'a>>,
-    //     ) -> Hitable<'a> {
-    // }
+    pub fn get_node_stats(&self, depth: usize, stats: &mut BVHStats) -> usize {
+        stats.num_nodes += 1;
+        let lhs_depth = self.get_child_stats(depth, &self.lhs, stats);
+        let rhs_depth = self.get_child_stats(depth, &self.rhs, stats);
+        lhs_depth.max(rhs_depth)
+    }
 
-    fn new_split(
-        rng: &mut XorShiftRng,
-        hitables: &mut [Hitable<'a>],
-        arena: &'a Arena<BVHNode<'a>>,
-        t0: f32,
-        t1: f32,
-    ) -> &'a BVHNode<'a> {
+    pub fn get_child_stats(&self, depth: usize, hitable: &Hitable, stats: &mut BVHStats) -> usize {
+        match hitable {
+            Hitable::BVHNode(node) => {
+                return node.get_node_stats(depth + 1, stats);
+            }
+            Hitable::Sphere(_, _) => {
+                stats.num_spheres += 1;
+            }
+            Hitable::XYRect(_, _) => {
+                stats.num_rects += 1;
+            }
+            Hitable::List(_) => unimplemented!(),
+        }
+        depth
+    }
+
+    #[inline]
+    fn sort_by_axis(rng: &mut XorShiftRng, hitables: &mut [Hitable<'a>], t0: f32, t1: f32) {
         let axis = rng.next_u32() % 3;
         hitables.sort_unstable_by(|lhs, rhs| {
             let lhs_min = lhs.bounding_box(t0, t1).unwrap().min;
@@ -131,31 +123,71 @@ impl<'a> BVHNode<'a> {
             };
             ord.unwrap()
         });
+    }
+
+    #[inline]
+    fn new_root(
+        rng: &mut XorShiftRng,
+        hitables: &mut [Hitable<'a>],
+        arena: &'a Arena<BVHNode<'a>>,
+        t0: f32,
+        t1: f32,
+    ) -> &'a BVHNode<'a> {
+        BVHNode::sort_by_axis(rng, hitables, t0, t1);
+        BVHNode::new_node(rng, hitables, arena, t0, t1)
+    }
+
+    #[inline]
+    fn new_node(
+        rng: &mut XorShiftRng,
+        hitables: &mut [Hitable<'a>],
+        arena: &'a Arena<BVHNode<'a>>,
+        t0: f32,
+        t1: f32,
+    ) -> &'a BVHNode<'a> {
+        let pivot = hitables.len() / 2;
+        let lhs = BVHNode::new_split(rng, &mut hitables[..pivot], arena, t0, t1);
+        let rhs = BVHNode::new_split(rng, &mut hitables[pivot..], arena, t0, t1);
+        let lhs_aabb = lhs.bounding_box(t0, t1).unwrap();
+        let rhs_aabb = rhs.bounding_box(t0, t1).unwrap();
+        let aabb = lhs_aabb.add(&rhs_aabb);
+        BVHNode::alloc_bvhnode(arena, lhs, rhs, aabb)
+    }
+
+    fn new_split(
+        rng: &mut XorShiftRng,
+        hitables: &mut [Hitable<'a>],
+        arena: &'a Arena<BVHNode<'a>>,
+        t0: f32,
+        t1: f32,
+    ) -> Hitable<'a> {
+        BVHNode::sort_by_axis(rng, hitables, t0, t1);
         match hitables.len() {
             0 => unreachable!(),
-            1 => {
-                let lhs = hitables[0];
-                let rhs = lhs;
-                let aabb = lhs.bounding_box(t0, t1).unwrap();
-                alloc_from_hittables(arena, lhs, rhs, aabb)
-            }
+            1 => hitables[0],
             2 => {
                 let lhs = hitables[0];
                 let rhs = hitables[1];
                 let lhs_aabb = lhs.bounding_box(t0, t1).unwrap();
                 let rhs_aabb = rhs.bounding_box(t0, t1).unwrap();
                 let aabb = lhs_aabb.add(&rhs_aabb);
-                alloc_from_hittables(arena, lhs, rhs, aabb)
+                Hitable::BVHNode(BVHNode::alloc_bvhnode(arena, lhs, rhs, aabb))
             }
-            _ => {
-                let pivot = hitables.len() / 2;
-                let lhs = BVHNode::new_split(rng, &mut hitables[..pivot], arena, t0, t1);
-                let rhs = BVHNode::new_split(rng, &mut hitables[pivot..], arena, t0, t1);
-                let lhs_aabb = lhs.aabb;
-                let rhs_aabb = rhs.aabb;
-                let aabb = lhs_aabb.add(&rhs_aabb);
-                alloc_from_nodes(arena, lhs, rhs, aabb)
-            }
+            _ => Hitable::BVHNode(BVHNode::new_node(rng, hitables, arena, t0, t1)),
         }
+    }
+
+    #[inline]
+    fn alloc_bvhnode(
+        arena: &'a Arena<BVHNode<'a>>,
+        lhs: Hitable<'a>,
+        rhs: Hitable<'a>,
+        aabb: AABB,
+    ) -> &'a BVHNode<'a> {
+        arena.alloc(BVHNode {
+            aabb,
+            lhs: lhs,
+            rhs: rhs,
+        })
     }
 }

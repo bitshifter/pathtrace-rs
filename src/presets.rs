@@ -137,8 +137,10 @@ pub fn random<'a>(
     ));
 
     // let hitable_list = Hitable::List(storage.alloc_hitables(hitables));
-    let hitable_root =
-        Hitable::BVHNode(BVHNode::new(rng, &mut hitables, &storage.bvhnode_arena).unwrap());
+    let bvh_root = BVHNode::new(rng, &mut hitables, &storage.bvhnode_arena).unwrap();
+    dbg!(bvh_root.get_stats());
+
+    let hitable_root = Hitable::BVHNode(bvh_root);
 
     let scene = Scene::new(hitable_root);
     (scene, camera)
