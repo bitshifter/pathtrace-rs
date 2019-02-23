@@ -10,20 +10,6 @@ use crate::{
 use glam::{vec3, Vec3};
 use rand::{Rng, XorShiftRng};
 
-// struct HitablesBuilder<'a> {
-//     storage: &'a Storage<'a>,
-//     hitables: Vec<Hitable<'a>>,
-// }
-
-// impl<'a> HitablesBuilder<'a> {
-//     pub fn sphere(&self, centre: Vec3, radius: f32, material: Material<'a>) -> Hitable<'a> {
-//         Hitable::Sphere(self.storage.alloc_sphere(
-//             Sphere::new(centre, radius)),
-//             self.storage.alloc_material(material),
-//         )
-//     }
-// }
-
 pub fn from_name<'a>(
     name: &str,
     params: &Params,

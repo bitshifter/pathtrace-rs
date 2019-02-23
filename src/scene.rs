@@ -72,13 +72,24 @@ impl<'a> Storage<'a> {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Params {
     pub width: u32,
     pub height: u32,
     pub samples: u32,
     pub max_depth: u32,
     pub random_seed: bool,
+}
+
+impl Params {
+    pub fn get_rng(&self) -> XorShiftRng {
+        if self.random_seed {
+            rand::weak_rng()
+        } else {
+            const FIXED_SEED: [u32; 4] = [0x193a_6754, 0xa8a7_d469, 0x9783_0e05, 0x113b_a7bb];
+            XorShiftRng::from_seed(FIXED_SEED)
+        }
+    }
 }
 
 pub struct Scene<'a> {
@@ -94,6 +105,12 @@ impl<'a> Scene<'a> {
         }
     }
 
+    pub fn print_ray_trace(&self, ray: &Ray) {
+        if let Hitable::BVHNode(node) = self.world {
+            node.print_ray_hit(ray, MIN_T, MAX_T);
+        }
+    }
+
     #[inline]
     fn sky(ray: &Ray) -> Vec3 {
         // sky
@@ -101,7 +118,7 @@ impl<'a> Scene<'a> {
         (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0) * 0.3
     }
 
-    fn ray_trace_n(
+    fn ray_trace(
         &self,
         ray_in: &Ray,
         depth: u32,
@@ -116,34 +133,13 @@ impl<'a> Scene<'a> {
                 if let Some((attenuation, scattered)) = material.scatter(ray_in, &ray_hit, rng) {
                     return emitted
                         + attenuation
-                            * self.ray_trace_n(&scattered, depth + 1, max_depth, rng, ray_count);
+                            * self.ray_trace(&scattered, depth + 1, max_depth, rng, ray_count);
                 }
             }
             emitted
         } else {
             Scene::sky(ray_in)
         }
-    }
-
-    fn ray_trace_0(
-        &self,
-        ray_in: &Ray,
-        max_depth: u32,
-        rng: &mut XorShiftRng,
-        ray_count: &mut usize,
-    ) -> Vec3 {
-        *ray_count += 1;
-        // if self.world.in_bounds(&ray_in, MIN_T, MAX_T) {
-        if let Some((ray_hit, material)) = self.world.ray_hit(ray_in, MIN_T, MAX_T) {
-            let emitted = material.emitted(ray_hit.u, ray_hit.v, ray_hit.point);
-            if let Some((attenuation, scattered)) = material.scatter(ray_in, &ray_hit, rng) {
-                return emitted
-                    + attenuation * self.ray_trace_n(&scattered, 1, max_depth, rng, ray_count);
-            }
-            return emitted;
-        }
-        // }
-        Scene::sky(ray_in)
     }
 
     pub fn update(
@@ -180,7 +176,7 @@ impl<'a> Scene<'a> {
                         let u = (i as f32 + rng.next_f32()) * inv_nx;
                         let v = (j as f32 + rng.next_f32()) * inv_ny;
                         let ray = camera.get_ray(u, v, &mut rng);
-                        col += self.ray_trace_0(&ray, params.max_depth, &mut rng, &mut ray_count);
+                        col += self.ray_trace(&ray, 0, params.max_depth, &mut rng, &mut ray_count);
                     }
                     col *= inv_ns;
                     color_out.0 = color_out.0 * mix_prev + col.get_x() * mix_new;

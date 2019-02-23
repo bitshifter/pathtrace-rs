@@ -80,6 +80,65 @@ impl<'a> BVHNode<'a> {
         }
     }
 
+    pub fn print_ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) {
+        let mut stats = BVHStats::default();
+        self.print_ray_hit_node(0, &mut stats, ray, t_min, t_max);
+        dbg!(stats);
+    }
+
+    fn print_ray_hit_node(
+        &self,
+        depth: usize,
+        stats: &mut BVHStats,
+        ray: &Ray,
+        t_min: f32,
+        t_max: f32,
+    ) {
+        stats.num_nodes += 1;
+        let aabb_hit = self.aabb.ray_hit(ray, t_min, t_max);
+        if aabb_hit {
+            println!("{:+2$}BVHNode {1} Hit!", "", stats.num_nodes, depth);
+            self.print_ray_hit_child(depth, stats, &self.lhs, ray, t_min, t_max);
+            self.print_ray_hit_child(depth, stats, &self.rhs, ray, t_min, t_max);
+        } else {
+            println!("{:-2$}BVHNode {1} Miss!", "", stats.num_nodes, depth);
+        }
+    }
+
+    fn print_ray_hit_child(
+        &self,
+        depth: usize,
+        stats: &mut BVHStats,
+        hitable: &Hitable,
+        ray: &Ray,
+        t_min: f32,
+        t_max: f32,
+    ) {
+        match hitable {
+            Hitable::BVHNode(node) => {
+                node.print_ray_hit_node(depth + 1, stats, ray, t_min, t_max);
+            }
+            Hitable::Sphere(sphere, _) => {
+                stats.num_spheres += 1;
+                if sphere.ray_hit(ray, t_min, t_max).is_some() {
+                    println!(" {:+2$}Sphere {1} Hit!", "", stats.num_spheres, depth);
+                } else {
+                    println!(" {:-2$}Sphere {1} Miss!", "", stats.num_spheres, depth);
+                }
+            }
+            Hitable::XYRect(rect, _) => {
+                stats.num_rects += 1;
+                if rect.ray_hit(ray, t_min, t_max).is_some() {
+                    println!(
+                        "Hit XYRect! depth {}, visited {} nodes",
+                        depth, stats.num_nodes
+                    );
+                }
+            }
+            Hitable::List(_) => unimplemented!(),
+        }
+    }
+
     pub fn get_stats(&self) -> BVHStats {
         let mut stats = BVHStats::default();
         stats.max_depth = self.get_node_stats(0, &mut stats);

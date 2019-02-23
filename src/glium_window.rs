@@ -12,7 +12,6 @@ use glium::{
     Surface,
 };
 use image;
-use rand::{SeedableRng, XorShiftRng};
 use std::{
     sync::mpsc::{channel, RecvTimeoutError},
     thread,
@@ -87,12 +86,7 @@ pub fn start_loop<'a>(preset: &str, params: Params, max_frames: Option<u32>) {
 
     let preset = preset.to_string();
     thread::spawn(move || {
-        let mut rng = if params.random_seed {
-            rand::weak_rng()
-        } else {
-            const FIXED_SEED: [u32; 4] = [0x193a_6754, 0xa8a7_d469, 0x9783_0e05, 0x113b_a7bb];
-            XorShiftRng::from_seed(FIXED_SEED)
-        };
+        let mut rng = params.get_rng();
 
         let storage = Storage::new(&mut rng);
         let (scene, camera) =

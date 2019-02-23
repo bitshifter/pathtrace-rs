@@ -57,6 +57,10 @@ fn main() {
                 .help("Don't create a preview render window")
                 .short("O")
                 .long("offline"),
+            Arg::with_name("print")
+                .help("Debug print a ray trace and exit")
+                .short("X")
+                .long("print"),
         ])
         .get_matches();
 
@@ -70,7 +74,9 @@ fn main() {
 
     let preset = matches.value_of("preset").unwrap_or("two_perlin_spheres");
 
-    if matches.is_present("offline") {
+    if matches.is_present("print") {
+        offline::print_ray_trace(preset, params);
+    } else if matches.is_present("offline") {
         offline::render_offline(preset, params);
     } else {
         let max_frames = value_t!(matches, "frames", u32).ok().and_then(Some);

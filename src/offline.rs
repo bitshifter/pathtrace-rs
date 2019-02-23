@@ -4,16 +4,21 @@ use crate::{
     scene::{Params, Storage},
 };
 use image;
-use rand::{SeedableRng, XorShiftRng};
 use std::time::SystemTime;
 
+pub fn print_ray_trace(preset: &str, params: Params) {
+    let mut rng = params.get_rng();
+
+    let storage = Storage::new(&mut rng);
+    let (scene, camera) =
+        presets::from_name(&preset, &params, &mut rng, &storage).expect("unrecognised preset");
+
+    let ray = camera.get_ray(0.5, 0.5, &mut rng);
+    scene.print_ray_trace(&ray);
+}
+
 pub fn render_offline(preset: &str, params: Params) {
-    let mut rng = if params.random_seed {
-        rand::weak_rng()
-    } else {
-        const FIXED_SEED: [u32; 4] = [0x193a_6754, 0xa8a7_d469, 0x9783_0e05, 0x113b_a7bb];
-        XorShiftRng::from_seed(FIXED_SEED)
-    };
+    let mut rng = params.get_rng();
 
     let storage = Storage::new(&mut rng);
     let (scene, camera) =
