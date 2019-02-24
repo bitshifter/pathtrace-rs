@@ -5,6 +5,8 @@ use crate::{
 use rand::{Rng, XorShiftRng};
 use typed_arena::Arena;
 
+const MISS_OR_HIT: [&str; 2] = ["Miss", "Hit"];
+
 #[derive(Copy, Clone, Debug, Default)]
 pub struct BVHStats {
     num_nodes: usize,
@@ -82,8 +84,10 @@ impl<'a> BVHNode<'a> {
 
     pub fn print_ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) {
         let mut stats = BVHStats::default();
-        self.print_ray_hit_node(0, &mut stats, ray, t_min, t_max);
-        dbg!(stats);
+        println!("Starting ray trace {:?}", ray);
+        let ray_hit = self.print_ray_hit_node(0, &mut stats, ray, t_min, t_max);
+        println!("Result: {:?}", ray_hit);
+        println!("Visit status: {:?}", stats);
     }
 
     fn print_ray_hit_node(
@@ -93,15 +97,30 @@ impl<'a> BVHNode<'a> {
         ray: &Ray,
         t_min: f32,
         t_max: f32,
-    ) {
+    ) -> Option<(RayHit, &Material)> {
         stats.num_nodes += 1;
-        let aabb_hit = self.aabb.ray_hit(ray, t_min, t_max);
-        if aabb_hit {
-            println!("{:+2$}BVHNode {1} Hit!", "", stats.num_nodes, depth);
-            self.print_ray_hit_child(depth, stats, &self.lhs, ray, t_min, t_max);
-            self.print_ray_hit_child(depth, stats, &self.rhs, ray, t_min, t_max);
+        let hit = self.aabb.ray_hit(ray, t_min, t_max);
+        println!(
+            "{:+2$}BVHNode {1} {3}! min: {4:?} max: {5:?}",
+            "", stats.num_nodes, depth, MISS_OR_HIT[hit as usize], self.aabb.min, self.aabb.max
+        );
+        if hit {
+            let hit_lhs = self.print_ray_hit_child(depth, stats, &self.lhs, ray, t_min, t_max);
+            let hit_rhs = self.print_ray_hit_child(depth, stats, &self.rhs, ray, t_min, t_max);
+            match (hit_lhs, hit_rhs) {
+                (Some(hit_lhs), Some(hit_rhs)) => {
+                    if hit_lhs.0.t < hit_rhs.0.t {
+                        Some(hit_lhs)
+                    } else {
+                        Some(hit_rhs)
+                    }
+                }
+                (Some(hit_lhs), None) => Some(hit_lhs),
+                (None, Some(hit_rhs)) => Some(hit_rhs),
+                (None, None) => None,
+            }
         } else {
-            println!("{:-2$}BVHNode {1} Miss!", "", stats.num_nodes, depth);
+            None
         }
     }
 
@@ -109,34 +128,43 @@ impl<'a> BVHNode<'a> {
         &self,
         depth: usize,
         stats: &mut BVHStats,
-        hitable: &Hitable,
+        hitable: &'a Hitable,
         ray: &Ray,
         t_min: f32,
         t_max: f32,
-    ) {
+    ) -> Option<(RayHit, &Material)> {
         match hitable {
             Hitable::BVHNode(node) => {
-                node.print_ray_hit_node(depth + 1, stats, ray, t_min, t_max);
+                return node.print_ray_hit_node(depth + 1, stats, ray, t_min, t_max);
             }
-            Hitable::Sphere(sphere, _) => {
+            Hitable::Sphere(sphere, material) => {
                 stats.num_spheres += 1;
-                if sphere.ray_hit(ray, t_min, t_max).is_some() {
-                    println!(" {:+2$}Sphere {1} Hit!", "", stats.num_spheres, depth);
-                } else {
-                    println!(" {:-2$}Sphere {1} Miss!", "", stats.num_spheres, depth);
+                let ray_hit = sphere.ray_hit(ray, t_min, t_max);
+                println!(
+                    " {:+2$}Sphere {1} centre: {4:?} radius: {5} hit: {3:?}",
+                    "", stats.num_spheres, depth, ray_hit, sphere.centre, sphere.radius
+                );
+                if let Some(ray_hit) = ray_hit {
+                    return Some((ray_hit, material));
                 }
             }
-            Hitable::XYRect(rect, _) => {
+            Hitable::XYRect(rect, material) => {
                 stats.num_rects += 1;
-                if rect.ray_hit(ray, t_min, t_max).is_some() {
-                    println!(
-                        "Hit XYRect! depth {}, visited {} nodes",
-                        depth, stats.num_nodes
-                    );
+                let ray_hit = rect.ray_hit(ray, t_min, t_max);
+                println!(
+                    " {:+2$}XYRect {1} {3}!",
+                    "",
+                    stats.num_rects,
+                    depth,
+                    MISS_OR_HIT[ray_hit.is_some() as usize]
+                );
+                if let Some(ray_hit) = ray_hit {
+                    return Some((ray_hit, material));
                 }
             }
             Hitable::List(_) => unimplemented!(),
         }
+        None
     }
 
     pub fn get_stats(&self) -> BVHStats {
