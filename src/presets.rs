@@ -1,13 +1,11 @@
-// TODO: remove
-#![allow(unused_imports)]
 use crate::{
     camera::Camera,
-    collision::{BVHNode, Hitable, HitableList, Sphere},
-    material::{self, Material},
-    scene::{Params, Scene, Storage},
+    collision::{Hitable, Sphere},
+    material,
+    scene::{Params, Storage},
     texture::{self, RgbImage, Texture},
 };
-use glam::{vec3, Vec3};
+use glam::vec3;
 use rand::{Rng, XorShiftRng};
 
 pub fn from_name<'a>(
@@ -15,7 +13,7 @@ pub fn from_name<'a>(
     params: &Params,
     rng: &mut XorShiftRng,
     storage: &'a Storage<'a>,
-) -> Option<(Scene<'a>, Camera)> {
+) -> Option<(Vec<Hitable<'a>>, Camera)> {
     println!(
         "generating '{}' preset at {}x{} with {} samples per pixel",
         name, params.width, params.height, params.samples
@@ -36,7 +34,7 @@ pub fn random<'a>(
     params: &Params,
     rng: &mut XorShiftRng,
     storage: &'a Storage<'a>,
-) -> (Scene<'a>, Camera) {
+) -> (Vec<Hitable<'a>>, Camera) {
     let lookfrom = vec3(13.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
     let dist_to_focus = 10.0;
@@ -123,16 +121,16 @@ pub fn random<'a>(
     ));
 
     // let hitable_list = Hitable::List(storage.alloc_hitables(hitables));
-    let bvh_root = BVHNode::new(rng, &mut hitables, &storage.bvhnode_arena).unwrap();
-    dbg!(bvh_root.get_stats());
+    // let bvh_root = BVHNode::new(rng, &mut hitables, &storage.bvhnode_arena).unwrap();
+    // dbg!(bvh_root.get_stats());
 
-    let hitable_root = Hitable::BVHNode(bvh_root);
+    // let hitable_root = Hitable::BVHNode(bvh_root);
 
-    let scene = Scene::new(hitable_root);
-    (scene, camera)
+    // let scene = Scene::new(hitable_root);
+    (hitables, camera)
 }
 
-pub fn small<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Camera) {
+pub fn small<'a>(params: &Params, storage: &'a Storage<'a>) -> (Vec<Hitable<'a>>, Camera) {
     let lookfrom = vec3(3.0, 3.0, 2.0);
     let lookat = vec3(0.0, 0.0, -1.0);
     let dist_to_focus = (lookfrom - lookat).length();
@@ -174,13 +172,13 @@ pub fn small<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Camer
         sphere(vec3(-1.0, 0.0, -1.0), -0.45, material::dielectric(1.5)),
     ];
 
-    let hitable_list = Hitable::List(storage.alloc_hitables(hitables));
-
-    let scene = Scene::new(hitable_list);
-    (scene, camera)
+    (hitables, camera)
 }
 
-pub fn two_perlin_spheres<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Camera) {
+pub fn two_perlin_spheres<'a>(
+    params: &Params,
+    storage: &'a Storage<'a>,
+) -> (Vec<Hitable<'a>>, Camera) {
     let lookfrom = vec3(13.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
     let dist_to_focus = 10.0;
@@ -218,13 +216,10 @@ pub fn two_perlin_spheres<'a>(params: &Params, storage: &'a Storage<'a>) -> (Sce
         ),
     ];
 
-    let hitable_list = Hitable::List(storage.alloc_hitables(hitables));
-
-    let scene = Scene::new(hitable_list);
-    (scene, camera)
+    (hitables, camera)
 }
 
-pub fn earth<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Camera) {
+pub fn earth<'a>(params: &Params, storage: &'a Storage<'a>) -> (Vec<Hitable<'a>>, Camera) {
     let lookfrom = vec3(13.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
     let dist_to_focus = 10.0;
@@ -250,14 +245,13 @@ pub fn earth<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Camer
     let earth_image = storage.alloc_image(RgbImage::open("media/earthmap.jpg"));
     let earth_texture = storage.alloc_texture(texture::rgb_image(earth_image));
 
-    let hitables = sphere(
+    let hitables = vec![sphere(
         vec3(0.0, 0.0, 0.0),
         2.0,
         material::lambertian(earth_texture),
-    );
+    )];
 
-    let scene = Scene::new(hitables);
-    (scene, camera)
+    (hitables, camera)
 }
 
 // pub fn aras_p<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Camera) {
@@ -518,7 +512,7 @@ pub fn earth<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Camer
 //     (scene, camera)
 // }
 
-pub fn smallpt<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Camera) {
+pub fn smallpt<'a>(params: &Params, storage: &'a Storage<'a>) -> (Vec<Hitable<'a>>, Camera) {
     let lookfrom = vec3(50.0, 52.0, 295.6);
     let lookat = vec3(50.0, 33.0, 0.0);
     let dist_to_focus = 100.0;
@@ -589,8 +583,5 @@ pub fn smallpt<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Cam
         ), //Lite
     ];
 
-    let hitable_list = Hitable::List(storage.alloc_hitables(hitables));
-
-    let scene = Scene::new(hitable_list);
-    (scene, camera)
+    (hitables, camera)
 }

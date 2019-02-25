@@ -7,22 +7,24 @@ use image;
 use std::time::SystemTime;
 
 pub fn print_ray_trace(preset: &str, params: Params) {
-    let mut rng = params.get_rng();
+    let mut rng = params.new_rng();
 
     let storage = Storage::new(&mut rng);
-    let (scene, camera) =
+    let (hitables, camera) =
         presets::from_name(&preset, &params, &mut rng, &storage).expect("unrecognised preset");
-
+    let scene = params.new_scene(&mut rng, &storage, hitables);
     let ray = camera.get_ray(0.5, 0.5, &mut rng);
     scene.print_ray_trace(&ray);
 }
 
 pub fn render_offline(preset: &str, params: Params) {
-    let mut rng = params.get_rng();
+    let mut rng = params.new_rng();
 
     let storage = Storage::new(&mut rng);
-    let (scene, camera) =
+    let (hitables, camera) =
         presets::from_name(&preset, &params, &mut rng, &storage).expect("unrecognised preset");
+
+    let scene = params.new_scene(&mut rng, &storage, hitables);
 
     let mut rgb_buffer = vec![(0.0, 0.0, 0.0); (params.width * params.height) as usize];
 

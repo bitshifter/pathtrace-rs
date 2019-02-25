@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::{
     collision::{Hitable, Ray, RayHit, AABB},
     material::Material,

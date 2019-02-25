@@ -1,6 +1,9 @@
 #![cfg_attr(feature = "core_intrinsics", feature(core_intrinsics))] // for cttz
 #![cfg_attr(feature = "bench", feature(test))] // for bench
 
+#[cfg(feature = "bench")]
+extern crate test;
+
 mod camera;
 mod collision;
 mod glium_window;

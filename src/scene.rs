@@ -14,8 +14,8 @@ use std::{
 };
 use typed_arena::Arena;
 
-const MAX_T: f32 = f32::MAX;
-const MIN_T: f32 = 0.001;
+pub const MAX_T: f32 = f32::MAX;
+pub const MIN_T: f32 = 0.001;
 
 pub struct Storage<'a> {
     pub texture_arena: Arena<Texture<'a>>,
@@ -62,14 +62,15 @@ impl<'a> Storage<'a> {
         self.sphere_arena.alloc(sphere)
     }
 
-    #[inline]
+    // #[inline]
     // pub fn alloc_xyrect(&self, rect: XYRect) -> &mut XYRect {
     //     self.xyrect_arena.alloc(rect)
     // }
-    #[inline]
-    pub fn alloc_hitables(&self, hitables: Vec<Hitable<'a>>) -> &mut HitableList<'a> {
-        self.hitables_arena.alloc(HitableList::new(hitables))
-    }
+
+    // #[inline]
+    // pub fn alloc_hitables(&self, hitables: Vec<Hitable<'a>>) -> &mut HitableList<'a> {
+    //     self.hitables_arena.alloc(HitableList::new(hitables))
+    // }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -82,13 +83,28 @@ pub struct Params {
 }
 
 impl Params {
-    pub fn get_rng(&self) -> XorShiftRng {
+    pub fn new_rng(&self) -> XorShiftRng {
         if self.random_seed {
             rand::weak_rng()
         } else {
             const FIXED_SEED: [u32; 4] = [0x193a_6754, 0xa8a7_d469, 0x9783_0e05, 0x113b_a7bb];
             XorShiftRng::from_seed(FIXED_SEED)
         }
+    }
+
+    pub fn new_scene<'a>(
+        &self,
+        rng: &mut XorShiftRng,
+        storage: &'a Storage<'a>,
+        mut hitables: Vec<Hitable<'a>>,
+    ) -> Scene<'a> {
+        // let hitable_list = Hitable::List(storage.alloc_hitables(hitables));
+        let bvh_root = BVHNode::new(rng, &mut hitables, &storage.bvhnode_arena).unwrap();
+        dbg!(bvh_root.get_stats());
+
+        let hitable_root = Hitable::BVHNode(bvh_root);
+
+        Scene::new(hitable_root)
     }
 }
 
@@ -186,54 +202,5 @@ impl<'a> Scene<'a> {
                 self.ray_count.fetch_add(ray_count, Ordering::Relaxed);
             });
         self.ray_count.load(Ordering::Relaxed)
-    }
-}
-
-#[cfg(all(feature = "bench", test))]
-mod bench {
-    use presets;
-    use rand::{SeedableRng, XorShiftRng};
-    use scene::{Params, MAX_T, MIN_T};
-    use simd::TargetFeature;
-    use test::{black_box, Bencher};
-
-    const FIXED_SEED: [u32; 4] = [0x193a_6754, 0xa8a7_d469, 0x9783_0e05, 0x113b_a7bb];
-    const PARAMS: Params = Params {
-        width: 200,
-        height: 100,
-        samples: 10,
-        max_depth: 10,
-        random_seed: false,
-    };
-
-    #[bench]
-    fn ray_hit_scalar(b: &mut Bencher) {
-        let seed = black_box(FIXED_SEED);
-        let mut rng = XorShiftRng::from_seed(seed);
-        let (scene, camera) = presets::aras_p(&PARAMS);
-        let ray = camera.get_ray(0.5, 0.5, &mut rng);
-        b.iter(|| scene.spheres.hit_scalar(&ray, MIN_T, MAX_T));
-    }
-
-    #[bench]
-    fn ray_hit_sse4_1(b: &mut Bencher) {
-        let seed = black_box(FIXED_SEED);
-        let mut rng = XorShiftRng::from_seed(seed);
-        let (scene, camera) = presets::aras_p(&PARAMS);
-        let ray = camera.get_ray(0.5, 0.5, &mut rng);
-        if scene.feature != TargetFeature::FallBack {
-            b.iter(|| unsafe { scene.spheres.hit_sse4_1(&ray, MIN_T, MAX_T) });
-        }
-    }
-
-    #[bench]
-    fn ray_hit_avx2(b: &mut Bencher) {
-        let seed = black_box(FIXED_SEED);
-        let mut rng = XorShiftRng::from_seed(seed);
-        let (scene, camera) = presets::aras_p(&PARAMS);
-        let ray = camera.get_ray(0.5, 0.5, &mut rng);
-        if scene.feature == TargetFeature::AVX2 {
-            b.iter(|| unsafe { scene.spheres.hit_avx2(&ray, MIN_T, MAX_T) });
-        }
     }
 }

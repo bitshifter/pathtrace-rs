@@ -278,3 +278,31 @@ impl<'a> BVHNode<'a> {
         })
     }
 }
+
+#[cfg(all(feature = "bench", test))]
+mod bench {
+    use crate::{
+        collision::BVHNode,
+        presets,
+        scene::{Params, Storage, MAX_T, MIN_T},
+    };
+    use test::Bencher;
+
+    const PARAMS: Params = Params {
+        width: 200,
+        height: 100,
+        samples: 10,
+        max_depth: 10,
+        random_seed: false,
+    };
+
+    #[bench]
+    fn bvh_hit(b: &mut Bencher) {
+        let mut rng = PARAMS.new_rng();
+        let storage = Storage::new(&mut rng);
+        let (mut hitables, camera) = presets::random(&PARAMS, &mut rng, &storage);
+        let ray = camera.get_ray(0.5, 0.5, &mut rng);
+        let bvh_root = BVHNode::new(&mut rng, &mut hitables, &storage.bvhnode_arena).unwrap();
+        b.iter(|| bvh_root.ray_hit(&ray, MIN_T, MAX_T));
+    }
+}

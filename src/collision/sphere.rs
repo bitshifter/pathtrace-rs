@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use crate::collision::aabb::AABB;
 use crate::{
-    collision::{Ray, RayHit},
+    collision::{Hitable, Ray, RayHit},
     material::Material,
     math::align_to,
     simd::*,
@@ -83,13 +83,13 @@ pub struct SpheresSoA<'a> {
 }
 
 impl<'a> SpheresSoA<'a> {
-    pub fn new(spheres: &[(Sphere, &'a Material)]) -> SpheresSoA<'a> {
+    pub fn new(hitables: &[Hitable<'a>]) -> SpheresSoA<'a> {
         let feature = TargetFeature::detect();
         feature.print_version();
 
         let mut bounds = AABB::invalid();
         let chunk_size = TargetFeature::detect().get_bits() / 32;
-        let num_spheres = spheres.len();
+        let num_spheres = hitables.len();
         let len = align_to(num_spheres, chunk_size);
         let mut centre_x = Vec::with_capacity(len);
         let mut centre_y = Vec::with_capacity(len);
@@ -97,14 +97,18 @@ impl<'a> SpheresSoA<'a> {
         let mut radius_inv = Vec::with_capacity(len);
         let mut radius_sq = Vec::with_capacity(len);
         let mut material: Vec<Option<&'a Material>> = Vec::with_capacity(len);
-        for (sphere, mat) in spheres {
-            bounds.add_assign(&sphere.bounding_box());
-            centre_x.push(sphere.centre.get_x());
-            centre_y.push(sphere.centre.get_y());
-            centre_z.push(sphere.centre.get_z());
-            radius_sq.push(sphere.radius * sphere.radius);
-            radius_inv.push(1.0 / sphere.radius);
-            material.push(Some(mat));
+        for hitable in hitables {
+            if let Hitable::Sphere(sphere, mat) = hitable {
+                bounds.add_assign(&sphere.bounding_box());
+                centre_x.push(sphere.centre.get_x());
+                centre_y.push(sphere.centre.get_y());
+                centre_z.push(sphere.centre.get_z());
+                radius_sq.push(sphere.radius * sphere.radius);
+                radius_inv.push(1.0 / sphere.radius);
+                material.push(Some(mat));
+            } else {
+                panic!("Expected Hitable::Sphere, got {:?}", hitable);
+            }
         }
         let padding = len - num_spheres;
         for _ in 0..padding {
@@ -494,5 +498,58 @@ fn cttz_4bits_nonzero(x: u32) -> u32 {
             n += 1;
         }
         n
+    }
+}
+
+#[cfg(all(feature = "bench", test))]
+mod bench {
+    use crate::{
+        collision::SpheresSoA,
+        presets,
+        scene::{Params, Storage, MAX_T, MIN_T},
+        simd::TargetFeature,
+    };
+    use test::Bencher;
+
+    const PARAMS: Params = Params {
+        width: 200,
+        height: 100,
+        samples: 10,
+        max_depth: 10,
+        random_seed: false,
+    };
+
+    #[bench]
+    fn spheres_hit_scalar(b: &mut Bencher) {
+        let mut rng = PARAMS.new_rng();
+        let storage = Storage::new(&mut rng);
+        let (hitables, camera) = presets::random(&PARAMS, &mut rng, &storage);
+        let ray = camera.get_ray(0.5, 0.5, &mut rng);
+        let spheres = SpheresSoA::new(&hitables);
+        b.iter(|| spheres.hit_scalar(&ray, MIN_T, MAX_T));
+    }
+
+    #[bench]
+    fn spheres_hit_sse4_1(b: &mut Bencher) {
+        let mut rng = PARAMS.new_rng();
+        let storage = Storage::new(&mut rng);
+        let (hitables, camera) = presets::random(&PARAMS, &mut rng, &storage);
+        let ray = camera.get_ray(0.5, 0.5, &mut rng);
+        let spheres = SpheresSoA::new(&hitables);
+        if spheres.feature != TargetFeature::FallBack {
+            b.iter(|| unsafe { spheres.hit_sse4_1(&ray, MIN_T, MAX_T) });
+        }
+    }
+
+    #[bench]
+    fn spheres_hit_avx2(b: &mut Bencher) {
+        let mut rng = PARAMS.new_rng();
+        let storage = Storage::new(&mut rng);
+        let (hitables, camera) = presets::random(&PARAMS, &mut rng, &storage);
+        let ray = camera.get_ray(0.5, 0.5, &mut rng);
+        let spheres = SpheresSoA::new(&hitables);
+        if spheres.feature == TargetFeature::AVX2 {
+            b.iter(|| unsafe { spheres.hit_avx2(&ray, MIN_T, MAX_T) });
+        }
     }
 }

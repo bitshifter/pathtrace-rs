@@ -86,11 +86,13 @@ pub fn start_loop<'a>(preset: &str, params: Params, max_frames: Option<u32>) {
 
     let preset = preset.to_string();
     thread::spawn(move || {
-        let mut rng = params.get_rng();
+        let mut rng = params.new_rng();
 
         let storage = Storage::new(&mut rng);
-        let (scene, camera) =
+        let (hitables, camera) =
             presets::from_name(&preset, &params, &mut rng, &storage).expect("unrecognised preset");
+
+        let scene = params.new_scene(&mut rng, &storage, hitables);
 
         let mut frame_num = 0;
         let mut elapsed_count = 0;
