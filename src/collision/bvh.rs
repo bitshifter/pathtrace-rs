@@ -282,22 +282,15 @@ impl<'a> BVHNode<'a> {
 #[cfg(all(feature = "bench", test))]
 mod bench {
     use crate::{
+        bench::PARAMS,
         collision::BVHNode,
         presets,
-        scene::{Params, Storage, MAX_T, MIN_T},
+        scene::{Storage, MAX_T, MIN_T},
     };
     use test::Bencher;
 
-    const PARAMS: Params = Params {
-        width: 200,
-        height: 100,
-        samples: 10,
-        max_depth: 10,
-        random_seed: false,
-    };
-
     #[bench]
-    fn bvh_hit(b: &mut Bencher) {
+    fn ray_hit(b: &mut Bencher) {
         let mut rng = PARAMS.new_rng();
         let storage = Storage::new(&mut rng);
         let (mut hitables, camera) = presets::random(&PARAMS, &mut rng, &storage);

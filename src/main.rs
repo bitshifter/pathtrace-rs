@@ -4,6 +4,8 @@
 #[cfg(feature = "bench")]
 extern crate test;
 
+#[cfg(feature = "bench")]
+mod bench;
 mod camera;
 mod collision;
 mod glium_window;

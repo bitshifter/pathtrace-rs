@@ -504,52 +504,43 @@ fn cttz_4bits_nonzero(x: u32) -> u32 {
 #[cfg(all(feature = "bench", test))]
 mod bench {
     use crate::{
-        collision::SpheresSoA,
-        presets,
-        scene::{Params, Storage, MAX_T, MIN_T},
+        bench::hitables_bench,
+        collision::{Ray, SpheresSoA},
+        scene::{MAX_T, MIN_T},
         simd::TargetFeature,
     };
     use test::Bencher;
 
-    const PARAMS: Params = Params {
-        width: 200,
-        height: 100,
-        samples: 10,
-        max_depth: 10,
-        random_seed: false,
-    };
-
-    #[bench]
-    fn spheres_hit_scalar(b: &mut Bencher) {
-        let mut rng = PARAMS.new_rng();
-        let storage = Storage::new(&mut rng);
-        let (hitables, camera) = presets::random(&PARAMS, &mut rng, &storage);
-        let ray = camera.get_ray(0.5, 0.5, &mut rng);
-        let spheres = SpheresSoA::new(&hitables);
-        b.iter(|| spheres.hit_scalar(&ray, MIN_T, MAX_T));
+    fn spheres_bench<F>(f: F)
+    where
+        F: FnOnce(&Ray, &SpheresSoA),
+    {
+        hitables_bench(|ray, hitables| {
+            let spheres = SpheresSoA::new(&hitables);
+            f(&ray, &spheres)
+        })
     }
 
     #[bench]
-    fn spheres_hit_sse4_1(b: &mut Bencher) {
-        let mut rng = PARAMS.new_rng();
-        let storage = Storage::new(&mut rng);
-        let (hitables, camera) = presets::random(&PARAMS, &mut rng, &storage);
-        let ray = camera.get_ray(0.5, 0.5, &mut rng);
-        let spheres = SpheresSoA::new(&hitables);
-        if spheres.feature != TargetFeature::FallBack {
-            b.iter(|| unsafe { spheres.hit_sse4_1(&ray, MIN_T, MAX_T) });
-        }
+    fn ray_hit_scalar(b: &mut Bencher) {
+        spheres_bench(|ray, spheres| b.iter(|| spheres.hit_scalar(&ray, MIN_T, MAX_T)));
     }
 
     #[bench]
-    fn spheres_hit_avx2(b: &mut Bencher) {
-        let mut rng = PARAMS.new_rng();
-        let storage = Storage::new(&mut rng);
-        let (hitables, camera) = presets::random(&PARAMS, &mut rng, &storage);
-        let ray = camera.get_ray(0.5, 0.5, &mut rng);
-        let spheres = SpheresSoA::new(&hitables);
-        if spheres.feature == TargetFeature::AVX2 {
-            b.iter(|| unsafe { spheres.hit_avx2(&ray, MIN_T, MAX_T) });
-        }
+    fn ray_hit_sse4_1(b: &mut Bencher) {
+        spheres_bench(|ray, spheres| {
+            if spheres.feature != TargetFeature::FallBack {
+                b.iter(|| unsafe { spheres.hit_sse4_1(&ray, MIN_T, MAX_T) })
+            }
+        });
+    }
+
+    #[bench]
+    fn ray_hit_avx2(b: &mut Bencher) {
+        spheres_bench(|ray, spheres| {
+            if spheres.feature == TargetFeature::AVX2 {
+                b.iter(|| unsafe { spheres.hit_avx2(&ray, MIN_T, MAX_T) })
+            }
+        });
     }
 }
