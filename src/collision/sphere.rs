@@ -21,7 +21,7 @@ impl Sphere {
         Sphere { centre, radius }
     }
 
-    // this isn't used, it's just here for reference
+    #[inline]
     pub fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<RayHit> {
         let oc = ray.origin - self.centre;
         let a = ray.direction.dot(ray.direction);
