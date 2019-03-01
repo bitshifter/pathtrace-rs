@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::collision::Ray;
-use glam::{vec3, Vec3};
+use glam::Vec3;
 use std::f32;
 
 #[derive(Clone, Copy, Debug)]
@@ -76,20 +76,5 @@ impl AABB {
     pub fn add_assign(&mut self, rhs: &AABB) {
         self.min = self.min.min(rhs.min);
         self.max = self.max.max(rhs.max);
-    }
-
-    pub fn surrounding_box(lhs: &AABB, rhs: &AABB) -> AABB {
-        AABB {
-            min: vec3(
-                lhs.min.get_x().min(rhs.min.get_x()),
-                lhs.min.get_y().min(rhs.min.get_y()),
-                lhs.min.get_z().min(rhs.min.get_z()),
-            ),
-            max: vec3(
-                lhs.max.get_x().max(rhs.max.get_x()),
-                lhs.max.get_y().max(rhs.max.get_y()),
-                lhs.max.get_z().max(rhs.max.get_z()),
-            ),
-        }
     }
 }

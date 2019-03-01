@@ -27,7 +27,7 @@ impl<'a> HitableList<'a> {
 
         for hitable in &self.hitables[1..] {
             if let Some(aabb) = hitable.bounding_box(t0, t1) {
-                result = AABB::surrounding_box(&result, &aabb);
+                result.add_assign(&aabb);
             } else {
                 return None;
             }
