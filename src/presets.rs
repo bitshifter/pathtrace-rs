@@ -1,6 +1,6 @@
 use crate::{
     camera::Camera,
-    collision::{Hitable, MovingSphere, Sphere},
+    collision::{Hitable, MovingSphere, Sphere, XYRect},
     material,
     scene::{Params, Storage},
     texture::{self, RgbImage, Texture},
@@ -25,6 +25,7 @@ pub fn from_name<'a>(
         // "aras" => Some(aras_p(params, storage)),
         "smallpt" => Some(smallpt(params, storage)),
         "two_perlin_spheres" => Some(two_perlin_spheres(params, storage)),
+        "simple_light" => Some(simple_light(params, storage)),
         "earth" => Some(earth(params, storage)),
         _ => None,
     }
@@ -229,6 +230,57 @@ pub fn two_perlin_spheres<'a>(
             2.0,
             material::lambertian(noise_texture),
         ),
+    ];
+
+    (hitables, camera)
+}
+
+pub fn simple_light<'a>(params: &Params, storage: &'a Storage<'a>) -> (Vec<Hitable<'a>>, Camera) {
+    let lookfrom = vec3(50.0, 2.0, 3.0);
+    let lookat = vec3(0.0, 0.0, 0.0);
+    let dist_to_focus = 10.0;
+    let aperture = 0.0;
+    let camera = Camera::new(
+        lookfrom,
+        lookat,
+        vec3(0.0, 1.0, 0.0),
+        20.0,
+        params.width as f32 / params.height as f32,
+        aperture,
+        dist_to_focus,
+        0.0,
+        0.0,
+    );
+
+    // TODO: DRY somehow
+    let sphere = |centre, radius, material| -> Hitable {
+        Hitable::Sphere(
+            storage.alloc_sphere(Sphere::new(centre, radius)),
+            storage.alloc_material(material),
+        )
+    };
+
+    let noise_texture = storage.alloc_texture(texture::noise(&storage.perlin_noise, 4.0));
+    let constant_texture = storage.alloc_texture(texture::constant(vec3(4.0, 4.0, 4.0)));
+
+    let hitables = vec![
+        sphere(
+            vec3(0.0, -1000.0, 0.0),
+            1000.0,
+            material::lambertian(noise_texture),
+        ),
+        sphere(
+            vec3(0.0, 2.0, 0.0),
+            2.0,
+            material::lambertian(noise_texture),
+        ),
+        sphere(
+            vec3(0.0, 7.0, 0.0),
+            2.0,
+            material::diffuse_light(constant_texture),
+        ),
+        Hitable::XYRect(storage.alloc_xyrect(XYRect::new(3.0, 5.0, 1.0, 3.0, -2.0)),
+        storage.alloc_material(material::diffuse_light(constant_texture))),
     ];
 
     (hitables, camera)

@@ -69,10 +69,10 @@ impl<'a> Storage<'a> {
         self.moving_sphere_arena.alloc(sphere)
     }
 
-    // #[inline]
-    // pub fn alloc_xyrect(&self, rect: XYRect) -> &mut XYRect {
-    //     self.xyrect_arena.alloc(rect)
-    // }
+    #[inline]
+    pub fn alloc_xyrect(&self, rect: XYRect) -> &mut XYRect {
+        self.xyrect_arena.alloc(rect)
+    }
 
     // #[inline]
     // pub fn alloc_hitables(&self, hitables: Vec<Hitable<'a>>) -> &mut HitableList<'a> {
