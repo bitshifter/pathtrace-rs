@@ -40,11 +40,11 @@ impl<'a> SpheresSoA<'a> {
         for hitable in hitables {
             if let Hitable::Sphere(sphere, mat) = hitable {
                 bounds.add_assign(&sphere.bounding_box());
-                centre_x.push(sphere.centre.get_x());
-                centre_y.push(sphere.centre.get_y());
-                centre_z.push(sphere.centre.get_z());
-                radius_sq.push(sphere.radius * sphere.radius);
-                radius_inv.push(1.0 / sphere.radius);
+                centre_x.push(sphere.centre().get_x());
+                centre_y.push(sphere.centre().get_y());
+                centre_z.push(sphere.centre().get_z());
+                radius_sq.push(sphere.radius() * sphere.radius());
+                radius_inv.push(1.0 / sphere.radius());
                 material.push(Some(mat));
             } else {
                 panic!("Expected Hitable::Sphere, got {:?}", hitable);

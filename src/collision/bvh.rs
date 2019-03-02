@@ -12,6 +12,7 @@ pub struct BVHStats {
     num_nodes: usize,
     max_depth: usize,
     num_spheres: usize,
+    num_moving_spheres: usize,
     num_rects: usize,
 }
 
@@ -137,12 +138,33 @@ impl<'a> BVHNode<'a> {
             Hitable::BVHNode(node) => {
                 return node.print_ray_hit_node(depth + 1, stats, ray, t_min, t_max);
             }
+            Hitable::MovingSphere(sphere, material) => {
+                stats.num_moving_spheres += 1;
+                let ray_hit = sphere.ray_hit(ray, t_min, t_max);
+                println!(
+                    " {:+2$}MovingSphere {1} centre: {4:?} radius: {5} hit: {3:?}",
+                    "",
+                    stats.num_moving_spheres,
+                    depth,
+                    ray_hit,
+                    sphere.centre(ray.time),
+                    sphere.radius()
+                );
+                if let Some(ray_hit) = ray_hit {
+                    return Some((ray_hit, material));
+                }
+            }
             Hitable::Sphere(sphere, material) => {
                 stats.num_spheres += 1;
                 let ray_hit = sphere.ray_hit(ray, t_min, t_max);
                 println!(
                     " {:+2$}Sphere {1} centre: {4:?} radius: {5} hit: {3:?}",
-                    "", stats.num_spheres, depth, ray_hit, sphere.centre, sphere.radius
+                    "",
+                    stats.num_spheres,
+                    depth,
+                    ray_hit,
+                    sphere.centre(),
+                    sphere.radius()
                 );
                 if let Some(ray_hit) = ray_hit {
                     return Some((ray_hit, material));
@@ -187,6 +209,9 @@ impl<'a> BVHNode<'a> {
             }
             Hitable::Sphere(_, _) => {
                 stats.num_spheres += 1;
+            }
+            Hitable::MovingSphere(_, _) => {
+                stats.num_moving_spheres += 1;
             }
             Hitable::XYRect(_, _) => {
                 stats.num_rects += 1;

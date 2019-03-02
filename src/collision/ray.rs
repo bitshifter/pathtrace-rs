@@ -5,13 +5,19 @@ pub struct Ray {
     pub origin: Vec3,
     pub direction: Vec3,
     pub rcp_direction: Vec3,
+    pub time: f32,
 }
 
 impl Ray {
     #[inline]
-    pub fn new(origin: Vec3, direction: Vec3) -> Ray {
+    pub fn new(origin: Vec3, direction: Vec3, time: f32) -> Ray {
         let rcp_direction = Vec3::splat(1.0) / direction;
-        Ray { origin, direction, rcp_direction }
+        Ray {
+            origin,
+            direction,
+            rcp_direction,
+            time,
+        }
     }
 
     #[inline]

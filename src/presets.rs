@@ -1,6 +1,6 @@
 use crate::{
     camera::Camera,
-    collision::{Hitable, Sphere},
+    collision::{Hitable, MovingSphere, Sphere},
     material,
     scene::{Params, Storage},
     texture::{self, RgbImage, Texture},
@@ -47,6 +47,8 @@ pub fn random<'a>(
         params.width as f32 / params.height as f32,
         aperture,
         dist_to_focus,
+        0.0,
+        1.0,
     );
 
     let n = 500;
@@ -56,6 +58,13 @@ pub fn random<'a>(
     let sphere = |centre, radius, material| -> Hitable {
         Hitable::Sphere(
             storage.alloc_sphere(Sphere::new(centre, radius)),
+            storage.alloc_material(material),
+        )
+    };
+
+    let moving_sphere = |centre0, centre1, radius, material| -> Hitable {
+        Hitable::MovingSphere(
+            storage.alloc_moving_sphere(MovingSphere::new(centre0, centre1, 0.0, 1.0, radius)),
             storage.alloc_material(material),
         )
     };
@@ -81,8 +90,10 @@ pub fn random<'a>(
                 b as f32 + 0.9 * rng.next_f32(),
             );
             if choose_material < 0.8 {
-                hitables.push(sphere(
+                let centre1 = centre + vec3(0.0, 0.5 * rng.next_f32(), 0.0);
+                hitables.push(moving_sphere(
                     centre,
+                    centre1,
                     0.2,
                     material::lambertian(constant(vec3(
                         rng.next_f32() * rng.next_f32(),
@@ -143,6 +154,8 @@ pub fn small<'a>(params: &Params, storage: &'a Storage<'a>) -> (Vec<Hitable<'a>>
         params.width as f32 / params.height as f32,
         aperture,
         dist_to_focus,
+        0.0,
+        1.0,
     );
 
     let sphere = |centre, radius, material| -> Hitable {
@@ -191,6 +204,8 @@ pub fn two_perlin_spheres<'a>(
         params.width as f32 / params.height as f32,
         aperture,
         dist_to_focus,
+        0.0,
+        0.0,
     );
 
     // TODO: DRY somehow
@@ -232,6 +247,8 @@ pub fn earth<'a>(params: &Params, storage: &'a Storage<'a>) -> (Vec<Hitable<'a>>
         params.width as f32 / params.height as f32,
         aperture,
         dist_to_focus,
+        0.0,
+        0.0,
     );
 
     // TODO: DRY somehow
@@ -526,6 +543,8 @@ pub fn smallpt<'a>(params: &Params, storage: &'a Storage<'a>) -> (Vec<Hitable<'a
         params.width as f32 / params.height as f32,
         aperture,
         dist_to_focus,
+        0.0,
+        1.0,
     );
 
     let sphere = |centre, radius, material| -> Hitable {

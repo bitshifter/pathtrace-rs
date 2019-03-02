@@ -1,6 +1,6 @@
 use crate::{
     camera::Camera,
-    collision::{BVHNode, Hitable, HitableList, Ray, Sphere, XYRect},
+    collision::{BVHNode, Hitable, HitableList, MovingSphere, Ray, Sphere, XYRect},
     material::Material,
     perlin::Perlin,
     texture::{RgbImage, Texture},
@@ -22,6 +22,7 @@ pub struct Storage<'a> {
     pub material_arena: Arena<Material<'a>>,
     pub image_arena: Arena<RgbImage>,
     pub sphere_arena: Arena<Sphere>,
+    pub moving_sphere_arena: Arena<MovingSphere>,
     pub xyrect_arena: Arena<XYRect>,
     pub bvhnode_arena: Arena<BVHNode<'a>>,
     pub hitables_arena: Arena<HitableList<'a>>,
@@ -34,6 +35,7 @@ impl<'a> Storage<'a> {
             texture_arena: Arena::new(),
             material_arena: Arena::new(),
             image_arena: Arena::new(),
+            moving_sphere_arena: Arena::new(),
             sphere_arena: Arena::new(),
             xyrect_arena: Arena::new(),
             bvhnode_arena: Arena::new(),
@@ -60,6 +62,11 @@ impl<'a> Storage<'a> {
     #[inline]
     pub fn alloc_sphere(&self, sphere: Sphere) -> &mut Sphere {
         self.sphere_arena.alloc(sphere)
+    }
+
+    #[inline]
+    pub fn alloc_moving_sphere(&self, sphere: MovingSphere) -> &mut MovingSphere {
+        self.moving_sphere_arena.alloc(sphere)
     }
 
     // #[inline]

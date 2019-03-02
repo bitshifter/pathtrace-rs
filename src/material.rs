@@ -45,14 +45,18 @@ fn get_sphere_uv(normal: Vec3) -> (f32, f32) {
 impl<'a> Material<'a> {
     fn scatter_lambertian(
         albedo: &Texture,
-        _: &Ray,
+        ray_in: &Ray,
         ray_hit: &RayHit,
         rng: &mut XorShiftRng,
     ) -> Option<(Vec3, Ray)> {
         let target = ray_hit.point + ray_hit.normal + random_unit_vector(rng);
         Some((
             albedo.value(ray_hit.u, ray_hit.v, ray_hit.point),
-            Ray::new(ray_hit.point, (target - ray_hit.point).normalize()),
+            Ray::new(
+                ray_hit.point,
+                (target - ray_hit.point).normalize(),
+                ray_in.time,
+            ),
         ))
     }
 
@@ -70,6 +74,7 @@ impl<'a> Material<'a> {
                 Ray::new(
                     ray_hit.point,
                     (reflected + fuzz * random_in_unit_sphere(rng)).normalize(),
+                    ray_in.time,
                 ),
             ))
         } else {
@@ -96,7 +101,10 @@ impl<'a> Material<'a> {
         if let Some(refracted) = refract(ray_in.direction, outward_normal, ni_over_nt) {
             let reflect_prob = schlick(cosine, ref_idx);
             if rng.next_f32() > reflect_prob {
-                return Some((attenuation, Ray::new(ray_hit.point, refracted.normalize())));
+                return Some((
+                    attenuation,
+                    Ray::new(ray_hit.point, refracted.normalize(), ray_in.time),
+                ));
             }
         }
         Some((
@@ -104,6 +112,7 @@ impl<'a> Material<'a> {
             Ray::new(
                 ray_hit.point,
                 reflect(ray_in.direction, ray_hit.normal).normalize(),
+                ray_in.time,
             ),
         ))
     }
