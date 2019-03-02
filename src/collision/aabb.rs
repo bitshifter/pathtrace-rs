@@ -44,24 +44,13 @@ impl AABB {
 
     #[inline]
     pub fn ray_hit(&self, r: &Ray, tmin: f32, tmax: f32) -> bool {
-        // note if not using SSE this might be faster to calc per component to early out
-        let inv_ray_dir = Vec3::splat(1.0) / r.direction;
-        let min_delta = (self.min - r.origin) * inv_ray_dir;
-        let max_delta = (self.max - r.origin) * inv_ray_dir;
+        let min_delta = (self.min - r.origin) * r.rcp_direction;
+        let max_delta = (self.max - r.origin) * r.rcp_direction;
         let t0 = min_delta.min(max_delta);
         let t1 = min_delta.max(max_delta);
         let tmin = t0.max(Vec3::splat(tmin));
         let tmax = t1.min(Vec3::splat(tmax));
         tmax.gt(tmin).all()
-    }
-
-    #[inline]
-    pub fn slabs(&self, p0: Vec3, p1: Vec3, ray_origin: Vec3, inv_ray_dir: Vec3) -> bool {
-        let t0 = (p0 - ray_origin) * inv_ray_dir;
-        let t1 = (p1 - ray_origin) * inv_ray_dir;
-        let tmin = t0.min(t1);
-        let tmax = t0.max(t1);
-        tmin.hmax() <= tmax.hmin()
     }
 
     #[inline]

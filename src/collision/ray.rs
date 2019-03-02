@@ -4,13 +4,16 @@ use glam::Vec3;
 pub struct Ray {
     pub origin: Vec3,
     pub direction: Vec3,
+    pub rcp_direction: Vec3,
 }
 
 impl Ray {
     #[inline]
     pub fn new(origin: Vec3, direction: Vec3) -> Ray {
-        Ray { origin, direction }
+        let rcp_direction = Vec3::splat(1.0) / direction;
+        Ray { origin, direction, rcp_direction }
     }
+
     #[inline]
     pub fn point_at_parameter(&self, t: f32) -> Vec3 {
         self.origin + (t * self.direction)
