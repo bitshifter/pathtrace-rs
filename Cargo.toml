@@ -1,11 +1,12 @@
 [package]
 name = "pathtrace-rs"
-version = "0.1.0"
+version = "0.1.2"
 authors = ["Cameron Hart <cameron.hart@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-rand = "0.4"
+rand = "~0.6"
+rand_xorshift = "~0.1"
 rayon = "~1.0.1"
 glam = { git = "https://github.com/bitshifter/glam-rs" }
 # serde = "1.0"

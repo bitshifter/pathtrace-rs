@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 use glam::{vec3, Vec3};
-use rand::{Rng, XorShiftRng};
+use rand::Rng;
+use rand_xorshift::XorShiftRng;
 
 #[derive(Debug)]
 pub struct Perlin {
@@ -15,9 +16,9 @@ impl Perlin {
         let mut randvec = vec![Vec3::zero(); 256];
         for v in randvec.iter_mut() {
             *v = vec3(
-                -1.0 + 2.0 * rng.next_f32(),
-                -1.0 + 2.0 * rng.next_f32(),
-                -1.0 + 2.0 * rng.next_f32(),
+                -1.0 + 2.0 * rng.gen::<f32>(),
+                -1.0 + 2.0 * rng.gen::<f32>(),
+                -1.0 + 2.0 * rng.gen::<f32>(),
             )
             .normalize();
         }
@@ -26,7 +27,7 @@ impl Perlin {
 
     fn permute(rng: &mut XorShiftRng, perm: &mut Vec<u32>) {
         for i in (0..perm.len()).rev() {
-            let target = (rng.next_f32() * (i + 1) as f32).floor() as usize;
+            let target = (rng.gen::<f32>() * (i + 1) as f32).floor() as usize;
             perm.swap(i, target);
         }
     }

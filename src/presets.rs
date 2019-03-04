@@ -6,7 +6,8 @@ use crate::{
     texture::{self, RgbImage, Texture},
 };
 use glam::vec3;
-use rand::{Rng, XorShiftRng};
+use rand::Rng;
+use rand_xorshift::XorShiftRng;
 
 pub fn from_name<'a>(
     name: &str,
@@ -84,22 +85,22 @@ pub fn random<'a>(
 
     for a in -11..11 {
         for b in -11..11 {
-            let choose_material = rng.next_f32();
+            let choose_material = rng.gen::<f32>();
             let centre = vec3(
-                a as f32 + 0.9 * rng.next_f32(),
+                a as f32 + 0.9 * rng.gen::<f32>(),
                 0.2,
-                b as f32 + 0.9 * rng.next_f32(),
+                b as f32 + 0.9 * rng.gen::<f32>(),
             );
             if choose_material < 0.8 {
-                let centre1 = centre + vec3(0.0, 0.5 * rng.next_f32(), 0.0);
+                let centre1 = centre + vec3(0.0, 0.5 * rng.gen::<f32>(), 0.0);
                 hitables.push(moving_sphere(
                     centre,
                     centre1,
                     0.2,
                     material::lambertian(constant(vec3(
-                        rng.next_f32() * rng.next_f32(),
-                        rng.next_f32() * rng.next_f32(),
-                        rng.next_f32() * rng.next_f32(),
+                        rng.gen::<f32>() * rng.gen::<f32>(),
+                        rng.gen::<f32>() * rng.gen::<f32>(),
+                        rng.gen::<f32>() * rng.gen::<f32>(),
                     ))),
                 ));
             } else if choose_material < 0.95 {
@@ -108,11 +109,11 @@ pub fn random<'a>(
                     0.2,
                     material::metal(
                         vec3(
-                            0.5 * (1.0 + rng.next_f32()),
-                            0.5 * (1.0 + rng.next_f32()),
-                            0.5 * (1.0 + rng.next_f32()),
+                            0.5 * (1.0 + rng.gen::<f32>()),
+                            0.5 * (1.0 + rng.gen::<f32>()),
+                            0.5 * (1.0 + rng.gen::<f32>()),
                         ),
-                        0.5 * rng.next_f32(),
+                        0.5 * rng.gen::<f32>(),
                     ),
                 ));
             } else {
@@ -279,8 +280,10 @@ pub fn simple_light<'a>(params: &Params, storage: &'a Storage<'a>) -> (Vec<Hitab
             2.0,
             material::diffuse_light(constant_texture),
         ),
-        Hitable::XYRect(storage.alloc_xyrect(XYRect::new(3.0, 5.0, 1.0, 3.0, -2.0)),
-        storage.alloc_material(material::diffuse_light(constant_texture))),
+        Hitable::XYRect(
+            storage.alloc_xyrect(XYRect::new(3.0, 5.0, 1.0, 3.0, -2.0)),
+            storage.alloc_material(material::diffuse_light(constant_texture)),
+        ),
     ];
 
     (hitables, camera)

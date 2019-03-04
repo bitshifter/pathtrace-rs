@@ -4,7 +4,8 @@ use crate::{
     texture::Texture,
 };
 use glam::{vec3, Vec3};
-use rand::{Rng, XorShiftRng};
+use rand::Rng;
+use rand_xorshift::XorShiftRng;
 use std::f32;
 
 // #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -100,7 +101,7 @@ impl<'a> Material<'a> {
         };
         if let Some(refracted) = refract(ray_in.direction, outward_normal, ni_over_nt) {
             let reflect_prob = schlick(cosine, ref_idx);
-            if rng.next_f32() > reflect_prob {
+            if rng.gen::<f32>() > reflect_prob {
                 return Some((
                     attenuation,
                     Ray::new(ray_hit.point, refracted.normalize(), ray_in.time),

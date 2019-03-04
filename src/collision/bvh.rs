@@ -2,7 +2,8 @@ use crate::{
     collision::{Hitable, Ray, RayHit, AABB},
     material::Material,
 };
-use rand::{Rng, XorShiftRng};
+use rand::Rng;
+use rand_xorshift::XorShiftRng;
 use typed_arena::Arena;
 
 const MISS_OR_HIT: [&str; 2] = ["Miss", "Hit"];
@@ -223,7 +224,7 @@ impl<'a> BVHNode<'a> {
 
     #[inline]
     fn sort_by_axis(rng: &mut XorShiftRng, hitables: &mut [Hitable<'a>], t0: f32, t1: f32) {
-        let axis = rng.next_u32() % 3;
+        let axis = rng.gen_range(0, 3);
         hitables.sort_unstable_by(|lhs, rhs| {
             let lhs_min = lhs.bounding_box(t0, t1).unwrap().min;
             let rhs_min = rhs.bounding_box(t0, t1).unwrap().min;

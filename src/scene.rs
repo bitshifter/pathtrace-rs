@@ -6,7 +6,8 @@ use crate::{
     texture::{RgbImage, Texture},
 };
 use glam::{vec3, Vec3};
-use rand::{weak_rng, Rng, SeedableRng, XorShiftRng};
+use rand::{Rng, SeedableRng};
+use rand_xorshift::XorShiftRng;
 use rayon::prelude::*;
 use std::{
     f32,
@@ -92,10 +93,9 @@ pub struct Params {
 impl Params {
     pub fn new_rng(&self) -> XorShiftRng {
         if self.random_seed {
-            rand::weak_rng()
+            XorShiftRng::seed_from_u64(rand::random())
         } else {
-            const FIXED_SEED: [u32; 4] = [0x193a_6754, 0xa8a7_d469, 0x9783_0e05, 0x113b_a7bb];
-            XorShiftRng::from_seed(FIXED_SEED)
+            XorShiftRng::seed_from_u64(0)
         }
     }
 
@@ -188,16 +188,15 @@ impl<'a> Scene<'a> {
             .for_each(|(j, row)| {
                 let mut ray_count = 0;
                 let mut rng = if params.random_seed {
-                    weak_rng()
+                    XorShiftRng::seed_from_u64(rand::random())
                 } else {
-                    let state = (j as u32 * 9781 + frame_num * 6271) | 1;
-                    XorShiftRng::from_seed([state, state, state, state])
+                    XorShiftRng::seed_from_u64(0)
                 };
                 row.iter_mut().enumerate().for_each(|(i, color_out)| {
                     let mut col = Vec3::zero();
                     for _ in 0..params.samples {
-                        let u = (i as f32 + rng.next_f32()) * inv_nx;
-                        let v = (j as f32 + rng.next_f32()) * inv_ny;
+                        let u = (i as f32 + rng.gen::<f32>()) * inv_nx;
+                        let v = (j as f32 + rng.gen::<f32>()) * inv_ny;
                         let ray = camera.get_ray(u, v, &mut rng);
                         col += self.ray_trace(&ray, 0, params.max_depth, &mut rng, &mut ray_count);
                     }
