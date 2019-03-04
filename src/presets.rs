@@ -5,7 +5,8 @@ use crate::{
     scene::{Params, Scene},
 };
 use glam::vec3;
-use rand::{Rng, SeedableRng, XorShiftRng};
+use rand::{Rng, SeedableRng};
+use rand_xoshiro::Xoshiro256Plus;
 
 pub fn from_name(name: &str, params: &Params) -> Option<(Scene, Camera)> {
     match name {
@@ -19,10 +20,9 @@ pub fn from_name(name: &str, params: &Params) -> Option<(Scene, Camera)> {
 
 pub fn random(params: &Params) -> (Scene, Camera) {
     let mut rng = if params.random_seed {
-        rand::weak_rng()
+        Xoshiro256Plus::from_seed(rand::random())
     } else {
-        const FIXED_SEED: [u32; 4] = [0x193a_6754, 0xa8a7_d469, 0x9783_0e05, 0x113b_a7bb];
-        XorShiftRng::from_seed(FIXED_SEED)
+        Xoshiro256Plus::seed_from_u64(0)
     };
 
     let lookfrom = vec3(13.0, 2.0, 3.0);
@@ -51,11 +51,11 @@ pub fn random(params: &Params) -> (Scene, Camera) {
     ));
     for a in -11..11 {
         for b in -11..11 {
-            let choose_material = rng.next_f32();
+            let choose_material = rng.gen::<f32>();
             let centre = vec3(
-                a as f32 + 0.9 * rng.next_f32(),
+                a as f32 + 0.9 * rng.gen::<f32>(),
                 0.2,
-                b as f32 + 0.9 * rng.next_f32(),
+                b as f32 + 0.9 * rng.gen::<f32>(),
             );
             if choose_material < 0.8 {
                 spheres.push(sphere(
@@ -63,9 +63,9 @@ pub fn random(params: &Params) -> (Scene, Camera) {
                     0.2,
                     MaterialKind::Lambertian {
                         albedo: vec3(
-                            rng.next_f32() * rng.next_f32(),
-                            rng.next_f32() * rng.next_f32(),
-                            rng.next_f32() * rng.next_f32(),
+                            rng.gen::<f32>() * rng.gen::<f32>(),
+                            rng.gen::<f32>() * rng.gen::<f32>(),
+                            rng.gen::<f32>() * rng.gen::<f32>(),
                         ),
                     },
                     None,
@@ -76,11 +76,11 @@ pub fn random(params: &Params) -> (Scene, Camera) {
                     0.2,
                     MaterialKind::Metal {
                         albedo: vec3(
-                            0.5 * (1.0 + rng.next_f32()),
-                            0.5 * (1.0 + rng.next_f32()),
-                            0.5 * (1.0 + rng.next_f32()),
+                            0.5 * (1.0 + rng.gen::<f32>()),
+                            0.5 * (1.0 + rng.gen::<f32>()),
+                            0.5 * (1.0 + rng.gen::<f32>()),
                         ),
-                        fuzz: 0.5 * rng.next_f32(),
+                        fuzz: 0.5 * rng.gen::<f32>(),
                     },
                     None,
                 ));

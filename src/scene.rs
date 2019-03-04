@@ -6,7 +6,8 @@ use crate::{
     simd::sinf_cosf,
 };
 use glam::{vec3, Vec3};
-use rand::{weak_rng, Rng, SeedableRng, XorShiftRng};
+use rand::{Rng, SeedableRng};
+use rand_xoshiro::Xoshiro256Plus;
 use rayon::prelude::*;
 use std::{
     f32,
@@ -56,7 +57,7 @@ impl Scene {
         ray_in_hit: &RayHit,
         in_hit_index: u32,
         attenuation: Vec3,
-        rng: &mut XorShiftRng,
+        rng: &mut Xoshiro256Plus,
         ray_count: &mut usize,
     ) -> Vec3 {
         let mut emissive_out = Vec3::zero();
@@ -83,8 +84,8 @@ impl Scene {
             let cos_a_max = (1.0
                 - sphere_radius_sq / (ray_in_hit.point - sphere_centre).length_squared())
             .sqrt();
-            let eps1 = rng.next_f32();
-            let eps2 = rng.next_f32();
+            let eps1 = rng.gen::<f32>();
+            let eps2 = rng.gen::<f32>();
             let cos_a = 1.0 - eps1 + eps1 * cos_a_max;
             let sin_a = (1.0 - cos_a * cos_a).sqrt();
             let phi = 2.0 * f32::consts::PI * eps2;
@@ -118,7 +119,7 @@ impl Scene {
         depth: u32,
         max_depth: u32,
         do_material_emission: bool,
-        rng: &mut XorShiftRng,
+        rng: &mut Xoshiro256Plus,
         ray_count: &mut usize,
     ) -> Vec3 {
         *ray_count += 1;
@@ -185,16 +186,15 @@ impl Scene {
             .for_each(|(j, row)| {
                 let mut ray_count = 0;
                 let mut rng = if params.random_seed {
-                    weak_rng()
+                    Xoshiro256Plus::seed_from_u64(rand::random())
                 } else {
-                    let state = (j as u32 * 9781 + frame_num * 6271) | 1;
-                    XorShiftRng::from_seed([state, state, state, state])
+                    Xoshiro256Plus::seed_from_u64(0)
                 };
                 row.iter_mut().enumerate().for_each(|(i, color_out)| {
                     let mut col = Vec3::zero();
                     for _ in 0..params.samples {
-                        let u = (i as f32 + rng.next_f32()) * inv_nx;
-                        let v = (j as f32 + rng.next_f32()) * inv_ny;
+                        let u = (i as f32 + rng.gen::<f32>()) * inv_nx;
+                        let v = (j as f32 + rng.gen::<f32>()) * inv_ny;
                         let ray = camera.get_ray(u, v, &mut rng);
                         col += self.ray_trace(
                             &ray,

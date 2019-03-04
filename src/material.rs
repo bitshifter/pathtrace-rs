@@ -3,7 +3,8 @@ use crate::{
     math::{random_in_unit_sphere, random_unit_vector, reflect, refract, schlick},
 };
 use glam::{vec3, Vec3};
-use rand::{Rng, XorShiftRng};
+use rand::Rng;
+use rand_xoshiro::Xoshiro256Plus;
 
 // #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[derive(Clone, Copy, Debug)]
@@ -24,7 +25,7 @@ impl MaterialKind {
         albedo: Vec3,
         _: &Ray,
         ray_hit: &RayHit,
-        rng: &mut XorShiftRng,
+        rng: &mut Xoshiro256Plus,
     ) -> Option<(Vec3, Ray, bool)> {
         let target = ray_hit.point + ray_hit.normal + random_unit_vector(rng);
         Some((
@@ -38,7 +39,7 @@ impl MaterialKind {
         fuzz: f32,
         ray_in: &Ray,
         ray_hit: &RayHit,
-        rng: &mut XorShiftRng,
+        rng: &mut Xoshiro256Plus,
     ) -> Option<(Vec3, Ray, bool)> {
         let reflected = reflect(ray_in.direction, ray_hit.normal);
         if reflected.dot(ray_hit.normal) > 0.0 {
@@ -58,7 +59,7 @@ impl MaterialKind {
         ref_idx: f32,
         ray_in: &Ray,
         ray_hit: &RayHit,
-        rng: &mut XorShiftRng,
+        rng: &mut Xoshiro256Plus,
     ) -> Option<(Vec3, Ray, bool)> {
         let attenuation = vec3(1.0, 1.0, 1.0);
         let rdotn = ray_in.direction.dot(ray_hit.normal);
@@ -72,7 +73,7 @@ impl MaterialKind {
         };
         if let Some(refracted) = refract(ray_in.direction, outward_normal, ni_over_nt) {
             let reflect_prob = schlick(cosine, ref_idx);
-            if rng.next_f32() > reflect_prob {
+            if rng.gen::<f32>() > reflect_prob {
                 return Some((
                     attenuation,
                     ray(ray_hit.point, refracted.normalize()),
@@ -96,7 +97,7 @@ impl Material {
         &self,
         ray: &Ray,
         ray_hit: &RayHit,
-        rng: &mut XorShiftRng,
+        rng: &mut Xoshiro256Plus,
     ) -> Option<(Vec3, Ray, bool)> {
         match self.kind {
             MaterialKind::Lambertian { albedo } => {
