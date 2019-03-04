@@ -190,7 +190,7 @@ impl<'a> Scene<'a> {
                 let mut rng = if params.random_seed {
                     XorShiftRng::seed_from_u64(rand::random())
                 } else {
-                    XorShiftRng::seed_from_u64(0)
+                    XorShiftRng::seed_from_u64((j as u64 * 9781 + frame_num as u64 * 6271) | 1)
                 };
                 row.iter_mut().enumerate().for_each(|(i, color_out)| {
                     let mut col = Vec3::zero();
