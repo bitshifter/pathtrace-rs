@@ -103,6 +103,14 @@ pub fn random<'a>(
                         rng.gen::<f32>() * rng.gen::<f32>(),
                     ))),
                 ));
+                // hitables.push(sphere(
+                //     centre,
+                //     0.2,
+                //     material::lambertian(constant(vec3(
+                //         rng.gen::<f32>() * rng.gen::<f32>(),
+                //         rng.gen::<f32>() * rng.gen::<f32>(),
+                //         rng.gen::<f32>() * rng.gen::<f32>(),
+                //     ))),
             } else if choose_material < 0.95 {
                 hitables.push(sphere(
                     centre,
