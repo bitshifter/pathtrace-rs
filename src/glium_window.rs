@@ -89,10 +89,10 @@ pub fn start_loop<'a>(preset: &str, params: Params, max_frames: Option<u32>) {
         let mut rng = params.new_rng();
 
         let storage = Storage::new(&mut rng);
-        let (hitables, camera) =
+        let (hitables, camera, sky) =
             presets::from_name(&preset, &params, &mut rng, &storage).expect("unrecognised preset");
 
-        let scene = params.new_scene(&mut rng, &storage, hitables);
+        let scene = params.new_scene(&mut rng, &storage, hitables, sky);
 
         let mut frame_num = 0;
         let mut elapsed_count = 0;

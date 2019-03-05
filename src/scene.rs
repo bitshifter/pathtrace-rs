@@ -75,10 +75,10 @@ impl<'a> Storage<'a> {
         self.rect_arena.alloc(rect)
     }
 
-    // #[inline]
-    // pub fn alloc_hitables(&self, hitables: Vec<Hitable<'a>>) -> &mut HitableList<'a> {
-    //     self.hitables_arena.alloc(HitableList::new(hitables))
-    // }
+    #[inline]
+    pub fn alloc_hitables(&self, hitables: Vec<Hitable<'a>>) -> &mut HitableList<'a> {
+        self.hitables_arena.alloc(HitableList::new(hitables))
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -88,6 +88,7 @@ pub struct Params {
     pub samples: u32,
     pub max_depth: u32,
     pub random_seed: bool,
+    pub use_bvh: bool,
 }
 
 impl Params {
@@ -104,26 +105,32 @@ impl Params {
         rng: &mut Xoshiro256Plus,
         storage: &'a Storage<'a>,
         mut hitables: Vec<Hitable<'a>>,
+        sky: Option<Vec3>,
     ) -> Scene<'a> {
-        // let hitable_list = Hitable::List(storage.alloc_hitables(hitables));
-        let bvh_root = BVHNode::new(rng, &mut hitables, &storage.bvhnode_arena).unwrap();
-        dbg!(bvh_root.get_stats());
+        let hitable_list = if self.use_bvh {
+            let bvh_root = BVHNode::new(rng, &mut hitables, &storage.bvhnode_arena).unwrap();
+            dbg!(bvh_root.get_stats());
 
-        let hitable_root = Hitable::BVHNode(bvh_root);
+            Hitable::BVHNode(bvh_root)
+        } else {
+            Hitable::List(storage.alloc_hitables(hitables))
+        };
 
-        Scene::new(hitable_root)
+        Scene::new(hitable_list, sky)
     }
 }
 
 pub struct Scene<'a> {
     world: Hitable<'a>,
+    sky: Option<Vec3>,
     ray_count: AtomicUsize,
 }
 
 impl<'a> Scene<'a> {
-    pub fn new(world: Hitable<'a>) -> Scene<'a> {
+    pub fn new(world: Hitable<'a>, sky: Option<Vec3>) -> Scene<'a> {
         Scene {
             world,
+            sky,
             ray_count: AtomicUsize::new(0),
         }
     }
@@ -135,9 +142,13 @@ impl<'a> Scene<'a> {
     }
 
     #[inline]
-    fn sky(ray: &Ray) -> Vec3 {
-        let t = 0.5 * (ray.direction.get_y() + 1.0);
-        (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0) * 0.3
+    fn sky(&self, ray: &Ray) -> Vec3 {
+        if let Some(sky) = self.sky {
+            sky
+        } else {
+            let t = 0.5 * (ray.direction.get_y() + 1.0);
+            Vec3::splat(1.0 - t) + t * vec3(0.5, 0.7, 1.0) * 0.3
+        }
     }
 
     fn ray_trace(
@@ -160,7 +171,7 @@ impl<'a> Scene<'a> {
             }
             emitted
         } else {
-            Scene::sky(ray_in)
+            self.sky(ray_in)
         }
     }
 
