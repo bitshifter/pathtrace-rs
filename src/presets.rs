@@ -1,6 +1,6 @@
 use crate::{
     camera::Camera,
-    collision::{Hitable, MovingSphere, Sphere, XYRect},
+    collision::{Hitable, MovingSphere, Rect, Sphere},
     material,
     scene::{Params, Storage},
     texture::{self, RgbImage, Texture},
@@ -25,6 +25,7 @@ pub fn from_name<'a>(
         "small" => Some(small(params, storage)),
         // "aras" => Some(aras_p(params, storage)),
         "smallpt" => Some(smallpt(params, storage)),
+        "cornell" => Some(cornell_box(params, storage)),
         "two_perlin_spheres" => Some(two_perlin_spheres(params, storage)),
         "simple_light" => Some(simple_light(params, storage)),
         "earth" => Some(earth(params, storage)),
@@ -103,14 +104,14 @@ pub fn random<'a>(
                         rng.gen::<f32>() * rng.gen::<f32>(),
                     ))),
                 ));
-                // hitables.push(sphere(
-                //     centre,
-                //     0.2,
-                //     material::lambertian(constant(vec3(
-                //         rng.gen::<f32>() * rng.gen::<f32>(),
-                //         rng.gen::<f32>() * rng.gen::<f32>(),
-                //         rng.gen::<f32>() * rng.gen::<f32>(),
-                //     ))),
+            // hitables.push(sphere(
+            //     centre,
+            //     0.2,
+            //     material::lambertian(constant(vec3(
+            //         rng.gen::<f32>() * rng.gen::<f32>(),
+            //         rng.gen::<f32>() * rng.gen::<f32>(),
+            //         rng.gen::<f32>() * rng.gen::<f32>(),
+            //     ))),
             } else if choose_material < 0.95 {
                 hitables.push(sphere(
                     centre,
@@ -288,9 +289,70 @@ pub fn simple_light<'a>(params: &Params, storage: &'a Storage<'a>) -> (Vec<Hitab
             2.0,
             material::diffuse_light(constant_texture),
         ),
-        Hitable::XYRect(
-            storage.alloc_xyrect(XYRect::new(3.0, 5.0, 1.0, 3.0, -2.0)),
+        Hitable::Rect(
+            storage.alloc_rect(Rect::new_xy(3.0, 5.0, 1.0, 3.0, -2.0, false)),
             storage.alloc_material(material::diffuse_light(constant_texture)),
+        ),
+    ];
+
+    (hitables, camera)
+}
+
+pub fn cornell_box<'a>(params: &Params, storage: &'a Storage<'a>) -> (Vec<Hitable<'a>>, Camera) {
+    let lookfrom = vec3(278.0, 278.0, -800.0);
+    let lookat = vec3(278.0, 278.0, 0.0);
+    let dist_to_focus = 10.0;
+    let aperture = 0.0;
+    let vfov = 40.0;
+    let camera = Camera::new(
+        lookfrom,
+        lookat,
+        vec3(0.0, 1.0, 0.0),
+        vfov,
+        params.width as f32 / params.height as f32,
+        aperture,
+        dist_to_focus,
+        0.0,
+        1.0,
+    );
+
+    let red = storage.alloc_material(material::lambertian(
+        storage.alloc_texture(texture::constant(vec3(0.65, 0.05, 0.05))),
+    ));
+    let white = storage.alloc_material(material::lambertian(
+        storage.alloc_texture(texture::constant(vec3(0.73, 0.73, 0.73))),
+    ));
+    let green = storage.alloc_material(material::lambertian(
+        storage.alloc_texture(texture::constant(vec3(0.12, 0.45, 0.15))),
+    ));
+    let light = storage.alloc_material(material::diffuse_light(
+        storage.alloc_texture(texture::constant(vec3(15.0, 15.0, 15.0))),
+    ));
+
+    let hitables = vec![
+        Hitable::Rect(
+            storage.alloc_rect(Rect::new_yz(0.0, 555.0, 0.0, 555.0, 555.0, true)),
+            green,
+        ),
+        Hitable::Rect(
+            storage.alloc_rect(Rect::new_yz(0.0, 555.0, 0.0, 555.0, 0.0, false)),
+            red,
+        ),
+        Hitable::Rect(
+            storage.alloc_rect(Rect::new_xz(213.0, 343.0, 227.0, 332.0, 554.0, false)),
+            light,
+        ),
+        Hitable::Rect(
+            storage.alloc_rect(Rect::new_xz(0.0, 555.0, 0.0, 555.0, 555.0, true)),
+            white,
+        ),
+        Hitable::Rect(
+            storage.alloc_rect(Rect::new_xz(0.0, 555.0, 0.0, 555.0, 0.0, false)),
+            white,
+        ),
+        Hitable::Rect(
+            storage.alloc_rect(Rect::new_xy(0.0, 555.0, 0.0, 555.0, 555.0, true)),
+            white,
         ),
     ];
 

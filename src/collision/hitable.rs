@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::{
-    collision::{BVHNode, HitableList, MovingSphere, Ray, RayHit, Sphere, XYRect, AABB},
+    collision::{BVHNode, HitableList, MovingSphere, Ray, RayHit, Rect, Sphere, AABB},
     material::Material,
 };
 
@@ -9,7 +9,7 @@ pub enum Hitable<'a> {
     BVHNode(&'a BVHNode<'a>),
     MovingSphere(&'a MovingSphere, &'a Material<'a>),
     Sphere(&'a Sphere, &'a Material<'a>),
-    XYRect(&'a XYRect, &'a Material<'a>),
+    Rect(&'a Rect, &'a Material<'a>),
     List(&'a HitableList<'a>),
 }
 
@@ -20,7 +20,7 @@ impl<'a> Hitable<'a> {
             Hitable::BVHNode(node) => Some(node.bounding_box()),
             Hitable::MovingSphere(sphere, _) => Some(sphere.bounding_box(t0, t1)),
             Hitable::Sphere(sphere, _) => Some(sphere.bounding_box()),
-            Hitable::XYRect(rect, _) => Some(rect.bounding_box()),
+            Hitable::Rect(rect, _) => Some(rect.bounding_box()),
             Hitable::List(list) => list.bounding_box(t0, t1),
         }
     }
@@ -33,7 +33,7 @@ impl<'a> Hitable<'a> {
                 (sphere.ray_hit(ray, t_min, t_max), material)
             }
             Hitable::Sphere(sphere, material) => (sphere.ray_hit(ray, t_min, t_max), material),
-            Hitable::XYRect(rect, material) => (rect.ray_hit(ray, t_min, t_max), material),
+            Hitable::Rect(rect, material) => (rect.ray_hit(ray, t_min, t_max), material),
             Hitable::List(list) => return list.ray_hit(ray, t_min, t_max),
         };
         if let Some(ray_hit) = ray_hit {

@@ -14,6 +14,6 @@ pub use hitable::Hitable;
 pub use hitable_list::HitableList;
 pub use moving_sphere::MovingSphere;
 pub use ray::{Ray, RayHit};
-pub use rect::XYRect;
+pub use rect::Rect;
 pub use sphere::Sphere;
 pub use spheres_soa::SpheresSoA;

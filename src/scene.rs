@@ -1,6 +1,6 @@
 use crate::{
     camera::Camera,
-    collision::{BVHNode, Hitable, HitableList, MovingSphere, Ray, Sphere, XYRect},
+    collision::{BVHNode, Hitable, HitableList, MovingSphere, Ray, Rect, Sphere},
     material::Material,
     perlin::Perlin,
     texture::{RgbImage, Texture},
@@ -24,7 +24,7 @@ pub struct Storage<'a> {
     pub image_arena: Arena<RgbImage>,
     pub sphere_arena: Arena<Sphere>,
     pub moving_sphere_arena: Arena<MovingSphere>,
-    pub xyrect_arena: Arena<XYRect>,
+    pub rect_arena: Arena<Rect>,
     pub bvhnode_arena: Arena<BVHNode<'a>>,
     pub hitables_arena: Arena<HitableList<'a>>,
     pub perlin_noise: Perlin,
@@ -38,7 +38,7 @@ impl<'a> Storage<'a> {
             image_arena: Arena::new(),
             moving_sphere_arena: Arena::new(),
             sphere_arena: Arena::new(),
-            xyrect_arena: Arena::new(),
+            rect_arena: Arena::new(),
             bvhnode_arena: Arena::new(),
             hitables_arena: Arena::new(),
             perlin_noise: Perlin::new(rng),
@@ -71,8 +71,8 @@ impl<'a> Storage<'a> {
     }
 
     #[inline]
-    pub fn alloc_xyrect(&self, rect: XYRect) -> &mut XYRect {
-        self.xyrect_arena.alloc(rect)
+    pub fn alloc_rect(&self, rect: Rect) -> &mut Rect {
+        self.rect_arena.alloc(rect)
     }
 
     // #[inline]
@@ -136,7 +136,6 @@ impl<'a> Scene<'a> {
 
     #[inline]
     fn sky(ray: &Ray) -> Vec3 {
-        // sky
         let t = 0.5 * (ray.direction.get_y() + 1.0);
         (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0) * 0.3
     }

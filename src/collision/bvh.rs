@@ -171,11 +171,11 @@ impl<'a> BVHNode<'a> {
                     return Some((ray_hit, material));
                 }
             }
-            Hitable::XYRect(rect, material) => {
+            Hitable::Rect(rect, material) => {
                 stats.num_rects += 1;
                 let ray_hit = rect.ray_hit(ray, t_min, t_max);
                 println!(
-                    " {:+2$}XYRect {1} {3}!",
+                    " {:+2$}Rect {1} {3}!",
                     "",
                     stats.num_rects,
                     depth,
@@ -214,7 +214,7 @@ impl<'a> BVHNode<'a> {
             Hitable::MovingSphere(_, _) => {
                 stats.num_moving_spheres += 1;
             }
-            Hitable::XYRect(_, _) => {
+            Hitable::Rect(_, _) => {
                 stats.num_rects += 1;
             }
             Hitable::List(_) => unimplemented!(),
