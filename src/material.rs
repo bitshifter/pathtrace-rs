@@ -5,7 +5,7 @@ use crate::{
 };
 use glam::{vec3, Vec3};
 use rand::Rng;
-use rand_xorshift::XorShiftRng;
+use rand_xoshiro::Xoshiro256Plus;
 use std::f32;
 
 // #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -48,7 +48,7 @@ impl<'a> Material<'a> {
         albedo: &Texture,
         ray_in: &Ray,
         ray_hit: &RayHit,
-        rng: &mut XorShiftRng,
+        rng: &mut Xoshiro256Plus,
     ) -> Option<(Vec3, Ray)> {
         let target = ray_hit.point + ray_hit.normal + random_unit_vector(rng);
         Some((
@@ -66,7 +66,7 @@ impl<'a> Material<'a> {
         fuzz: f32,
         ray_in: &Ray,
         ray_hit: &RayHit,
-        rng: &mut XorShiftRng,
+        rng: &mut Xoshiro256Plus,
     ) -> Option<(Vec3, Ray)> {
         let reflected = reflect(ray_in.direction, ray_hit.normal);
         if reflected.dot(ray_hit.normal) > 0.0 {
@@ -87,7 +87,7 @@ impl<'a> Material<'a> {
         ref_idx: f32,
         ray_in: &Ray,
         ray_hit: &RayHit,
-        rng: &mut XorShiftRng,
+        rng: &mut Xoshiro256Plus,
     ) -> Option<(Vec3, Ray)> {
         let attenuation = vec3(1.0, 1.0, 1.0);
         let rdotn = ray_in.direction.dot(ray_hit.normal);
@@ -122,7 +122,7 @@ impl<'a> Material<'a> {
         &self,
         ray: &Ray,
         ray_hit: &RayHit,
-        rng: &mut XorShiftRng,
+        rng: &mut Xoshiro256Plus,
     ) -> Option<(Vec3, Ray)> {
         match self {
             Material::Lambertian { albedo } => {

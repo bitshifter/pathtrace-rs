@@ -3,7 +3,7 @@ use crate::{
     material::Material,
 };
 use rand::Rng;
-use rand_xorshift::XorShiftRng;
+use rand_xoshiro::Xoshiro256Plus;
 use typed_arena::Arena;
 
 const MISS_OR_HIT: [&str; 2] = ["Miss", "Hit"];
@@ -53,7 +53,7 @@ impl<'a> BVHNode<'a> {
     }
 
     pub fn new(
-        rng: &mut XorShiftRng,
+        rng: &mut Xoshiro256Plus,
         hitables: &mut [Hitable<'a>],
         arena: &'a Arena<BVHNode<'a>>,
     ) -> Option<&'a BVHNode<'a>> {
@@ -223,7 +223,7 @@ impl<'a> BVHNode<'a> {
     }
 
     #[inline]
-    fn sort_by_axis(rng: &mut XorShiftRng, hitables: &mut [Hitable<'a>], t0: f32, t1: f32) {
+    fn sort_by_axis(rng: &mut Xoshiro256Plus, hitables: &mut [Hitable<'a>], t0: f32, t1: f32) {
         let axis = rng.gen_range(0, 3);
         hitables.sort_unstable_by(|lhs, rhs| {
             let lhs_min = lhs.bounding_box(t0, t1).unwrap().min;
@@ -240,7 +240,7 @@ impl<'a> BVHNode<'a> {
 
     #[inline]
     fn new_root(
-        rng: &mut XorShiftRng,
+        rng: &mut Xoshiro256Plus,
         hitables: &mut [Hitable<'a>],
         arena: &'a Arena<BVHNode<'a>>,
         t0: f32,
@@ -252,7 +252,7 @@ impl<'a> BVHNode<'a> {
 
     #[inline]
     fn new_node(
-        rng: &mut XorShiftRng,
+        rng: &mut Xoshiro256Plus,
         hitables: &mut [Hitable<'a>],
         arena: &'a Arena<BVHNode<'a>>,
         t0: f32,
@@ -268,7 +268,7 @@ impl<'a> BVHNode<'a> {
     }
 
     fn new_split(
-        rng: &mut XorShiftRng,
+        rng: &mut Xoshiro256Plus,
         hitables: &mut [Hitable<'a>],
         arena: &'a Arena<BVHNode<'a>>,
         t0: f32,

@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use glam::{vec3, Vec3};
 use rand::Rng;
-use rand_xorshift::XorShiftRng;
+use rand_xoshiro::Xoshiro256Plus;
 
 #[derive(Debug)]
 pub struct Perlin {
@@ -12,7 +12,7 @@ pub struct Perlin {
 }
 
 impl Perlin {
-    fn generate(rng: &mut XorShiftRng) -> Vec<Vec3> {
+    fn generate(rng: &mut Xoshiro256Plus) -> Vec<Vec3> {
         let mut randvec = vec![Vec3::zero(); 256];
         for v in randvec.iter_mut() {
             *v = vec3(
@@ -25,14 +25,14 @@ impl Perlin {
         randvec
     }
 
-    fn permute(rng: &mut XorShiftRng, perm: &mut Vec<u32>) {
+    fn permute(rng: &mut Xoshiro256Plus, perm: &mut Vec<u32>) {
         for i in (0..perm.len()).rev() {
             let target = (rng.gen::<f32>() * (i + 1) as f32).floor() as usize;
             perm.swap(i, target);
         }
     }
 
-    fn generate_perm(rng: &mut XorShiftRng) -> Vec<u32> {
+    fn generate_perm(rng: &mut Xoshiro256Plus) -> Vec<u32> {
         let mut perm = vec![0; 256];
         for (i, p) in perm.iter_mut().enumerate() {
             *p = i as u32;
@@ -41,7 +41,7 @@ impl Perlin {
         perm
     }
 
-    pub fn new(rng: &mut XorShiftRng) -> Perlin {
+    pub fn new(rng: &mut Xoshiro256Plus) -> Perlin {
         Perlin {
             randvec: Perlin::generate(rng),
             perm_x: Perlin::generate_perm(rng),

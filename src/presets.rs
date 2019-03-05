@@ -7,12 +7,12 @@ use crate::{
 };
 use glam::vec3;
 use rand::Rng;
-use rand_xorshift::XorShiftRng;
+use rand_xoshiro::Xoshiro256Plus;
 
 pub fn from_name<'a>(
     name: &str,
     params: &Params,
-    rng: &mut XorShiftRng,
+    rng: &mut Xoshiro256Plus,
     storage: &'a Storage<'a>,
 ) -> Option<(Vec<Hitable<'a>>, Camera)> {
     println!(
@@ -34,7 +34,7 @@ pub fn from_name<'a>(
 
 pub fn random<'a>(
     params: &Params,
-    rng: &mut XorShiftRng,
+    rng: &mut Xoshiro256Plus,
     storage: &'a Storage<'a>,
 ) -> (Vec<Hitable<'a>>, Camera) {
     let lookfrom = vec3(13.0, 2.0, 3.0);

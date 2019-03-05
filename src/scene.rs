@@ -7,7 +7,7 @@ use crate::{
 };
 use glam::{vec3, Vec3};
 use rand::{Rng, SeedableRng};
-use rand_xorshift::XorShiftRng;
+use rand_xoshiro::Xoshiro256Plus;
 use rayon::prelude::*;
 use std::{
     f32,
@@ -31,7 +31,7 @@ pub struct Storage<'a> {
 }
 
 impl<'a> Storage<'a> {
-    pub fn new(rng: &mut XorShiftRng) -> Storage<'a> {
+    pub fn new(rng: &mut Xoshiro256Plus) -> Storage<'a> {
         Storage {
             texture_arena: Arena::new(),
             material_arena: Arena::new(),
@@ -91,17 +91,17 @@ pub struct Params {
 }
 
 impl Params {
-    pub fn new_rng(&self) -> XorShiftRng {
+    pub fn new_rng(&self) -> Xoshiro256Plus {
         if self.random_seed {
-            XorShiftRng::seed_from_u64(rand::random())
+            Xoshiro256Plus::seed_from_u64(rand::random())
         } else {
-            XorShiftRng::seed_from_u64(0)
+            Xoshiro256Plus::seed_from_u64(0)
         }
     }
 
     pub fn new_scene<'a>(
         &self,
-        rng: &mut XorShiftRng,
+        rng: &mut Xoshiro256Plus,
         storage: &'a Storage<'a>,
         mut hitables: Vec<Hitable<'a>>,
     ) -> Scene<'a> {
@@ -146,7 +146,7 @@ impl<'a> Scene<'a> {
         ray_in: &Ray,
         depth: u32,
         max_depth: u32,
-        rng: &mut XorShiftRng,
+        rng: &mut Xoshiro256Plus,
         ray_count: &mut usize,
     ) -> Vec3 {
         *ray_count += 1;
@@ -188,9 +188,9 @@ impl<'a> Scene<'a> {
             .for_each(|(j, row)| {
                 let mut ray_count = 0;
                 let mut rng = if params.random_seed {
-                    XorShiftRng::seed_from_u64(rand::random())
+                    Xoshiro256Plus::seed_from_u64(rand::random())
                 } else {
-                    XorShiftRng::seed_from_u64((j as u64 * 9781 + frame_num as u64 * 6271) | 1)
+                    Xoshiro256Plus::seed_from_u64((j as u64 * 9781 + frame_num as u64 * 6271) | 1)
                 };
                 row.iter_mut().enumerate().for_each(|(i, color_out)| {
                     let mut col = Vec3::zero();
