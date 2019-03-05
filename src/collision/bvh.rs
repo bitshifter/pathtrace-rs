@@ -15,6 +15,7 @@ pub struct BVHStats {
     num_spheres: usize,
     num_moving_spheres: usize,
     num_rects: usize,
+    num_boxes: usize,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -185,6 +186,20 @@ impl<'a> BVHNode<'a> {
                     return Some((ray_hit, material));
                 }
             }
+            Hitable::Cuboid(cuboid, material) => {
+                stats.num_boxes += 1;
+                let ray_hit = cuboid.ray_hit(ray, t_min, t_max);
+                println!(
+                    " {:+2$}Cuboid {1} {3}!",
+                    "",
+                    stats.num_boxes,
+                    depth,
+                    MISS_OR_HIT[ray_hit.is_some() as usize]
+                );
+                if let Some(ray_hit) = ray_hit {
+                    return Some((ray_hit, material));
+                }
+            }
             Hitable::List(_) => unimplemented!(),
         }
         None
@@ -216,6 +231,9 @@ impl<'a> BVHNode<'a> {
             }
             Hitable::Rect(_, _) => {
                 stats.num_rects += 1;
+            }
+            Hitable::Cuboid(_, _) => {
+                stats.num_boxes += 1;
             }
             Hitable::List(_) => unimplemented!(),
         }

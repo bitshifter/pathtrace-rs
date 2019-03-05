@@ -1,9 +1,7 @@
 use crate::{
     camera::Camera,
-    collision::{BVHNode, Hitable, HitableList, MovingSphere, Ray, Rect, Sphere},
-    material::Material,
-    perlin::Perlin,
-    texture::{RgbImage, Texture},
+    collision::{Hitable, Ray},
+    params::Params,
 };
 use glam::{vec3, Vec3};
 use rand::{Rng, SeedableRng};
@@ -13,112 +11,9 @@ use std::{
     f32,
     sync::atomic::{AtomicUsize, Ordering},
 };
-use typed_arena::Arena;
 
 pub const MAX_T: f32 = f32::MAX;
 pub const MIN_T: f32 = 0.001;
-
-pub struct Storage<'a> {
-    pub texture_arena: Arena<Texture<'a>>,
-    pub material_arena: Arena<Material<'a>>,
-    pub image_arena: Arena<RgbImage>,
-    pub sphere_arena: Arena<Sphere>,
-    pub moving_sphere_arena: Arena<MovingSphere>,
-    pub rect_arena: Arena<Rect>,
-    pub bvhnode_arena: Arena<BVHNode<'a>>,
-    pub hitables_arena: Arena<HitableList<'a>>,
-    pub perlin_noise: Perlin,
-}
-
-impl<'a> Storage<'a> {
-    pub fn new(rng: &mut Xoshiro256Plus) -> Storage<'a> {
-        Storage {
-            texture_arena: Arena::new(),
-            material_arena: Arena::new(),
-            image_arena: Arena::new(),
-            moving_sphere_arena: Arena::new(),
-            sphere_arena: Arena::new(),
-            rect_arena: Arena::new(),
-            bvhnode_arena: Arena::new(),
-            hitables_arena: Arena::new(),
-            perlin_noise: Perlin::new(rng),
-        }
-    }
-
-    #[inline]
-    pub fn alloc_texture(&self, texture: Texture<'a>) -> &mut Texture<'a> {
-        self.texture_arena.alloc(texture)
-    }
-
-    #[inline]
-    pub fn alloc_material(&self, material: Material<'a>) -> &mut Material<'a> {
-        self.material_arena.alloc(material)
-    }
-
-    #[inline]
-    pub fn alloc_image(&self, rgb_image: RgbImage) -> &mut RgbImage {
-        self.image_arena.alloc(rgb_image)
-    }
-
-    #[inline]
-    pub fn alloc_sphere(&self, sphere: Sphere) -> &mut Sphere {
-        self.sphere_arena.alloc(sphere)
-    }
-
-    #[inline]
-    pub fn alloc_moving_sphere(&self, sphere: MovingSphere) -> &mut MovingSphere {
-        self.moving_sphere_arena.alloc(sphere)
-    }
-
-    #[inline]
-    pub fn alloc_rect(&self, rect: Rect) -> &mut Rect {
-        self.rect_arena.alloc(rect)
-    }
-
-    #[inline]
-    pub fn alloc_hitables(&self, hitables: Vec<Hitable<'a>>) -> &mut HitableList<'a> {
-        self.hitables_arena.alloc(HitableList::new(hitables))
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct Params {
-    pub width: u32,
-    pub height: u32,
-    pub samples: u32,
-    pub max_depth: u32,
-    pub random_seed: bool,
-    pub use_bvh: bool,
-}
-
-impl Params {
-    pub fn new_rng(&self) -> Xoshiro256Plus {
-        if self.random_seed {
-            Xoshiro256Plus::seed_from_u64(rand::random())
-        } else {
-            Xoshiro256Plus::seed_from_u64(0)
-        }
-    }
-
-    pub fn new_scene<'a>(
-        &self,
-        rng: &mut Xoshiro256Plus,
-        storage: &'a Storage<'a>,
-        mut hitables: Vec<Hitable<'a>>,
-        sky: Option<Vec3>,
-    ) -> Scene<'a> {
-        let hitable_list = if self.use_bvh {
-            let bvh_root = BVHNode::new(rng, &mut hitables, &storage.bvhnode_arena).unwrap();
-            dbg!(bvh_root.get_stats());
-
-            Hitable::BVHNode(bvh_root)
-        } else {
-            Hitable::List(storage.alloc_hitables(hitables))
-        };
-
-        Scene::new(hitable_list, sky)
-    }
-}
 
 pub struct Scene<'a> {
     world: Hitable<'a>,

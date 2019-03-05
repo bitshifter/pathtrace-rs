@@ -1,5 +1,6 @@
 mod aabb;
 mod bvh;
+mod cuboid;
 mod hitable;
 mod hitable_list;
 mod moving_sphere;
@@ -10,6 +11,7 @@ mod spheres_soa;
 
 pub use aabb::AABB;
 pub use bvh::BVHNode;
+pub use cuboid::Cuboid;
 pub use hitable::Hitable;
 pub use hitable_list::HitableList;
 pub use moving_sphere::MovingSphere;

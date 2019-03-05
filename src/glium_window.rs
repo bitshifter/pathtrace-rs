@@ -1,7 +1,4 @@
-use crate::{
-    presets,
-    scene::{Params, Storage},
-};
+use crate::{params::Params, presets, storage::Storage};
 use glium::{
     self,
     glutin::{Api, GlProfile, GlRequest},

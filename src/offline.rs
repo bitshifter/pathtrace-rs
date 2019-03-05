@@ -1,8 +1,4 @@
-use crate::{
-    math::linear_to_srgb,
-    presets,
-    scene::{Params, Storage},
-};
+use crate::{math::linear_to_srgb, params::Params, presets, storage::Storage};
 use image;
 use std::time::SystemTime;
 

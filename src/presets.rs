@@ -1,8 +1,9 @@
 use crate::{
     camera::Camera,
-    collision::{Hitable, MovingSphere, Rect, Sphere},
+    collision::{Cuboid, Hitable, MovingSphere, Rect, Sphere},
     material,
-    scene::{Params, Storage},
+    params::Params,
+    storage::Storage,
     texture::{self, RgbImage, Texture},
 };
 use glam::{vec3, Vec3};
@@ -361,6 +362,20 @@ pub fn cornell_box<'a>(
         ),
         Hitable::Rect(
             storage.alloc_rect(Rect::new_xy(0.0, 555.0, 0.0, 555.0, 555.0, true)),
+            white,
+        ),
+        Hitable::Cuboid(
+            storage.alloc_cuboid(Cuboid::new(
+                vec3(130.0, 0.0, 65.0),
+                vec3(295.0, 165.0, 230.0),
+            )),
+            white,
+        ),
+        Hitable::Cuboid(
+            storage.alloc_cuboid(Cuboid::new(
+                vec3(265.0, 0.0, 295.0),
+                vec3(430.0, 330.0, 460.0),
+            )),
             white,
         ),
     ];

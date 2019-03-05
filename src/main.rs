@@ -12,10 +12,12 @@ mod glium_window;
 mod material;
 mod math;
 mod offline;
+mod params;
 mod perlin;
 mod presets;
 mod scene;
 mod simd;
+mod storage;
 mod texture;
 
 use clap::{value_t, App, Arg};
@@ -73,7 +75,7 @@ fn main() {
         ])
         .get_matches();
 
-    let params = scene::Params {
+    let params = params::Params {
         width: value_t!(matches, "width", u32).unwrap_or(1280),
         height: value_t!(matches, "height", u32).unwrap_or(720),
         samples: value_t!(matches, "samples", u32).unwrap_or(4),
