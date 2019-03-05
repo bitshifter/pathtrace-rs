@@ -152,7 +152,10 @@ pub fn random<'a>(
     (hitables, camera, None)
 }
 
-pub fn small<'a>(params: &Params, storage: &'a Storage<'a>) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
+pub fn small<'a>(
+    params: &Params,
+    storage: &'a Storage<'a>,
+) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
     let lookfrom = vec3(3.0, 3.0, 2.0);
     let lookat = vec3(0.0, 0.0, -1.0);
     let dist_to_focus = (lookfrom - lookat).length();
@@ -245,7 +248,10 @@ pub fn two_perlin_spheres<'a>(
     (hitables, camera, None)
 }
 
-pub fn simple_light<'a>(params: &Params, storage: &'a Storage<'a>) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
+pub fn simple_light<'a>(
+    params: &Params,
+    storage: &'a Storage<'a>,
+) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
     let lookfrom = vec3(50.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
     let dist_to_focus = 10.0;
@@ -298,7 +304,10 @@ pub fn simple_light<'a>(params: &Params, storage: &'a Storage<'a>) -> (Vec<Hitab
     (hitables, camera, Some(Vec3::zero()))
 }
 
-pub fn cornell_box<'a>(params: &Params, storage: &'a Storage<'a>) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
+pub fn cornell_box<'a>(
+    params: &Params,
+    storage: &'a Storage<'a>,
+) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
     let lookfrom = vec3(278.0, 278.0, -800.0);
     let lookat = vec3(278.0, 278.0, 0.0);
     let dist_to_focus = 10.0;
@@ -359,7 +368,10 @@ pub fn cornell_box<'a>(params: &Params, storage: &'a Storage<'a>) -> (Vec<Hitabl
     (hitables, camera, Some(Vec3::zero()))
 }
 
-pub fn earth<'a>(params: &Params, storage: &'a Storage<'a>) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
+pub fn earth<'a>(
+    params: &Params,
+    storage: &'a Storage<'a>,
+) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
     let lookfrom = vec3(13.0, 2.0, 3.0);
     let lookat = vec3(0.0, 0.0, 0.0);
     let dist_to_focus = 10.0;
@@ -654,7 +666,10 @@ pub fn earth<'a>(params: &Params, storage: &'a Storage<'a>) -> (Vec<Hitable<'a>>
 //     (scene, camera)
 // }
 
-pub fn smallpt<'a>(params: &Params, storage: &'a Storage<'a>) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
+pub fn smallpt<'a>(
+    params: &Params,
+    storage: &'a Storage<'a>,
+) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
     let lookfrom = vec3(50.0, 52.0, 295.6);
     let lookat = vec3(50.0, 33.0, 0.0);
     let dist_to_focus = 100.0;
