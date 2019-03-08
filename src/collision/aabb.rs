@@ -34,12 +34,12 @@ impl AABB {
 
     #[inline]
     pub fn is_invalid(&self) -> bool {
-        self.min.gt(self.max).any()
+        self.min.cmpgt(self.max).any()
     }
 
     #[inline]
     fn is_invalid_helper(min: Vec3, max: Vec3) -> bool {
-        min.gt(max).any()
+        min.cmpgt(max).any()
     }
 
     #[inline]
@@ -50,7 +50,7 @@ impl AABB {
         let t1 = min_delta.max(max_delta);
         let tmin = t0.max(Vec3::splat(tmin));
         let tmax = t1.min(Vec3::splat(tmax));
-        tmax.gt(tmin).all()
+        tmax.cmpgt(tmin).all()
     }
 
     #[inline]
