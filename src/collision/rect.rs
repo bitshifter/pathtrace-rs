@@ -81,12 +81,12 @@ impl Rect {
         k: f32,
         flip_normals: bool,
     ) -> Option<RayHit> {
-        let t = (k - ray.origin.get_z()) * ray.rcp_direction.get_z();
+        let t = (k - ray.origin.z()) * ray.rcp_direction.z();
         if t < t_min || t > t_max {
             return None;
         }
-        let x = ray.origin.get_x() + t * ray.direction.get_x();
-        let y = ray.origin.get_y() + t * ray.direction.get_y();
+        let x = ray.origin.x() + t * ray.direction.x();
+        let y = ray.origin.y() + t * ray.direction.y();
         if x < x0 || x > x1 || y < y0 || y > y1 {
             return None;
         }
@@ -111,12 +111,12 @@ impl Rect {
         k: f32,
         flip_normals: bool,
     ) -> Option<RayHit> {
-        let t = (k - ray.origin.get_y()) * ray.rcp_direction.get_y();
+        let t = (k - ray.origin.y()) * ray.rcp_direction.y();
         if t < t_min || t > t_max {
             return None;
         }
-        let x = ray.origin.get_x() + t * ray.direction.get_x();
-        let z = ray.origin.get_z() + t * ray.direction.get_z();
+        let x = ray.origin.x() + t * ray.direction.x();
+        let z = ray.origin.z() + t * ray.direction.z();
         if x < x0 || x > x1 || z < z0 || z > z1 {
             return None;
         }
@@ -141,12 +141,12 @@ impl Rect {
         k: f32,
         flip_normals: bool,
     ) -> Option<RayHit> {
-        let t = (k - ray.origin.get_x()) * ray.rcp_direction.get_x();
+        let t = (k - ray.origin.x()) * ray.rcp_direction.x();
         if t < t_min || t > t_max {
             return None;
         }
-        let y = ray.origin.get_y() + t * ray.direction.get_y();
-        let z = ray.origin.get_z() + t * ray.direction.get_z();
+        let y = ray.origin.y() + t * ray.direction.y();
+        let z = ray.origin.z() + t * ray.direction.z();
         if y < y0 || y > y1 || z < z0 || z > z1 {
             return None;
         }

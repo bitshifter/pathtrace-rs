@@ -87,9 +87,9 @@ impl Perlin {
     }
 
     pub fn noise(&self, p: Vec3) -> f32 {
-        let x = p.get_x();
-        let y = p.get_y();
-        let z = p.get_z();
+        let x = p.x();
+        let y = p.y();
+        let z = p.z();
         let u = x - x.floor();
         let v = y - y.floor();
         let w = z - z.floor();

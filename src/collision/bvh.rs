@@ -247,9 +247,9 @@ impl<'a> BVHNode<'a> {
             let lhs_min = lhs.bounding_box(t0, t1).unwrap().min;
             let rhs_min = rhs.bounding_box(t0, t1).unwrap().min;
             let ord = match axis {
-                0 => lhs_min.get_x().partial_cmp(&rhs_min.get_x()),
-                1 => lhs_min.get_y().partial_cmp(&rhs_min.get_y()),
-                2 => lhs_min.get_z().partial_cmp(&rhs_min.get_z()),
+                0 => lhs_min.x().partial_cmp(&rhs_min.x()),
+                1 => lhs_min.y().partial_cmp(&rhs_min.y()),
+                2 => lhs_min.z().partial_cmp(&rhs_min.z()),
                 _ => unreachable!(),
             };
             ord.unwrap()

@@ -41,7 +41,7 @@ impl<'a> Scene<'a> {
         if let Some(sky) = self.sky {
             sky
         } else {
-            let t = 0.5 * (ray.direction.get_y() + 1.0);
+            let t = 0.5 * (ray.direction.y() + 1.0);
             Vec3::splat(1.0 - t) + t * vec3(0.5, 0.7, 1.0) * 0.3
         }
     }
@@ -106,9 +106,9 @@ impl<'a> Scene<'a> {
                         col += self.ray_trace(&ray, 0, params.max_depth, &mut rng, &mut ray_count);
                     }
                     col *= inv_ns;
-                    color_out.0 = color_out.0 * mix_prev + col.get_x() * mix_new;
-                    color_out.1 = color_out.1 * mix_prev + col.get_y() * mix_new;
-                    color_out.2 = color_out.2 * mix_prev + col.get_z() * mix_new;
+                    color_out.0 = color_out.0 * mix_prev + col.x() * mix_new;
+                    color_out.1 = color_out.1 * mix_prev + col.y() * mix_new;
+                    color_out.2 = color_out.2 * mix_prev + col.z() * mix_new;
                 });
                 self.ray_count.fetch_add(ray_count, Ordering::Relaxed);
             });

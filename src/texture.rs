@@ -77,7 +77,7 @@ impl<'a> Texture<'a> {
             Texture::Constant { color } => *color,
             Texture::Checker { odd, even } => {
                 let s = vec3(10.0, 10.0, 10.0) * p;
-                let sines = s.get_x().sin() * s.get_y().sin() * s.get_z().sin();
+                let sines = s.x().sin() * s.y().sin() * s.z().sin();
                 if sines < 0.0 {
                     odd.value(u, v, p)
                 } else {
@@ -85,7 +85,7 @@ impl<'a> Texture<'a> {
                 }
             }
             Texture::Noise { noise, scale } => {
-                vec3(1.0, 1.0, 1.0) * 0.5 * (1.0 + (scale * p.get_z() + 10.0 * noise.turb(p)).sin())
+                vec3(1.0, 1.0, 1.0) * 0.5 * (1.0 + (scale * p.z() + 10.0 * noise.turb(p)).sin())
             }
         }
     }
