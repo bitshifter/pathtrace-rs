@@ -100,9 +100,9 @@ impl Perlin {
         for di in 0..2 {
             for dj in 0..2 {
                 for dk in 0..2 {
-                    c[di][dj][dk] = self.randvec[(self.perm_x[(i + di) & 255]
-                        ^ self.perm_y[(j + dj) & 255]
-                        ^ self.perm_z[(k + dk) & 255])
+                    c[di][dj][dk] = self.randvec[(self.perm_x[i.wrapping_add(di) & 255]
+                        ^ self.perm_y[j.wrapping_add(dj) & 255]
+                        ^ self.perm_z[k.wrapping_add(dk) & 255])
                         as usize]
                 }
             }
