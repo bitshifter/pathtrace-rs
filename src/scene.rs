@@ -86,30 +86,35 @@ impl<'a> Scene<'a> {
         let mix_prev = frame_num as f32 / (frame_num + 1) as f32;
         let mix_new = 1.0 - mix_prev;
 
-        // parallel iterate each row of pixels
+        // parallel iterate each pixel
         buffer
-            .par_chunks_mut(params.width as usize)
+            .par_iter_mut()
             .enumerate()
-            .for_each(|(j, row)| {
-                let mut ray_count = 0;
+            .for_each(|(i, color_out)| {
+                let y = i as u32 / params.width;
+                let x = i as u32 - (y * params.width);
                 let mut rng = if params.random_seed {
                     Xoshiro256Plus::seed_from_u64(rand::random())
                 } else {
-                    Xoshiro256Plus::seed_from_u64((j as u64 * 9781 + frame_num as u64 * 6271) | 1)
+                    Xoshiro256Plus::seed_from_u64(
+                        (x as u64 * 1973 + y as u64 * 9277 + frame_num as u64 * 26699) | 1,
+                    )
                 };
-                row.iter_mut().enumerate().for_each(|(i, color_out)| {
-                    let mut col = Vec3::zero();
-                    for _ in 0..params.samples {
-                        let u = (i as f32 + rng.gen::<f32>()) * inv_nx;
-                        let v = (j as f32 + rng.gen::<f32>()) * inv_ny;
-                        let ray = camera.get_ray(u, v, &mut rng);
-                        col += self.ray_trace(&ray, 0, params.max_depth, &mut rng, &mut ray_count);
-                    }
-                    col *= inv_ns;
-                    color_out.0 = color_out.0 * mix_prev + col.x() * mix_new;
-                    color_out.1 = color_out.1 * mix_prev + col.y() * mix_new;
-                    color_out.2 = color_out.2 * mix_prev + col.z() * mix_new;
-                });
+
+                let mut ray_count = 0;
+                let mut col = Vec3::zero();
+                for _ in 0..params.samples {
+                    let u = (x as f32 + rng.gen::<f32>()) * inv_nx;
+                    let v = (y as f32 + rng.gen::<f32>()) * inv_ny;
+                    let ray = camera.get_ray(u, v, &mut rng);
+                    col += self.ray_trace(&ray, 0, params.max_depth, &mut rng, &mut ray_count);
+                }
+
+                col *= inv_ns;
+                color_out.0 = color_out.0 * mix_prev + col.x() * mix_new;
+                color_out.1 = color_out.1 * mix_prev + col.y() * mix_new;
+                color_out.2 = color_out.2 * mix_prev + col.z() * mix_new;
+
                 self.ray_count.fetch_add(ray_count, Ordering::Relaxed);
             });
         self.ray_count.load(Ordering::Relaxed)
