@@ -329,15 +329,26 @@ mod bench {
         bench::PARAMS,
         collision::BVHNode,
         presets,
-        scene::{Storage, MAX_T, MIN_T},
+        scene::{MAX_T, MIN_T},
+        storage::Storage,
     };
     use test::Bencher;
+
+    #[bench]
+    fn random_spheres_ray_hit(b: &mut Bencher) {
+        let mut rng = PARAMS.new_rng();
+        let storage = Storage::new(&mut rng);
+        let (mut hitables, camera, _) = presets::random_spheres(&PARAMS, &mut rng, &storage);
+        let ray = camera.get_ray(0.5, 0.5, &mut rng);
+        let bvh_root = BVHNode::new(&mut rng, &mut hitables, &storage.bvhnode_arena).unwrap();
+        b.iter(|| bvh_root.ray_hit(&ray, MIN_T, MAX_T));
+    }
 
     #[bench]
     fn ray_hit(b: &mut Bencher) {
         let mut rng = PARAMS.new_rng();
         let storage = Storage::new(&mut rng);
-        let (mut hitables, camera) = presets::random(&PARAMS, &mut rng, &storage);
+        let (mut hitables, camera, _) = presets::random(&PARAMS, &mut rng, &storage);
         let ray = camera.get_ray(0.5, 0.5, &mut rng);
         let bvh_root = BVHNode::new(&mut rng, &mut hitables, &storage.bvhnode_arena).unwrap();
         b.iter(|| bvh_root.ray_hit(&ray, MIN_T, MAX_T));

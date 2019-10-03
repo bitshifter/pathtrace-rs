@@ -23,6 +23,7 @@ pub fn from_name<'a>(
 
     match name {
         "random" => Some(random(params, rng, storage)),
+        "random_spheres" => Some(random_spheres(params, rng, storage)),
         "small" => Some(small(params, storage)),
         // "aras" => Some(aras_p(params, storage)),
         "smallpt" => Some(smallpt(params, storage)),
@@ -36,6 +37,23 @@ pub fn from_name<'a>(
 
 pub fn random<'a>(
     params: &Params,
+    rng: &mut Xoshiro256Plus,
+    storage: &'a Storage<'a>,
+) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
+    random_impl(params, false, rng, storage)
+}
+
+pub fn random_spheres<'a>(
+    params: &Params,
+    rng: &mut Xoshiro256Plus,
+    storage: &'a Storage<'a>,
+) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
+    random_impl(params, true, rng, storage)
+}
+
+fn random_impl<'a>(
+    params: &Params,
+    only_spheres: bool,
     rng: &mut Xoshiro256Plus,
     storage: &'a Storage<'a>,
 ) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
@@ -95,24 +113,28 @@ pub fn random<'a>(
             );
             if choose_material < 0.8 {
                 let centre1 = centre + vec3(0.0, 0.5 * rng.gen::<f32>(), 0.0);
-                hitables.push(moving_sphere(
-                    centre,
-                    centre1,
-                    0.2,
-                    material::lambertian(constant(vec3(
-                        rng.gen::<f32>() * rng.gen::<f32>(),
-                        rng.gen::<f32>() * rng.gen::<f32>(),
-                        rng.gen::<f32>() * rng.gen::<f32>(),
-                    ))),
-                ));
-            // hitables.push(sphere(
-            //     centre,
-            //     0.2,
-            //     material::lambertian(constant(vec3(
-            //         rng.gen::<f32>() * rng.gen::<f32>(),
-            //         rng.gen::<f32>() * rng.gen::<f32>(),
-            //         rng.gen::<f32>() * rng.gen::<f32>(),
-            //     ))),
+                if only_spheres {
+                    hitables.push(sphere(
+                        centre,
+                        0.2,
+                        material::lambertian(constant(vec3(
+                            rng.gen::<f32>() * rng.gen::<f32>(),
+                            rng.gen::<f32>() * rng.gen::<f32>(),
+                            rng.gen::<f32>() * rng.gen::<f32>(),
+                        ))),
+                    ));
+                } else {
+                    hitables.push(moving_sphere(
+                        centre,
+                        centre1,
+                        0.2,
+                        material::lambertian(constant(vec3(
+                            rng.gen::<f32>() * rng.gen::<f32>(),
+                            rng.gen::<f32>() * rng.gen::<f32>(),
+                            rng.gen::<f32>() * rng.gen::<f32>(),
+                        ))),
+                    ));
+                }
             } else if choose_material < 0.95 {
                 hitables.push(sphere(
                     centre,
