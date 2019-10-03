@@ -12,7 +12,7 @@ mod spheres_soa;
 pub use aabb::AABB;
 pub use bvh::BVHNode;
 pub use cuboid::Cuboid;
-pub use hitable::Hitable;
+pub use hitable::{Hitable, Instance};
 pub use hitable_list::HitableList;
 pub use moving_sphere::MovingSphere;
 pub use ray::{Ray, RayHit};

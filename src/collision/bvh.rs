@@ -10,12 +10,13 @@ const MISS_OR_HIT: [&str; 2] = ["Miss", "Hit"];
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct BVHStats {
-    num_nodes: usize,
-    max_depth: usize,
-    num_spheres: usize,
-    num_moving_spheres: usize,
-    num_rects: usize,
-    num_boxes: usize,
+    num_nodes: u64,
+    max_depth: u64,
+    num_spheres: u64,
+    num_moving_spheres: u64,
+    num_rects: u64,
+    num_boxes: u64,
+    num_instances: u64,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -200,6 +201,10 @@ impl<'a> BVHNode<'a> {
                     return Some((ray_hit, material));
                 }
             }
+            Hitable::Instance(instance) => {
+                stats.num_instances += 1;
+                return instance.ray_hit(ray, t_min, t_max);
+            }
             Hitable::List(_) => unimplemented!(),
         }
         None
@@ -211,14 +216,14 @@ impl<'a> BVHNode<'a> {
         stats
     }
 
-    pub fn get_node_stats(&self, depth: usize, stats: &mut BVHStats) -> usize {
+    pub fn get_node_stats(&self, depth: u64, stats: &mut BVHStats) -> u64 {
         stats.num_nodes += 1;
         let lhs_depth = self.get_child_stats(depth, &self.lhs, stats);
         let rhs_depth = self.get_child_stats(depth, &self.rhs, stats);
         lhs_depth.max(rhs_depth)
     }
 
-    pub fn get_child_stats(&self, depth: usize, hitable: &Hitable, stats: &mut BVHStats) -> usize {
+    pub fn get_child_stats(&self, depth: u64, hitable: &Hitable, stats: &mut BVHStats) -> u64 {
         match hitable {
             Hitable::BVHNode(node) => {
                 return node.get_node_stats(depth + 1, stats);
@@ -234,6 +239,9 @@ impl<'a> BVHNode<'a> {
             }
             Hitable::Cuboid(_, _) => {
                 stats.num_boxes += 1;
+            }
+            Hitable::Instance(_) => {
+                stats.num_instances += 1;
             }
             Hitable::List(_) => unimplemented!(),
         }

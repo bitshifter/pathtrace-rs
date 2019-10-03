@@ -1,5 +1,5 @@
 use crate::{
-    collision::{BVHNode, Cuboid, Hitable, HitableList, MovingSphere, Rect, Sphere},
+    collision::{BVHNode, Cuboid, Hitable, HitableList, Instance, MovingSphere, Rect, Sphere},
     material::Material,
     perlin::Perlin,
     texture::{RgbImage, Texture},
@@ -8,6 +8,7 @@ use rand_xoshiro::Xoshiro256Plus;
 use typed_arena::Arena;
 
 pub struct Storage<'a> {
+    pub instance_arena: Arena<Instance<'a>>,
     pub texture_arena: Arena<Texture<'a>>,
     pub material_arena: Arena<Material<'a>>,
     pub image_arena: Arena<RgbImage>,
@@ -23,6 +24,7 @@ pub struct Storage<'a> {
 impl<'a> Storage<'a> {
     pub fn new(rng: &mut Xoshiro256Plus) -> Storage<'a> {
         Storage {
+            instance_arena: Arena::new(),
             texture_arena: Arena::new(),
             material_arena: Arena::new(),
             image_arena: Arena::new(),
@@ -34,6 +36,11 @@ impl<'a> Storage<'a> {
             cuboid_arena: Arena::new(),
             perlin_noise: Perlin::new(rng),
         }
+    }
+
+    #[inline]
+    pub fn alloc_instance(&self, instance: Instance<'a>) -> &mut Instance<'a> {
+        self.instance_arena.alloc(instance)
     }
 
     #[inline]

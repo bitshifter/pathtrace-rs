@@ -3,6 +3,32 @@ use crate::{
     collision::{BVHNode, Cuboid, HitableList, MovingSphere, Ray, RayHit, Rect, Sphere, AABB},
     material::Material,
 };
+use glam::Mat4;
+
+#[derive(Copy, Clone, Debug)]
+pub struct Instance<'a> {
+    hitable: Hitable<'a>,
+    transform: Mat4,
+    inv_transform: Mat4,
+}
+
+impl<'a> Instance<'a> {
+    pub fn new(hitable: Hitable<'a>, transform: Mat4) -> Instance<'a> {
+        Instance {
+            hitable,
+            transform,
+            inv_transform: transform.inverse(),
+        }
+    }
+
+    pub fn bounding_box(&self, t0: f32, t1: f32) -> Option<AABB> {
+        self.hitable.bounding_box(t0, t1)
+    }
+
+    pub fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
+        self.hitable.ray_hit(ray, t_min, t_max)
+    }
+}
 
 #[derive(Copy, Clone, Debug)]
 pub enum Hitable<'a> {
@@ -11,6 +37,7 @@ pub enum Hitable<'a> {
     Sphere(&'a Sphere, &'a Material<'a>),
     Rect(&'a Rect, &'a Material<'a>),
     Cuboid(&'a Cuboid, &'a Material<'a>),
+    Instance(&'a Instance<'a>),
     List(&'a HitableList<'a>),
 }
 
@@ -23,6 +50,7 @@ impl<'a> Hitable<'a> {
             Hitable::Sphere(sphere, _) => Some(sphere.bounding_box()),
             Hitable::Rect(rect, _) => Some(rect.bounding_box()),
             Hitable::Cuboid(cuboid, _) => Some(cuboid.bounding_box()),
+            Hitable::Instance(instance) => instance.bounding_box(t0, t1),
             Hitable::List(list) => list.bounding_box(t0, t1),
         }
     }
@@ -37,6 +65,7 @@ impl<'a> Hitable<'a> {
             Hitable::Sphere(sphere, material) => (sphere.ray_hit(ray, t_min, t_max), material),
             Hitable::Rect(rect, material) => (rect.ray_hit(ray, t_min, t_max), material),
             Hitable::Cuboid(cuboid, material) => (cuboid.ray_hit(ray, t_min, t_max), material),
+            Hitable::Instance(instance) => return instance.ray_hit(ray, t_min, t_max),
             Hitable::List(list) => return list.ray_hit(ray, t_min, t_max),
         };
         if let Some(ray_hit) = ray_hit {

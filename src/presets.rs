@@ -1,12 +1,12 @@
 use crate::{
     camera::Camera,
-    collision::{Cuboid, Hitable, MovingSphere, Rect, Sphere},
+    collision::{Cuboid, Hitable, Instance, MovingSphere, Rect, Sphere},
     material,
     params::Params,
     storage::Storage,
     texture::{self, RgbImage, Texture},
 };
-use glam::{vec3, Vec3};
+use glam::{Angle, Mat4, Quat, Vec3};
 use rand::Rng;
 use rand_xoshiro::Xoshiro256Plus;
 
@@ -57,14 +57,14 @@ fn random_impl<'a>(
     rng: &mut Xoshiro256Plus,
     storage: &'a Storage<'a>,
 ) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
-    let lookfrom = vec3(13.0, 2.0, 3.0);
-    let lookat = vec3(0.0, 0.0, 0.0);
+    let lookfrom = Vec3::new(13.0, 2.0, 3.0);
+    let lookat = Vec3::new(0.0, 0.0, 0.0);
     let dist_to_focus = 10.0;
     let aperture = 0.1;
     let camera = Camera::new(
         lookfrom,
         lookat,
-        vec3(0.0, 1.0, 0.0),
+        Vec3::new(0.0, 1.0, 0.0),
         20.0,
         params.width as f32 / params.height as f32,
         aperture,
@@ -95,29 +95,29 @@ fn random_impl<'a>(
     let checker = |odd, even| -> &Texture { storage.alloc_texture(texture::checker(odd, even)) };
 
     hitables.push(sphere(
-        vec3(0.0, -1000.0, 0.0),
+        Vec3::new(0.0, -1000.0, 0.0),
         1000.0,
         material::lambertian(checker(
-            constant(vec3(0.2, 0.3, 0.1)),
-            constant(vec3(0.9, 0.9, 0.9)),
+            constant(Vec3::new(0.2, 0.3, 0.1)),
+            constant(Vec3::new(0.9, 0.9, 0.9)),
         )),
     ));
 
     for a in -11..11 {
         for b in -11..11 {
             let choose_material = rng.gen::<f32>();
-            let centre = vec3(
+            let centre = Vec3::new(
                 a as f32 + 0.9 * rng.gen::<f32>(),
                 0.2,
                 b as f32 + 0.9 * rng.gen::<f32>(),
             );
             if choose_material < 0.8 {
-                let centre1 = centre + vec3(0.0, 0.5 * rng.gen::<f32>(), 0.0);
+                let centre1 = centre + Vec3::new(0.0, 0.5 * rng.gen::<f32>(), 0.0);
                 if only_spheres {
                     hitables.push(sphere(
                         centre,
                         0.2,
-                        material::lambertian(constant(vec3(
+                        material::lambertian(constant(Vec3::new(
                             rng.gen::<f32>() * rng.gen::<f32>(),
                             rng.gen::<f32>() * rng.gen::<f32>(),
                             rng.gen::<f32>() * rng.gen::<f32>(),
@@ -128,7 +128,7 @@ fn random_impl<'a>(
                         centre,
                         centre1,
                         0.2,
-                        material::lambertian(constant(vec3(
+                        material::lambertian(constant(Vec3::new(
                             rng.gen::<f32>() * rng.gen::<f32>(),
                             rng.gen::<f32>() * rng.gen::<f32>(),
                             rng.gen::<f32>() * rng.gen::<f32>(),
@@ -140,7 +140,7 @@ fn random_impl<'a>(
                     centre,
                     0.2,
                     material::metal(
-                        vec3(
+                        Vec3::new(
                             0.5 * (1.0 + rng.gen::<f32>()),
                             0.5 * (1.0 + rng.gen::<f32>()),
                             0.5 * (1.0 + rng.gen::<f32>()),
@@ -153,16 +153,20 @@ fn random_impl<'a>(
             }
         }
     }
-    hitables.push(sphere(vec3(0.0, 1.0, 0.0), 1.0, material::dielectric(1.5)));
     hitables.push(sphere(
-        vec3(-4.0, 1.0, 0.0),
+        Vec3::new(0.0, 1.0, 0.0),
         1.0,
-        material::lambertian(constant(vec3(0.4, 0.2, 0.1))),
+        material::dielectric(1.5),
     ));
     hitables.push(sphere(
-        vec3(4.0, 1.0, 0.0),
+        Vec3::new(-4.0, 1.0, 0.0),
         1.0,
-        material::metal(vec3(0.7, 0.6, 0.5), 0.0),
+        material::lambertian(constant(Vec3::new(0.4, 0.2, 0.1))),
+    ));
+    hitables.push(sphere(
+        Vec3::new(4.0, 1.0, 0.0),
+        1.0,
+        material::metal(Vec3::new(0.7, 0.6, 0.5), 0.0),
     ));
 
     // let hitable_list = Hitable::List(storage.alloc_hitables(hitables));
@@ -179,14 +183,14 @@ pub fn small<'a>(
     params: &Params,
     storage: &'a Storage<'a>,
 ) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
-    let lookfrom = vec3(3.0, 3.0, 2.0);
-    let lookat = vec3(0.0, 0.0, -1.0);
+    let lookfrom = Vec3::new(3.0, 3.0, 2.0);
+    let lookat = Vec3::new(0.0, 0.0, -1.0);
     let dist_to_focus = (lookfrom - lookat).length();
     let aperture = 0.1;
     let camera = Camera::new(
         lookfrom,
         lookat,
-        vec3(0.0, 1.0, 0.0),
+        Vec3::new(0.0, 1.0, 0.0),
         20.0,
         params.width as f32 / params.height as f32,
         aperture,
@@ -204,22 +208,26 @@ pub fn small<'a>(
 
     let hitables = vec![
         sphere(
-            vec3(0.0, 0.0, -1.0),
+            Vec3::new(0.0, 0.0, -1.0),
             0.5,
-            material::lambertian(storage.alloc_texture(texture::constant(vec3(0.1, 0.2, 0.5)))),
+            material::lambertian(
+                storage.alloc_texture(texture::constant(Vec3::new(0.1, 0.2, 0.5))),
+            ),
         ),
         sphere(
-            vec3(0.0, -100.5, -1.0),
+            Vec3::new(0.0, -100.5, -1.0),
             100.0,
-            material::lambertian(storage.alloc_texture(texture::constant(vec3(0.8, 0.8, 0.0)))),
+            material::lambertian(
+                storage.alloc_texture(texture::constant(Vec3::new(0.8, 0.8, 0.0))),
+            ),
         ),
         sphere(
-            vec3(1.0, 0.0, -1.0),
+            Vec3::new(1.0, 0.0, -1.0),
             0.5,
-            material::metal(vec3(0.8, 0.6, 0.2), 0.0),
+            material::metal(Vec3::new(0.8, 0.6, 0.2), 0.0),
         ),
-        sphere(vec3(-1.0, 0.0, -1.0), 0.5, material::dielectric(1.5)),
-        sphere(vec3(-1.0, 0.0, -1.0), -0.45, material::dielectric(1.5)),
+        sphere(Vec3::new(-1.0, 0.0, -1.0), 0.5, material::dielectric(1.5)),
+        sphere(Vec3::new(-1.0, 0.0, -1.0), -0.45, material::dielectric(1.5)),
     ];
 
     (hitables, camera, None)
@@ -229,14 +237,14 @@ pub fn two_perlin_spheres<'a>(
     params: &Params,
     storage: &'a Storage<'a>,
 ) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
-    let lookfrom = vec3(13.0, 2.0, 3.0);
-    let lookat = vec3(0.0, 0.0, 0.0);
+    let lookfrom = Vec3::new(13.0, 2.0, 3.0);
+    let lookat = Vec3::new(0.0, 0.0, 0.0);
     let dist_to_focus = 10.0;
     let aperture = 0.0;
     let camera = Camera::new(
         lookfrom,
         lookat,
-        vec3(0.0, 1.0, 0.0),
+        Vec3::new(0.0, 1.0, 0.0),
         20.0,
         params.width as f32 / params.height as f32,
         aperture,
@@ -257,12 +265,12 @@ pub fn two_perlin_spheres<'a>(
 
     let hitables = vec![
         sphere(
-            vec3(0.0, -1000.0, 0.0),
+            Vec3::new(0.0, -1000.0, 0.0),
             1000.0,
             material::lambertian(noise_texture),
         ),
         sphere(
-            vec3(0.0, 2.0, 0.0),
+            Vec3::new(0.0, 2.0, 0.0),
             2.0,
             material::lambertian(noise_texture),
         ),
@@ -275,14 +283,14 @@ pub fn simple_light<'a>(
     params: &Params,
     storage: &'a Storage<'a>,
 ) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
-    let lookfrom = vec3(50.0, 2.0, 3.0);
-    let lookat = vec3(0.0, 0.0, 0.0);
+    let lookfrom = Vec3::new(50.0, 2.0, 3.0);
+    let lookat = Vec3::new(0.0, 0.0, 0.0);
     let dist_to_focus = 10.0;
     let aperture = 0.0;
     let camera = Camera::new(
         lookfrom,
         lookat,
-        vec3(0.0, 1.0, 0.0),
+        Vec3::new(0.0, 1.0, 0.0),
         20.0,
         params.width as f32 / params.height as f32,
         aperture,
@@ -300,21 +308,21 @@ pub fn simple_light<'a>(
     };
 
     let noise_texture = storage.alloc_texture(texture::noise(&storage.perlin_noise, 4.0));
-    let constant_texture = storage.alloc_texture(texture::constant(vec3(4.0, 4.0, 4.0)));
+    let constant_texture = storage.alloc_texture(texture::constant(Vec3::new(4.0, 4.0, 4.0)));
 
     let hitables = vec![
         sphere(
-            vec3(0.0, -1000.0, 0.0),
+            Vec3::new(0.0, -1000.0, 0.0),
             1000.0,
             material::lambertian(noise_texture),
         ),
         sphere(
-            vec3(0.0, 2.0, 0.0),
+            Vec3::new(0.0, 2.0, 0.0),
             2.0,
             material::lambertian(noise_texture),
         ),
         sphere(
-            vec3(0.0, 7.0, 0.0),
+            Vec3::new(0.0, 7.0, 0.0),
             2.0,
             material::diffuse_light(constant_texture),
         ),
@@ -331,15 +339,15 @@ pub fn cornell_box<'a>(
     params: &Params,
     storage: &'a Storage<'a>,
 ) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
-    let lookfrom = vec3(278.0, 278.0, -800.0);
-    let lookat = vec3(278.0, 278.0, 0.0);
+    let lookfrom = Vec3::new(278.0, 278.0, -800.0);
+    let lookat = Vec3::new(278.0, 278.0, 0.0);
     let dist_to_focus = 10.0;
     let aperture = 0.0;
     let vfov = 40.0;
     let camera = Camera::new(
         lookfrom,
         lookat,
-        vec3(0.0, 1.0, 0.0),
+        Vec3::new(0.0, 1.0, 0.0),
         vfov,
         params.width as f32 / params.height as f32,
         aperture,
@@ -349,17 +357,26 @@ pub fn cornell_box<'a>(
     );
 
     let red = storage.alloc_material(material::lambertian(
-        storage.alloc_texture(texture::constant(vec3(0.65, 0.05, 0.05))),
+        storage.alloc_texture(texture::constant(Vec3::new(0.65, 0.05, 0.05))),
     ));
     let white = storage.alloc_material(material::lambertian(
-        storage.alloc_texture(texture::constant(vec3(0.73, 0.73, 0.73))),
+        storage.alloc_texture(texture::constant(Vec3::new(0.73, 0.73, 0.73))),
     ));
     let green = storage.alloc_material(material::lambertian(
-        storage.alloc_texture(texture::constant(vec3(0.12, 0.45, 0.15))),
+        storage.alloc_texture(texture::constant(Vec3::new(0.12, 0.45, 0.15))),
     ));
     let light = storage.alloc_material(material::diffuse_light(
-        storage.alloc_texture(texture::constant(vec3(15.0, 15.0, 15.0))),
+        storage.alloc_texture(texture::constant(Vec3::new(15.0, 15.0, 15.0))),
     ));
+
+    let box1_transform = Mat4::from_rotation_translation(
+        Quat::from_rotation_y(Angle::from_degrees(-18.0)),
+        Vec3::new(130.0, 0.0, 65.0),
+    );
+    let box2_transform = Mat4::from_rotation_translation(
+        Quat::from_rotation_y(Angle::from_degrees(15.0)),
+        Vec3::new(265.0, 0.0, 295.0),
+    );
 
     let hitables = vec![
         Hitable::Rect(
@@ -386,20 +403,26 @@ pub fn cornell_box<'a>(
             storage.alloc_rect(Rect::new_xy(0.0, 555.0, 0.0, 555.0, 555.0, true)),
             white,
         ),
-        Hitable::Cuboid(
-            storage.alloc_cuboid(Cuboid::new(
-                vec3(130.0, 0.0, 65.0),
-                vec3(295.0, 165.0, 230.0),
-            )),
-            white,
-        ),
-        Hitable::Cuboid(
-            storage.alloc_cuboid(Cuboid::new(
-                vec3(265.0, 0.0, 295.0),
-                vec3(430.0, 330.0, 460.0),
-            )),
-            white,
-        ),
+        Hitable::Instance(storage.alloc_instance(Instance::new(
+            Hitable::Cuboid(
+                storage.alloc_cuboid(Cuboid::new(
+                    Vec3::new(130.0, 0.0, 65.0),
+                    Vec3::new(295.0, 165.0, 230.0),
+                )),
+                white,
+            ),
+            box1_transform,
+        ))),
+        Hitable::Instance(storage.alloc_instance(Instance::new(
+            Hitable::Cuboid(
+                storage.alloc_cuboid(Cuboid::new(
+                    Vec3::new(265.0, 0.0, 295.0),
+                    Vec3::new(430.0, 330.0, 460.0),
+                )),
+                white,
+            ),
+            box2_transform,
+        ))),
     ];
 
     (hitables, camera, Some(Vec3::zero()))
@@ -409,14 +432,14 @@ pub fn earth<'a>(
     params: &Params,
     storage: &'a Storage<'a>,
 ) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
-    let lookfrom = vec3(13.0, 2.0, 3.0);
-    let lookat = vec3(0.0, 0.0, 0.0);
+    let lookfrom = Vec3::new(13.0, 2.0, 3.0);
+    let lookat = Vec3::new(0.0, 0.0, 0.0);
     let dist_to_focus = 10.0;
     let aperture = 0.0;
     let camera = Camera::new(
         lookfrom,
         lookat,
-        vec3(0.0, 1.0, 0.0),
+        Vec3::new(0.0, 1.0, 0.0),
         20.0,
         params.width as f32 / params.height as f32,
         aperture,
@@ -437,7 +460,7 @@ pub fn earth<'a>(
     let earth_texture = storage.alloc_texture(texture::rgb_image(earth_image));
 
     let hitables = vec![sphere(
-        vec3(0.0, 0.0, 0.0),
+        Vec3::new(0.0, 0.0, 0.0),
         2.0,
         material::lambertian(earth_texture),
     )];
@@ -446,15 +469,15 @@ pub fn earth<'a>(
 }
 
 // pub fn aras_p<'a>(params: &Params, storage: &'a Storage<'a>) -> (Scene<'a>, Camera, Option<Vec3>) {
-//     let lookfrom = vec3(0.0, 2.0, 3.0);
-//     let lookat = vec3(0.0, 0.0, 0.0);
+//     let lookfrom = Vec3::new(0.0, 2.0, 3.0);
+//     let lookat = Vec3::new(0.0, 0.0, 0.0);
 //     let dist_to_focus = 3.0;
 //     let aperture = 0.02;
 //     let fov = 60.0;
 //     let camera = Camera::new(
 //         lookfrom,
 //         lookat,
-//         vec3(0.0, 1.0, 0.0),
+//         Vec3::new(0.0, 1.0, 0.0),
 //         fov,
 //         params.width as f32 / params.height as f32,
 //         aperture,
@@ -472,230 +495,230 @@ pub fn earth<'a>(
 
 //     let spheres = [
 //         sphere(
-//             vec3(0.0, -100.5, -1.0),
+//             Vec3::new(0.0, -100.5, -1.0),
 //             100.0,
-//             material::lambertian(constant(vec3(0.8, 0.8, 0.8))),
+//             material::lambertian(constant(Vec3::new(0.8, 0.8, 0.8))),
 //         ),
 //         sphere(
-//             vec3(2.0, 0.0, -1.0),
+//             Vec3::new(2.0, 0.0, -1.0),
 //             0.5,
-//             material::lambertian(constant(vec3(0.8, 0.4, 0.4))),
+//             material::lambertian(constant(Vec3::new(0.8, 0.4, 0.4))),
 //         ),
 //         sphere(
-//             vec3(0.0, 0.0, -1.0),
+//             Vec3::new(0.0, 0.0, -1.0),
 //             0.5,
-//             material::lambertian(constant(vec3(0.4, 0.8, 0.4))),
+//             material::lambertian(constant(Vec3::new(0.4, 0.8, 0.4))),
 //         ),
 //         sphere(
-//             vec3(-2.0, 0.0, -1.0),
+//             Vec3::new(-2.0, 0.0, -1.0),
 //             0.5,
-//             material::metal(vec3(0.4, 0.4, 0.8), 0.0),
+//             material::metal(Vec3::new(0.4, 0.4, 0.8), 0.0),
 //         ),
 //         sphere(
-//             vec3(2.0, 0.0, 1.0),
+//             Vec3::new(2.0, 0.0, 1.0),
 //             0.5,
-//             material::metal(vec3(0.4, 0.8, 0.4), 0.0),
+//             material::metal(Vec3::new(0.4, 0.8, 0.4), 0.0),
 //         ),
 //         sphere(
-//             vec3(0.0, 0.0, 1.0),
+//             Vec3::new(0.0, 0.0, 1.0),
 //             0.5,
-//             material::metal(vec3(0.4, 0.8, 0.4), 0.2),
+//             material::metal(Vec3::new(0.4, 0.8, 0.4), 0.2),
 //         ),
 //         sphere(
-//             vec3(-2.0, 0.0, 1.0),
+//             Vec3::new(-2.0, 0.0, 1.0),
 //             0.5,
-//             material::metal(vec3(0.4, 0.8, 0.4), 0.6),
+//             material::metal(Vec3::new(0.4, 0.8, 0.4), 0.6),
 //         ),
-//         sphere(vec3(0.5, 1.0, 0.5), 0.5, material::dielectric(1.5)),
+//         sphere(Vec3::new(0.5, 1.0, 0.5), 0.5, material::dielectric(1.5)),
 //         sphere(
-//             vec3(-1.5, 1.5, 0.0),
+//             Vec3::new(-1.5, 1.5, 0.0),
 //             0.3,
-//             material::diffuse_light(constant(vec3(30.0, 25.0, 15.0))),
+//             material::diffuse_light(constant(Vec3::new(30.0, 25.0, 15.0))),
 //         ),
 //         sphere(
-//             vec3(4.0, 0.0, -3.0),
+//             Vec3::new(4.0, 0.0, -3.0),
 //             0.5,
-//             material::lambertian(constant(vec3(0.1, 0.1, 0.1))),
+//             material::lambertian(constant(Vec3::new(0.1, 0.1, 0.1))),
 //         ),
 //         sphere(
-//             vec3(3.0, 0.0, -3.0),
+//             Vec3::new(3.0, 0.0, -3.0),
 //             0.5,
-//             material::lambertian(constant(vec3(0.2, 0.2, 0.2))),
+//             material::lambertian(constant(Vec3::new(0.2, 0.2, 0.2))),
 //         ),
 //         sphere(
-//             vec3(2.0, 0.0, -3.0),
+//             Vec3::new(2.0, 0.0, -3.0),
 //             0.5,
-//             material::lambertian(constant(vec3(0.3, 0.3, 0.3))),
+//             material::lambertian(constant(Vec3::new(0.3, 0.3, 0.3))),
 //         ),
 //         sphere(
-//             vec3(1.0, 0.0, -3.0),
+//             Vec3::new(1.0, 0.0, -3.0),
 //             0.5,
-//             material::lambertian(constant(vec3(0.4, 0.4, 0.4))),
+//             material::lambertian(constant(Vec3::new(0.4, 0.4, 0.4))),
 //         ),
 //         sphere(
-//             vec3(0.0, 0.0, -3.0),
+//             Vec3::new(0.0, 0.0, -3.0),
 //             0.5,
-//             material::lambertian(constant(vec3(0.5, 0.5, 0.5))),
+//             material::lambertian(constant(Vec3::new(0.5, 0.5, 0.5))),
 //         ),
 //         sphere(
-//             vec3(-1.0, 0.0, -3.0),
+//             Vec3::new(-1.0, 0.0, -3.0),
 //             0.5,
-//             material::lambertian(constant(vec3(0.6, 0.6, 0.6))),
+//             material::lambertian(constant(Vec3::new(0.6, 0.6, 0.6))),
 //         ),
 //         sphere(
-//             vec3(-2.0, 0.0, -3.0),
+//             Vec3::new(-2.0, 0.0, -3.0),
 //             0.5,
-//             material::lambertian(constant(vec3(0.7, 0.7, 0.7))),
+//             material::lambertian(constant(Vec3::new(0.7, 0.7, 0.7))),
 //         ),
 //         sphere(
-//             vec3(-3.0, 0.0, -3.0),
+//             Vec3::new(-3.0, 0.0, -3.0),
 //             0.5,
-//             material::lambertian(constant(vec3(0.8, 0.8, 0.8))),
+//             material::lambertian(constant(Vec3::new(0.8, 0.8, 0.8))),
 //         ),
 //         sphere(
-//             vec3(-4.0, 0.0, -3.0),
+//             Vec3::new(-4.0, 0.0, -3.0),
 //             0.5,
-//             material::lambertian(constant(vec3(0.9, 0.9, 0.9))),
+//             material::lambertian(constant(Vec3::new(0.9, 0.9, 0.9))),
 //         ),
 //         sphere(
-//             vec3(4.0, 0.0, -4.0),
+//             Vec3::new(4.0, 0.0, -4.0),
 //             0.5,
-//             material::metal(vec3(0.1, 0.1, 0.1), 0.0),
+//             material::metal(Vec3::new(0.1, 0.1, 0.1), 0.0),
 //         ),
 //         sphere(
-//             vec3(3.0, 0.0, -4.0),
+//             Vec3::new(3.0, 0.0, -4.0),
 //             0.5,
-//             material::metal(vec3(0.2, 0.2, 0.2), 0.0),
+//             material::metal(Vec3::new(0.2, 0.2, 0.2), 0.0),
 //         ),
 //         sphere(
-//             vec3(2.0, 0.0, -4.0),
+//             Vec3::new(2.0, 0.0, -4.0),
 //             0.5,
-//             material::metal(vec3(0.3, 0.3, 0.3), 0.0),
+//             material::metal(Vec3::new(0.3, 0.3, 0.3), 0.0),
 //         ),
 //         sphere(
-//             vec3(1.0, 0.0, -4.0),
+//             Vec3::new(1.0, 0.0, -4.0),
 //             0.5,
-//             material::metal(vec3(0.4, 0.4, 0.4), 0.0),
+//             material::metal(Vec3::new(0.4, 0.4, 0.4), 0.0),
 //         ),
 //         sphere(
-//             vec3(0.0, 0.0, -4.0),
+//             Vec3::new(0.0, 0.0, -4.0),
 //             0.5,
-//             material::metal(vec3(0.5, 0.5, 0.5), 0.0),
+//             material::metal(Vec3::new(0.5, 0.5, 0.5), 0.0),
 //         ),
 //         sphere(
-//             vec3(-1.0, 0.0, -4.0),
+//             Vec3::new(-1.0, 0.0, -4.0),
 //             0.5,
-//             material::metal(vec3(0.6, 0.6, 0.6), 0.0),
+//             material::metal(Vec3::new(0.6, 0.6, 0.6), 0.0),
 //         ),
 //         sphere(
-//             vec3(-2.0, 0.0, -4.0),
+//             Vec3::new(-2.0, 0.0, -4.0),
 //             0.5,
-//             material::metal(vec3(0.7, 0.7, 0.7), 0.0),
+//             material::metal(Vec3::new(0.7, 0.7, 0.7), 0.0),
 //         ),
 //         sphere(
-//             vec3(-3.0, 0.0, -4.0),
+//             Vec3::new(-3.0, 0.0, -4.0),
 //             0.5,
-//             material::metal(vec3(0.8, 0.8, 0.8), 0.0),
+//             material::metal(Vec3::new(0.8, 0.8, 0.8), 0.0),
 //         ),
 //         sphere(
-//             vec3(-4.0, 0.0, -4.0),
+//             Vec3::new(-4.0, 0.0, -4.0),
 //             0.5,
-//             material::metal(vec3(0.9, 0.9, 0.9), 0.0),
+//             material::metal(Vec3::new(0.9, 0.9, 0.9), 0.0),
 //         ),
 //         sphere(
-//             vec3(4.0, 0.0, -5.0),
+//             Vec3::new(4.0, 0.0, -5.0),
 //             0.5,
-//             material::metal(vec3(0.8, 0.1, 0.1), 0.0),
+//             material::metal(Vec3::new(0.8, 0.1, 0.1), 0.0),
 //         ),
 //         sphere(
-//             vec3(3.0, 0.0, -5.0),
+//             Vec3::new(3.0, 0.0, -5.0),
 //             0.5,
-//             material::metal(vec3(0.8, 0.5, 0.1), 0.0),
+//             material::metal(Vec3::new(0.8, 0.5, 0.1), 0.0),
 //         ),
 //         sphere(
-//             vec3(2.0, 0.0, -5.0),
+//             Vec3::new(2.0, 0.0, -5.0),
 //             0.5,
-//             material::metal(vec3(0.8, 0.8, 0.1), 0.0),
+//             material::metal(Vec3::new(0.8, 0.8, 0.1), 0.0),
 //         ),
 //         sphere(
-//             vec3(1.0, 0.0, -5.0),
+//             Vec3::new(1.0, 0.0, -5.0),
 //             0.5,
-//             material::metal(vec3(0.4, 0.8, 0.1), 0.0),
+//             material::metal(Vec3::new(0.4, 0.8, 0.1), 0.0),
 //         ),
 //         sphere(
-//             vec3(0.0, 0.0, -5.0),
+//             Vec3::new(0.0, 0.0, -5.0),
 //             0.5,
-//             material::metal(vec3(0.1, 0.8, 0.1), 0.0),
+//             material::metal(Vec3::new(0.1, 0.8, 0.1), 0.0),
 //         ),
 //         sphere(
-//             vec3(-1.0, 0.0, -5.0),
+//             Vec3::new(-1.0, 0.0, -5.0),
 //             0.5,
-//             material::metal(vec3(0.1, 0.8, 0.5), 0.0),
+//             material::metal(Vec3::new(0.1, 0.8, 0.5), 0.0),
 //         ),
 //         sphere(
-//             vec3(-2.0, 0.0, -5.0),
+//             Vec3::new(-2.0, 0.0, -5.0),
 //             0.5,
-//             material::metal(vec3(0.1, 0.8, 0.8), 0.0),
+//             material::metal(Vec3::new(0.1, 0.8, 0.8), 0.0),
 //         ),
 //         sphere(
-//             vec3(-3.0, 0.0, -5.0),
+//             Vec3::new(-3.0, 0.0, -5.0),
 //             0.5,
-//             material::metal(vec3(0.1, 0.1, 0.8), 0.0),
+//             material::metal(Vec3::new(0.1, 0.1, 0.8), 0.0),
 //         ),
 //         sphere(
-//             vec3(-4.0, 0.0, -5.0),
+//             Vec3::new(-4.0, 0.0, -5.0),
 //             0.5,
-//             material::metal(vec3(0.5, 0.1, 0.8), 0.0),
+//             material::metal(Vec3::new(0.5, 0.1, 0.8), 0.0),
 //         ),
 //         sphere(
-//             vec3(4.0, 0.0, -6.0),
+//             Vec3::new(4.0, 0.0, -6.0),
 //             0.5,
-//             material::lambertian(constant(vec3(0.8, 0.1, 0.1))),
+//             material::lambertian(constant(Vec3::new(0.8, 0.1, 0.1))),
 //         ),
 //         sphere(
-//             vec3(3.0, 0.0, -6.0),
+//             Vec3::new(3.0, 0.0, -6.0),
 //             0.5,
-//             material::lambertian(constant(vec3(0.8, 0.5, 0.1))),
+//             material::lambertian(constant(Vec3::new(0.8, 0.5, 0.1))),
 //         ),
 //         sphere(
-//             vec3(2.0, 0.0, -6.0),
+//             Vec3::new(2.0, 0.0, -6.0),
 //             0.5,
-//             material::lambertian(constant(vec3(0.8, 0.8, 0.1))),
+//             material::lambertian(constant(Vec3::new(0.8, 0.8, 0.1))),
 //         ),
 //         sphere(
-//             vec3(1.0, 0.0, -6.0),
+//             Vec3::new(1.0, 0.0, -6.0),
 //             0.5,
-//             material::lambertian(constant(vec3(0.4, 0.8, 0.1))),
+//             material::lambertian(constant(Vec3::new(0.4, 0.8, 0.1))),
 //         ),
 //         sphere(
-//             vec3(0.0, 0.0, -6.0),
+//             Vec3::new(0.0, 0.0, -6.0),
 //             0.5,
-//             material::lambertian(constant(vec3(0.1, 0.8, 0.1))),
+//             material::lambertian(constant(Vec3::new(0.1, 0.8, 0.1))),
 //         ),
 //         sphere(
-//             vec3(-1.0, 0.0, -6.0),
+//             Vec3::new(-1.0, 0.0, -6.0),
 //             0.5,
-//             material::lambertian(constant(vec3(0.1, 0.8, 0.5))),
+//             material::lambertian(constant(Vec3::new(0.1, 0.8, 0.5))),
 //         ),
 //         sphere(
-//             vec3(-2.0, 0.0, -6.0),
+//             Vec3::new(-2.0, 0.0, -6.0),
 //             0.5,
-//             material::lambertian(constant(vec3(0.1, 0.8, 0.8))),
+//             material::lambertian(constant(Vec3::new(0.1, 0.8, 0.8))),
 //         ),
 //         sphere(
-//             vec3(-3.0, 0.0, -6.0),
+//             Vec3::new(-3.0, 0.0, -6.0),
 //             0.5,
-//             material::lambertian(constant(vec3(0.1, 0.1, 0.8))),
+//             material::lambertian(constant(Vec3::new(0.1, 0.1, 0.8))),
 //         ),
 //         sphere(
-//             vec3(-4.0, 0.0, -6.0),
+//             Vec3::new(-4.0, 0.0, -6.0),
 //             0.5,
-//             material::metal(vec3(0.5, 0.1, 0.8), 0.0),
+//             material::metal(Vec3::new(0.5, 0.1, 0.8), 0.0),
 //         ),
 //         sphere(
-//             vec3(1.5, 1.5, -2.0),
+//             Vec3::new(1.5, 1.5, -2.0),
 //             0.3,
-//             material::diffuse_light(constant(vec3(3.0, 10.0, 20.0))),
+//             material::diffuse_light(constant(Vec3::new(3.0, 10.0, 20.0))),
 //         ),
 //     ];
 
@@ -707,15 +730,15 @@ pub fn smallpt<'a>(
     params: &Params,
     storage: &'a Storage<'a>,
 ) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
-    let lookfrom = vec3(50.0, 52.0, 295.6);
-    let lookat = vec3(50.0, 33.0, 0.0);
+    let lookfrom = Vec3::new(50.0, 52.0, 295.6);
+    let lookat = Vec3::new(50.0, 33.0, 0.0);
     let dist_to_focus = 100.0;
     let aperture = 0.05;
     let fov = 30.0;
     let camera = Camera::new(
         lookfrom,
         lookat,
-        vec3(0.0, 1.0, 0.0),
+        Vec3::new(0.0, 1.0, 0.0),
         fov,
         params.width as f32 / params.height as f32,
         aperture,
@@ -735,47 +758,47 @@ pub fn smallpt<'a>(
 
     let hitables = vec![
         sphere(
-            vec3(1e3 + 1.0, 40.8, 81.6),
+            Vec3::new(1e3 + 1.0, 40.8, 81.6),
             1e3,
-            material::lambertian(constant(vec3(0.75, 0.25, 0.25))),
+            material::lambertian(constant(Vec3::new(0.75, 0.25, 0.25))),
         ), //Left
         sphere(
-            vec3(-1e3 + 99.0, 40.8, 81.6),
+            Vec3::new(-1e3 + 99.0, 40.8, 81.6),
             1e3,
-            material::lambertian(constant(vec3(0.25, 0.25, 0.75))),
+            material::lambertian(constant(Vec3::new(0.25, 0.25, 0.75))),
         ), //Rght
         sphere(
-            vec3(50.0, 40.8, 1e3),
+            Vec3::new(50.0, 40.8, 1e3),
             1e3,
-            material::lambertian(constant(vec3(0.75, 0.75, 0.75))),
+            material::lambertian(constant(Vec3::new(0.75, 0.75, 0.75))),
         ), //Back
         // sphere(
-        //     vec3(50.0, 40.8, -1e3 + 300.0),
+        //     Vec3::new(50.0, 40.8, -1e3 + 300.0),
         //     1e3,
         //     material::lambertian {
-        //         albedo: vec3(0.1, 0.1, 0.1),
+        //         albedo: Vec3::new(0.1, 0.1, 0.1),
         //     },
         // ), //Frnt
         sphere(
-            vec3(50.0, 1e3, 81.6),
+            Vec3::new(50.0, 1e3, 81.6),
             1e3,
-            material::lambertian(constant(vec3(0.75, 0.75, 0.75))),
+            material::lambertian(constant(Vec3::new(0.75, 0.75, 0.75))),
         ), //Botm
         sphere(
-            vec3(50.0, -1e3 + 81.6, 81.6),
+            Vec3::new(50.0, -1e3 + 81.6, 81.6),
             1e3,
-            material::lambertian(constant(vec3(0.75, 0.75, 0.75))),
+            material::lambertian(constant(Vec3::new(0.75, 0.75, 0.75))),
         ), //Top
         sphere(
-            vec3(27.0, 16.5, 47.0),
+            Vec3::new(27.0, 16.5, 47.0),
             16.5,
-            material::metal(vec3(1.0, 1.0, 1.0) * 0.999, 0.0),
+            material::metal(Vec3::new(1.0, 1.0, 1.0) * 0.999, 0.0),
         ), //Mirr
-        sphere(vec3(73.0, 16.5, 78.0), 16.5, material::dielectric(1.5)), //Glas
+        sphere(Vec3::new(73.0, 16.5, 78.0), 16.5, material::dielectric(1.5)), //Glas
         sphere(
-            vec3(50.0, 81.6 - 16.5, 81.6),
+            Vec3::new(50.0, 81.6 - 16.5, 81.6),
             1.5,
-            material::diffuse_light(constant(vec3(4.0, 4.0, 4.0) * 100.0)),
+            material::diffuse_light(constant(Vec3::new(4.0, 4.0, 4.0) * 100.0)),
         ), //Lite
     ];
 
