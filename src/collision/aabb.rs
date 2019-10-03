@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::collision::Ray;
-use glam::Vec3;
+use glam::{Mat4, Vec3};
 use std::f32;
 
 #[derive(Clone, Copy, Debug)]
@@ -65,5 +65,14 @@ impl AABB {
     pub fn add_assign(&mut self, rhs: &AABB) {
         self.min = self.min.min(rhs.min);
         self.max = self.max.max(rhs.max);
+    }
+
+    #[inline]
+    pub fn transform(&self, m: &Mat4) -> Self {
+        let offset = m.w_axis().truncate();
+        AABB {
+            min: self.min + offset,
+            max: self.max + offset,
+        }
     }
 }

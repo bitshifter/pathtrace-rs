@@ -405,20 +405,14 @@ pub fn cornell_box<'a>(
         ),
         Hitable::Instance(storage.alloc_instance(Instance::new(
             Hitable::Cuboid(
-                storage.alloc_cuboid(Cuboid::new(
-                    Vec3::new(130.0, 0.0, 65.0),
-                    Vec3::new(295.0, 165.0, 230.0),
-                )),
+                storage.alloc_cuboid(Cuboid::new(Vec3::zero(), Vec3::new(165.0, 165.0, 165.0))),
                 white,
             ),
             box1_transform,
         ))),
         Hitable::Instance(storage.alloc_instance(Instance::new(
             Hitable::Cuboid(
-                storage.alloc_cuboid(Cuboid::new(
-                    Vec3::new(265.0, 0.0, 295.0),
-                    Vec3::new(430.0, 330.0, 460.0),
-                )),
+                storage.alloc_cuboid(Cuboid::new(Vec3::zero(), Vec3::new(165.0, 330.0, 165.0))),
                 white,
             ),
             box2_transform,
