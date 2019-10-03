@@ -5,30 +5,30 @@ authors = ["Cameron Hart <cameron.hart@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-rand = "~0.6"
-rand_xoshiro = "~0.1"
-rayon = "~1.0.1"
+rand = "~0.7"
+rand_xoshiro = "~0.4"
+rayon = "~1.2"
 glam = "~0.7"
 # serde = "1.0"
 # serde_derive = "1.0"
 # serde_json = "1.0"
-typed-arena = "~1.4.1"
+typed-arena = "~1.6"
 
 [features]
 core_intrinsics = []
 bench = []
 
 [dependencies.glium]
-version = "~0.23.0"
+version = "~0.24"
 features = ["glutin"]
 default-features = false
 
 [dependencies.clap]
-version = "~2.31.2"
+version = "~2.33"
 default-features = false
 
 [dependencies.image]
-version = "~0.21"
+version = "~0.22"
 default-features = false
 features = ["png_codec", "jpeg", "jpeg_rayon"]
 

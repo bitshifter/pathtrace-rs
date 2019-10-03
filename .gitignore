@@ -4,6 +4,7 @@
 *.png
 *.sw[a-z]
 /.cargo
+/.vscode
 /target
 Session.vim
 perf.*
