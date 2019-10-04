@@ -32,8 +32,42 @@ pub fn from_name<'a>(
         "two_perlin_spheres" => Some(two_perlin_spheres(params, storage)),
         "simple_light" => Some(simple_light(params, storage)),
         "earth" => Some(earth(params, storage)),
+        "final" => Some(final_scene(params, rng, storage)),
         _ => None,
     }
+}
+
+pub fn final_scene<'a>(
+    params: &Params,
+    rng: &mut Xoshiro256Plus,
+    storage: &'a Storage<'a>,
+) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
+    let lookfrom = Vec3::new(13.0, 2.0, 3.0);
+    let lookat = Vec3::new(0.0, 0.0, 0.0);
+    let dist_to_focus = 10.0;
+    let aperture = 0.1;
+    let camera = Camera::new(
+        lookfrom,
+        lookat,
+        Vec3::new(0.0, 1.0, 0.0),
+        20.0,
+        params.width as f32 / params.height as f32,
+        aperture,
+        dist_to_focus,
+        0.0,
+        1.0,
+    );
+    let n = 500;
+    let mut hitables = Vec::with_capacity(n + 1);
+    // let mut boxes1 = Vec::with_capacity(10000);
+    // let mut boxes2 = Vec::with_capacity(10000);
+
+    let white =
+        material::lambertian(storage.alloc_texture(texture::constant(Vec3::new(0.73, 0.73, 0.73))));
+    let ground =
+        material::lambertian(storage.alloc_texture(texture::constant(Vec3::new(0.48, 0.83, 0.53))));
+
+    (hitables, camera, None)
 }
 
 pub fn random<'a>(
