@@ -69,10 +69,23 @@ impl AABB {
 
     #[inline]
     pub fn transform(&self, m: &Mat4) -> Self {
-        let offset = m.w_axis().truncate();
-        AABB {
-            min: self.min + offset,
-            max: self.max + offset,
-        }
+        let mut min = m.w_axis().truncate();
+        let mut max = min;
+
+        let x_axis = m.x_axis().truncate();
+        let x_mask = x_axis.cmpgt(Vec3::zero());
+        let y_axis = m.y_axis().truncate();
+        let y_mask = y_axis.cmpgt(Vec3::zero());
+        let z_axis = m.z_axis().truncate();
+        let z_mask = z_axis.cmpgt(Vec3::zero());
+
+        min += x_axis * x_mask.select(self.min, self.max);
+        max += x_axis * x_mask.select(self.max, self.min);
+        min += y_axis * y_mask.select(self.min, self.max);
+        max += y_axis * y_mask.select(self.max, self.min);
+        min += z_axis * z_mask.select(self.min, self.max);
+        max += z_axis * z_mask.select(self.max, self.min);
+
+        AABB { min, max }
     }
 }

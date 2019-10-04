@@ -11,7 +11,7 @@ pub struct Ray {
 impl Ray {
     #[inline]
     pub fn new(origin: Vec3, direction: Vec3, time: f32) -> Self {
-        let rcp_direction = Vec3::splat(1.0) / direction;
+        let rcp_direction = direction.reciprocal();
         Ray {
             origin,
             direction,
@@ -27,11 +27,13 @@ impl Ray {
 
     #[inline]
     pub fn transform(&self, m: &Mat4) -> Self {
-        let offset = m.w_axis().truncate();
+        let origin = m.transform_point3(self.origin);
+        let direction = m.transform_vector3(self.direction);
+        let rcp_direction = direction.reciprocal();
         Ray {
-            origin: self.origin + offset,
-            direction: self.direction,
-            rcp_direction: self.rcp_direction,
+            origin,
+            direction: direction,
+            rcp_direction: rcp_direction,
             time: self.time,
         }
     }
@@ -50,10 +52,11 @@ pub struct RayHit {
 impl RayHit {
     #[inline]
     pub fn transform(&self, m: &Mat4) -> Self {
-        let offset = m.w_axis().truncate();
+        let point = m.transform_point3(self.point);
+        let normal = m.transform_vector3(self.normal);
         RayHit {
-            point: self.point + offset,
-            normal: self.normal,
+            point,
+            normal,
             t: self.t,
             u: self.u,
             v: self.v,
