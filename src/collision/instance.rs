@@ -3,6 +3,7 @@ use crate::{
     material::Material,
 };
 use glam::Mat4;
+use rand_xoshiro::Xoshiro256Plus;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Instance<'a> {
@@ -28,10 +29,16 @@ impl<'a> Instance<'a> {
         }
     }
 
-    pub fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
+    pub fn ray_hit(
+        &self,
+        ray: &Ray,
+        t_min: f32,
+        t_max: f32,
+        rng: &mut Xoshiro256Plus,
+    ) -> Option<(RayHit, &Material)> {
         if let Some((ray_hit, material)) =
             self.hitable
-                .ray_hit(&ray.transform(&self.inv_transform), t_min, t_max)
+                .ray_hit(&ray.transform(&self.inv_transform), t_min, t_max, rng)
         {
             Some((ray_hit.transform(&self.transform), material))
         } else {

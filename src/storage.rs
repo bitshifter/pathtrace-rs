@@ -1,5 +1,7 @@
 use crate::{
-    collision::{BVHNode, Cuboid, Hitable, HitableList, Instance, MovingSphere, Rect, Sphere},
+    collision::{
+        BVHNode, ConstantMedium, Cuboid, Hitable, HitableList, Instance, MovingSphere, Rect, Sphere,
+    },
     material::Material,
     perlin::Perlin,
     texture::{RgbImage, Texture},
@@ -17,6 +19,7 @@ pub struct Storage<'a> {
     pub rect_arena: Arena<Rect>,
     pub bvhnode_arena: Arena<BVHNode<'a>>,
     pub hitables_arena: Arena<HitableList<'a>>,
+    pub constant_medium_arena: Arena<ConstantMedium<'a>>,
     pub cuboid_arena: Arena<Cuboid>,
     pub perlin_noise: Perlin,
 }
@@ -34,6 +37,7 @@ impl<'a> Storage<'a> {
             bvhnode_arena: Arena::new(),
             hitables_arena: Arena::new(),
             cuboid_arena: Arena::new(),
+            constant_medium_arena: Arena::new(),
             perlin_noise: Perlin::new(rng),
         }
     }
@@ -81,5 +85,13 @@ impl<'a> Storage<'a> {
     #[inline]
     pub fn alloc_hitables(&self, hitables: Vec<Hitable<'a>>) -> &mut HitableList<'a> {
         self.hitables_arena.alloc(HitableList::new(hitables))
+    }
+
+    #[inline]
+    pub fn alloc_constant_medium(
+        &self,
+        constant_medium: ConstantMedium<'a>,
+    ) -> &mut ConstantMedium<'a> {
+        self.constant_medium_arena.alloc(constant_medium)
     }
 }

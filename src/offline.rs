@@ -10,7 +10,7 @@ pub fn print_ray_trace(preset: &str, params: Params) {
         presets::from_name(&preset, &params, &mut rng, &storage).expect("unrecognised preset");
     let scene = params.new_scene(&mut rng, &storage, hitables, sky);
     let ray = camera.get_ray(0.5, 0.5, &mut rng);
-    scene.print_ray_trace(&ray);
+    scene.print_ray_trace(&ray, &mut rng);
 }
 
 pub fn render_offline(preset: &str, params: Params) {

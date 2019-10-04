@@ -1,6 +1,6 @@
 use crate::{
     camera::Camera,
-    collision::{Cuboid, Hitable, Instance, MovingSphere, Rect, Sphere},
+    collision::{ConstantMedium, Cuboid, Hitable, Instance, MovingSphere, Rect, Sphere},
     material,
     params::Params,
     storage::Storage,
@@ -28,6 +28,7 @@ pub fn from_name<'a>(
         // "aras" => Some(aras_p(params, storage)),
         "smallpt" => Some(smallpt(params, storage)),
         "cornell" => Some(cornell_box(params, storage)),
+        "cornell_smoke" => Some(cornell_smoke(params, storage)),
         "two_perlin_spheres" => Some(two_perlin_spheres(params, storage)),
         "simple_light" => Some(simple_light(params, storage)),
         "earth" => Some(earth(params, storage)),
@@ -416,6 +417,101 @@ pub fn cornell_box<'a>(
                 white,
             ),
             box2_transform,
+        ))),
+    ];
+
+    (hitables, camera, Some(Vec3::zero()))
+}
+
+pub fn cornell_smoke<'a>(
+    params: &Params,
+    storage: &'a Storage<'a>,
+) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
+    let lookfrom = Vec3::new(278.0, 278.0, -800.0);
+    let lookat = Vec3::new(278.0, 278.0, 0.0);
+    let dist_to_focus = 10.0;
+    let aperture = 0.0;
+    let vfov = 40.0;
+    let camera = Camera::new(
+        lookfrom,
+        lookat,
+        Vec3::new(0.0, 1.0, 0.0),
+        vfov,
+        params.width as f32 / params.height as f32,
+        aperture,
+        dist_to_focus,
+        0.0,
+        1.0,
+    );
+
+    let red = storage.alloc_material(material::lambertian(
+        storage.alloc_texture(texture::constant(Vec3::new(0.65, 0.05, 0.05))),
+    ));
+    let white = storage.alloc_material(material::lambertian(
+        storage.alloc_texture(texture::constant(Vec3::new(0.73, 0.73, 0.73))),
+    ));
+    let green = storage.alloc_material(material::lambertian(
+        storage.alloc_texture(texture::constant(Vec3::new(0.12, 0.45, 0.15))),
+    ));
+    let light = storage.alloc_material(material::diffuse_light(
+        storage.alloc_texture(texture::constant(Vec3::new(7.0, 7.0, 7.0))),
+    ));
+
+    let box1_transform = Mat4::from_rotation_translation(
+        Quat::from_rotation_y(Angle::from_degrees(-18.0)),
+        Vec3::new(130.0, 0.0, 65.0),
+    );
+    let box2_transform = Mat4::from_rotation_translation(
+        Quat::from_rotation_y(Angle::from_degrees(15.0)),
+        Vec3::new(265.0, 0.0, 295.0),
+    );
+
+    let hitables = vec![
+        Hitable::Rect(
+            storage.alloc_rect(Rect::new_yz(0.0, 555.0, 0.0, 555.0, 555.0, true)),
+            green,
+        ),
+        Hitable::Rect(
+            storage.alloc_rect(Rect::new_yz(0.0, 555.0, 0.0, 555.0, 0.0, false)),
+            red,
+        ),
+        Hitable::Rect(
+            storage.alloc_rect(Rect::new_xz(113.0, 443.0, 127.0, 432.0, 554.0, false)),
+            light,
+        ),
+        Hitable::Rect(
+            storage.alloc_rect(Rect::new_xz(0.0, 555.0, 0.0, 555.0, 555.0, true)),
+            white,
+        ),
+        Hitable::Rect(
+            storage.alloc_rect(Rect::new_xz(0.0, 555.0, 0.0, 555.0, 0.0, false)),
+            white,
+        ),
+        Hitable::Rect(
+            storage.alloc_rect(Rect::new_xy(0.0, 555.0, 0.0, 555.0, 555.0, true)),
+            white,
+        ),
+        Hitable::ConstantMedium(storage.alloc_constant_medium(ConstantMedium::new(
+            Hitable::Instance(storage.alloc_instance(Instance::new(
+                Hitable::Cuboid(
+                    storage.alloc_cuboid(Cuboid::new(Vec3::zero(), Vec3::new(165.0, 165.0, 165.0))),
+                    white,
+                ),
+                box1_transform,
+            ))),
+            0.01,
+            storage.alloc_texture(texture::constant(Vec3::one())),
+        ))),
+        Hitable::ConstantMedium(storage.alloc_constant_medium(ConstantMedium::new(
+            Hitable::Instance(storage.alloc_instance(Instance::new(
+                Hitable::Cuboid(
+                    storage.alloc_cuboid(Cuboid::new(Vec3::zero(), Vec3::new(165.0, 330.0, 165.0))),
+                    white,
+                ),
+                box2_transform,
+            ))),
+            0.01,
+            storage.alloc_texture(texture::constant(Vec3::zero())),
         ))),
     ];
 

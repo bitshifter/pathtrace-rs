@@ -17,6 +17,7 @@ pub struct BVHStats {
     num_rects: u64,
     num_boxes: u64,
     num_instances: u64,
+    num_constant_mediums: u64,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -33,10 +34,16 @@ impl<'a> BVHNode<'a> {
     }
 
     #[inline]
-    pub fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
+    pub fn ray_hit(
+        &self,
+        ray: &Ray,
+        t_min: f32,
+        t_max: f32,
+        rng: &mut Xoshiro256Plus,
+    ) -> Option<(RayHit, &Material)> {
         if self.aabb.ray_hit(ray, t_min, t_max) {
-            let hit_lhs = self.lhs.ray_hit(ray, t_min, t_max);
-            let hit_rhs = self.rhs.ray_hit(ray, t_min, t_max);
+            let hit_lhs = self.lhs.ray_hit(ray, t_min, t_max, rng);
+            let hit_rhs = self.rhs.ray_hit(ray, t_min, t_max, rng);
             match (hit_lhs, hit_rhs) {
                 (Some(hit_lhs), Some(hit_rhs)) => {
                     if hit_lhs.0.t < hit_rhs.0.t {
@@ -86,10 +93,10 @@ impl<'a> BVHNode<'a> {
         }
     }
 
-    pub fn print_ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) {
+    pub fn print_ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32, rng: &mut Xoshiro256Plus) {
         let mut stats = BVHStats::default();
         println!("Starting ray trace {:?}", ray);
-        let ray_hit = self.print_ray_hit_node(0, &mut stats, ray, t_min, t_max);
+        let ray_hit = self.print_ray_hit_node(0, &mut stats, ray, t_min, t_max, rng);
         println!("Result: {:?}", ray_hit);
         println!("Visit status: {:?}", stats);
     }
@@ -101,6 +108,7 @@ impl<'a> BVHNode<'a> {
         ray: &Ray,
         t_min: f32,
         t_max: f32,
+        rng: &mut Xoshiro256Plus,
     ) -> Option<(RayHit, &Material)> {
         stats.num_nodes += 1;
         let hit = self.aabb.ray_hit(ray, t_min, t_max);
@@ -109,8 +117,8 @@ impl<'a> BVHNode<'a> {
             "", stats.num_nodes, depth, MISS_OR_HIT[hit as usize], self.aabb.min, self.aabb.max
         );
         if hit {
-            let hit_lhs = self.print_ray_hit_child(depth, stats, &self.lhs, ray, t_min, t_max);
-            let hit_rhs = self.print_ray_hit_child(depth, stats, &self.rhs, ray, t_min, t_max);
+            let hit_lhs = self.print_ray_hit_child(depth, stats, &self.lhs, ray, t_min, t_max, rng);
+            let hit_rhs = self.print_ray_hit_child(depth, stats, &self.rhs, ray, t_min, t_max, rng);
             match (hit_lhs, hit_rhs) {
                 (Some(hit_lhs), Some(hit_rhs)) => {
                     if hit_lhs.0.t < hit_rhs.0.t {
@@ -136,10 +144,11 @@ impl<'a> BVHNode<'a> {
         ray: &Ray,
         t_min: f32,
         t_max: f32,
+        rng: &mut Xoshiro256Plus,
     ) -> Option<(RayHit, &Material)> {
         match hitable {
             Hitable::BVHNode(node) => {
-                return node.print_ray_hit_node(depth + 1, stats, ray, t_min, t_max);
+                return node.print_ray_hit_node(depth + 1, stats, ray, t_min, t_max, rng);
             }
             Hitable::MovingSphere(sphere, material) => {
                 stats.num_moving_spheres += 1;
@@ -201,9 +210,13 @@ impl<'a> BVHNode<'a> {
                     return Some((ray_hit, material));
                 }
             }
+            Hitable::ConstantMedium(constant_medium) => {
+                stats.num_constant_mediums += 1;
+                return constant_medium.ray_hit(ray, t_min, t_max, rng);
+            }
             Hitable::Instance(instance) => {
                 stats.num_instances += 1;
-                return instance.ray_hit(ray, t_min, t_max);
+                return instance.ray_hit(ray, t_min, t_max, rng);
             }
             Hitable::List(_) => unimplemented!(),
         }
@@ -239,6 +252,9 @@ impl<'a> BVHNode<'a> {
             }
             Hitable::Cuboid(_, _) => {
                 stats.num_boxes += 1;
+            }
+            Hitable::ConstantMedium(_) => {
+                stats.num_constant_mediums += 1;
             }
             Hitable::Instance(_) => {
                 stats.num_instances += 1;

@@ -3,6 +3,7 @@ use crate::{
     collision::{Hitable, Ray, RayHit, AABB},
     material::Material,
 };
+use rand_xoshiro::Xoshiro256Plus;
 
 #[derive(Debug)]
 pub struct HitableList<'a> {
@@ -36,11 +37,17 @@ impl<'a> HitableList<'a> {
         Some(result)
     }
 
-    pub fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
+    pub fn ray_hit(
+        &self,
+        ray: &Ray,
+        t_min: f32,
+        t_max: f32,
+        rng: &mut Xoshiro256Plus,
+    ) -> Option<(RayHit, &Material)> {
         let mut result = None;
         let mut closest_so_far = t_max;
         for hitable in &self.hitables {
-            if let Some((ray_hit, material)) = hitable.ray_hit(ray, t_min, closest_so_far) {
+            if let Some((ray_hit, material)) = hitable.ray_hit(ray, t_min, closest_so_far, rng) {
                 result = Some((ray_hit, material));
                 closest_so_far = ray_hit.t;
             }

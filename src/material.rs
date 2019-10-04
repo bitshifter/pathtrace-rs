@@ -15,6 +15,7 @@ pub enum Material<'a> {
     Metal { albedo: Vec3, fuzz: f32 },
     Dielectric { ref_idx: f32 },
     DiffuseLight { emit: &'a Texture<'a> },
+    Isotropic { albedo: &'a Texture<'a> },
 }
 
 pub fn lambertian<'a>(albedo: &'a Texture<'a>) -> Material<'a> {
@@ -31,6 +32,10 @@ pub fn dielectric<'a>(ref_idx: f32) -> Material<'a> {
 
 pub fn diffuse_light<'a>(emit: &'a Texture<'a>) -> Material<'a> {
     Material::DiffuseLight { emit }
+}
+
+pub fn isotropic<'a>(albedo: &'a Texture<'a>) -> Material<'a> {
+    Material::Isotropic { albedo }
 }
 
 fn get_sphere_uv(normal: Vec3) -> (f32, f32) {
@@ -118,6 +123,18 @@ impl<'a> Material<'a> {
         ))
     }
 
+    fn scatter_isotropic(
+        albedo: &Texture,
+        ray_in: &Ray,
+        ray_hit: &RayHit,
+        rng: &mut Xoshiro256Plus,
+    ) -> Option<(Vec3, Ray)> {
+        Some((
+            albedo.value(ray_hit.u, ray_hit.v, ray_hit.point),
+            Ray::new(ray_hit.point, random_in_unit_sphere(rng), ray_in.time),
+        ))
+    }
+
     pub fn scatter(
         &self,
         ray: &Ray,
@@ -133,6 +150,9 @@ impl<'a> Material<'a> {
             }
             Material::Dielectric { ref_idx } => {
                 Material::scatter_dielectric(*ref_idx, ray, ray_hit, rng)
+            }
+            Material::Isotropic { albedo } => {
+                Material::scatter_isotropic(albedo, ray, ray_hit, rng)
             }
             Material::DiffuseLight { emit: _ } => None,
         }

@@ -1,5 +1,6 @@
 mod aabb;
 mod bvh;
+mod constant_medium;
 mod cuboid;
 mod hitable;
 mod hitable_list;
@@ -12,6 +13,7 @@ mod spheres_soa;
 
 pub use aabb::AABB;
 pub use bvh::BVHNode;
+pub use constant_medium::ConstantMedium;
 pub use cuboid::Cuboid;
 pub use hitable::Hitable;
 pub use hitable_list::HitableList;
