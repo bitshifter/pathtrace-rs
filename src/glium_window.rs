@@ -214,7 +214,9 @@ pub fn start_loop<'a>(preset: &str, params: Params, max_frames: Option<u32>) {
 
     if save {
         // reading the front rgb_buffer into an image
-        let image: glium::texture::RawImage2d<u8> = display.read_front_buffer();
+        let image: glium::texture::RawImage2d<u8> = display
+            .read_front_buffer()
+            .expect("Failed to read front buffer");
         let image =
             image::ImageBuffer::from_raw(image.width, image.height, image.data.into_owned())
                 .unwrap();

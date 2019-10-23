@@ -6,7 +6,7 @@ use crate::{
     storage::Storage,
     texture::{self, RgbImage, Texture},
 };
-use glam::{Angle, Mat4, Quat, Vec3};
+use glam::{Mat4, Quat, Vec3};
 use rand::Rng;
 use rand_xoshiro::Xoshiro256Plus;
 
@@ -405,11 +405,11 @@ pub fn cornell_box<'a>(
     ));
 
     let box1_transform = Mat4::from_rotation_translation(
-        Quat::from_rotation_y(Angle::from_degrees(-18.0)),
+        Quat::from_rotation_y(f32::to_radians(-18.0)),
         Vec3::new(130.0, 0.0, 65.0),
     );
     let box2_transform = Mat4::from_rotation_translation(
-        Quat::from_rotation_y(Angle::from_degrees(15.0)),
+        Quat::from_rotation_y(f32::to_radians(15.0)),
         Vec3::new(265.0, 0.0, 295.0),
     );
 
@@ -492,11 +492,11 @@ pub fn cornell_smoke<'a>(
     ));
 
     let box1_transform = Mat4::from_rotation_translation(
-        Quat::from_rotation_y(Angle::from_degrees(-18.0)),
+        Quat::from_rotation_y(f32::to_radians(-18.0)),
         Vec3::new(130.0, 0.0, 65.0),
     );
     let box2_transform = Mat4::from_rotation_translation(
-        Quat::from_rotation_y(Angle::from_degrees(15.0)),
+        Quat::from_rotation_y(f32::to_radians(15.0)),
         Vec3::new(265.0, 0.0, 295.0),
     );
 
