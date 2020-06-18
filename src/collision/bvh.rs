@@ -365,7 +365,7 @@ mod bench {
         let (mut hitables, camera, _) = presets::random_spheres(&PARAMS, &mut rng, &storage);
         let ray = camera.get_ray(0.5, 0.5, &mut rng);
         let bvh_root = BVHNode::new(&mut rng, &mut hitables, &storage.bvhnode_arena).unwrap();
-        b.iter(|| bvh_root.ray_hit(&ray, MIN_T, MAX_T));
+        b.iter(|| bvh_root.ray_hit(&ray, MIN_T, MAX_T, &mut rng));
     }
 
     #[bench]
@@ -375,6 +375,6 @@ mod bench {
         let (mut hitables, camera, _) = presets::random(&PARAMS, &mut rng, &storage);
         let ray = camera.get_ray(0.5, 0.5, &mut rng);
         let bvh_root = BVHNode::new(&mut rng, &mut hitables, &storage.bvhnode_arena).unwrap();
-        b.iter(|| bvh_root.ray_hit(&ray, MIN_T, MAX_T));
+        b.iter(|| bvh_root.ray_hit(&ray, MIN_T, MAX_T, &mut rng));
     }
 }
