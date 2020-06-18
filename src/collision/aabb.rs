@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::collision::Ray;
-use glam::{Mat4, Vec3};
+use glam::{Mat4, Vec3, Vec3Align16};
 use std::f32;
 
 #[derive(Clone, Copy, Debug)]
@@ -44,12 +44,16 @@ impl AABB {
 
     #[inline]
     pub fn ray_hit(&self, r: &Ray, tmin: f32, tmax: f32) -> bool {
-        let min_delta = (self.min - r.origin) * r.rcp_direction;
-        let max_delta = (self.max - r.origin) * r.rcp_direction;
+        let min = Vec3Align16::from(self.min);
+        let max = Vec3Align16::from(self.max);
+        let origin = Vec3Align16::from(r.origin);
+        let rcp_direction = Vec3Align16::from(r.rcp_direction);
+        let min_delta = (min - origin) * rcp_direction;
+        let max_delta = (max - origin) * rcp_direction;
         let t0 = min_delta.min(max_delta);
         let t1 = min_delta.max(max_delta);
-        let tmin = t0.max(Vec3::splat(tmin));
-        let tmax = t1.min(Vec3::splat(tmax));
+        let tmin = t0.max(Vec3Align16::splat(tmin));
+        let tmax = t1.min(Vec3Align16::splat(tmax));
         tmax.cmpgt(tmin).all()
     }
 
@@ -69,23 +73,26 @@ impl AABB {
 
     #[inline]
     pub fn transform(&self, m: &Mat4) -> Self {
-        let mut min = m.w_axis().truncate();
-        let mut max = min;
+        let min = m.w_axis().truncate();
+        let max = min;
+
+        let mut min_out = min;
+        let mut max_out = max;
 
         let x_axis = m.x_axis().truncate();
-        let x_mask = x_axis.cmpgt(Vec3::zero());
+        let x_mask = x_axis.cmpgt(Vec3Align16::zero());
         let y_axis = m.y_axis().truncate();
-        let y_mask = y_axis.cmpgt(Vec3::zero());
+        let y_mask = y_axis.cmpgt(Vec3Align16::zero());
         let z_axis = m.z_axis().truncate();
-        let z_mask = z_axis.cmpgt(Vec3::zero());
+        let z_mask = z_axis.cmpgt(Vec3Align16::zero());
 
-        min += x_axis * x_mask.select(self.min, self.max);
-        max += x_axis * x_mask.select(self.max, self.min);
-        min += y_axis * y_mask.select(self.min, self.max);
-        max += y_axis * y_mask.select(self.max, self.min);
-        min += z_axis * z_mask.select(self.min, self.max);
-        max += z_axis * z_mask.select(self.max, self.min);
+        min_out += x_axis * x_mask.select(min, max);
+        max_out += x_axis * x_mask.select(max, min);
+        min_out += y_axis * y_mask.select(min, max);
+        max_out += y_axis * y_mask.select(max, min);
+        min_out += z_axis * z_mask.select(min, max);
+        max_out += z_axis * z_mask.select(max, min);
 
-        AABB { min, max }
+        AABB { min: Vec3::from(min_out), max: Vec3::from(max_out) }
     }
 }

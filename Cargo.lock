@@ -302,8 +302,8 @@ dependencies = [
 
 [[package]]
 name = "glam"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+version = "0.9.0-beta0"
+source = "git+https://github.com/bitshifter/glam-rs?branch=vec3a16#997b0b836ff87720ef654426d0daa8cace5aa0e6"
 
 [[package]]
 name = "gleam"
@@ -616,7 +616,7 @@ name = "pathtrace-rs"
 version = "0.1.2"
 dependencies = [
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "glam 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "glam 0.9.0-beta0 (git+https://github.com/bitshifter/glam-rs?branch=vec3a16)",
  "glium 0.25.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "image 0.22.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1066,7 +1066,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum getrandom 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)" = "473a1265acc8ff1e808cd0a1af8cee3c2ee5200916058a2ca113c29f2d903571"
 "checksum gl_generator 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)" = "39a23d5e872a275135d66895d954269cf5e8661d234eb1c2480f4ce0d586acbd"
 "checksum gl_generator 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ca98bbde17256e02d17336a6bdb5a50f7d0ccacee502e191d3e3d0ec2f96f84a"
-"checksum glam 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ea81c8e53d946ddceb491aa08cf9bdf18629d15b598eebe7a41e7374e5816a39"
+"checksum glam 0.9.0-beta0 (git+https://github.com/bitshifter/glam-rs?branch=vec3a16)" = "<none>"
 "checksum gleam 0.6.19 (registry+https://github.com/rust-lang/crates.io-index)" = "cae10d7c99d0e77b4766e850a60898a17c1abaf01075531f1066f03dc7dc5fc5"
 "checksum glium 0.25.1 (registry+https://github.com/rust-lang/crates.io-index)" = "6d7d887755ee729c5204e151db1c81b0b5beb809ef5e01d0eb14847e80a71256"
 "checksum glutin 0.21.1 (registry+https://github.com/rust-lang/crates.io-index)" = "938ce7a2b1bbfe1535166133bea3f9c1b46350d2794b49561303575e9e1b9949"
