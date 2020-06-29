@@ -1,5 +1,5 @@
 use crate::collision::{Ray, RayHit, AABB};
-use glam::{Vec3, Vec3Align16};
+use glam::{Vec3, Vec3A};
 use std::f32;
 
 // #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -27,9 +27,9 @@ impl Sphere {
 
     #[inline]
     pub fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<RayHit> {
-        let centre = Vec3Align16::from(self.centre);
-        let ray_origin = Vec3Align16::from(ray.origin);
-        let ray_direction = Vec3Align16::from(ray.direction);
+        let centre = Vec3A::from(self.centre);
+        let ray_origin = Vec3A::from(ray.origin);
+        let ray_direction = Vec3A::from(ray.direction);
         let oc = ray_origin - centre;
         let a = ray_direction.dot(ray_direction);
         let b = oc.dot(ray_direction);

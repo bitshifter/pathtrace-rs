@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::collision::Ray;
-use glam::{Mat4, Vec3, Vec3Align16};
+use glam::{Mat4, Vec3, Vec3A};
 use std::f32;
 
 #[derive(Clone, Copy, Debug)]
@@ -44,16 +44,16 @@ impl AABB {
 
     #[inline]
     pub fn ray_hit(&self, r: &Ray, tmin: f32, tmax: f32) -> bool {
-        let min = Vec3Align16::from(self.min);
-        let max = Vec3Align16::from(self.max);
-        let origin = Vec3Align16::from(r.origin);
-        let rcp_direction = Vec3Align16::from(r.rcp_direction);
+        let min = Vec3A::from(self.min);
+        let max = Vec3A::from(self.max);
+        let origin = Vec3A::from(r.origin);
+        let rcp_direction = Vec3A::from(r.rcp_direction);
         let min_delta = (min - origin) * rcp_direction;
         let max_delta = (max - origin) * rcp_direction;
         let t0 = min_delta.min(max_delta);
         let t1 = min_delta.max(max_delta);
-        let tmin = t0.max(Vec3Align16::splat(tmin));
-        let tmax = t1.min(Vec3Align16::splat(tmax));
+        let tmin = t0.max(Vec3A::splat(tmin));
+        let tmax = t1.min(Vec3A::splat(tmax));
         tmax.cmpgt(tmin).all()
     }
 
@@ -80,11 +80,11 @@ impl AABB {
         let mut max_out = max;
 
         let x_axis = m.x_axis().truncate();
-        let x_mask = x_axis.cmpgt(Vec3Align16::zero());
+        let x_mask = x_axis.cmpgt(Vec3A::zero());
         let y_axis = m.y_axis().truncate();
-        let y_mask = y_axis.cmpgt(Vec3Align16::zero());
+        let y_mask = y_axis.cmpgt(Vec3A::zero());
         let z_axis = m.z_axis().truncate();
-        let z_mask = z_axis.cmpgt(Vec3Align16::zero());
+        let z_mask = z_axis.cmpgt(Vec3A::zero());
 
         min_out += x_axis * x_mask.select(min, max);
         max_out += x_axis * x_mask.select(max, min);
