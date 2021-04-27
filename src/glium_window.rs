@@ -220,7 +220,7 @@ pub fn start_loop<'a>(preset: &str, params: Params, max_frames: Option<u32>) {
         let image =
             image::ImageBuffer::from_raw(image.width, image.height, image.data.into_owned())
                 .unwrap();
-        let image = image::DynamicImage::ImageRgba8(image).flipv().to_rgb();
+        let image = image::DynamicImage::ImageRgba8(image).flipv().to_rgb8();
         image
             .save("output.png")
             .expect("Failed to save output image");

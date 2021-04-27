@@ -54,7 +54,7 @@ pub fn render_offline(preset: &str, params: Params) {
         &image_bytes,
         params.width,
         params.height,
-        image::RGB(8),
+        image::ColorType::Rgb8,
     )
     .expect("Failed to save output image");
 }

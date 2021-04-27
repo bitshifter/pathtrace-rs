@@ -13,7 +13,7 @@ impl RgbImage {
     // TODO: error handling
     pub fn open(path: &str) -> RgbImage {
         let image = image::open(path).unwrap();
-        let image = image.to_rgb();
+        let image = image.to_rgb8();
         let width = image.width();
         let height = image.height();
         let data = image.into_raw();
