@@ -11,7 +11,7 @@ pub struct Ray {
 impl Ray {
     #[inline]
     pub fn new(origin: Vec3, direction: Vec3, time: f32) -> Self {
-        let rcp_direction = direction.reciprocal();
+        let rcp_direction = direction.recip();
         Ray {
             origin,
             direction,
@@ -29,7 +29,7 @@ impl Ray {
     pub fn transform(&self, m: &Mat4) -> Self {
         let origin = m.transform_point3(self.origin);
         let direction = m.transform_vector3(self.direction);
-        let rcp_direction = direction.reciprocal();
+        let rcp_direction = direction.recip();
         Ray {
             origin,
             direction: direction,

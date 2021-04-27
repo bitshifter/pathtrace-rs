@@ -63,7 +63,7 @@ impl<'a> ConstantMedium<'a> {
                     return Some((
                         RayHit {
                             point: ray.point_at_parameter(t),
-                            normal: Vec3::unit_x(), // arbitrary
+                            normal: Vec3::X, // arbitrary
                             t,
                             u: 0.0,
                             v: 0.0,

@@ -162,7 +162,7 @@ impl<'a> Material<'a> {
         if let Material::DiffuseLight { emit } = self {
             emit.value(u, v, point)
         } else {
-            Vec3::zero()
+            Vec3::ZERO
         }
     }
 

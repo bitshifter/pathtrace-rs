@@ -367,7 +367,7 @@ pub fn simple_light<'a>(
         ),
     ];
 
-    (hitables, camera, Some(Vec3::zero()))
+    (hitables, camera, Some(Vec3::ZERO))
 }
 
 pub fn cornell_box<'a>(
@@ -440,21 +440,21 @@ pub fn cornell_box<'a>(
         ),
         Hitable::Instance(storage.alloc_instance(Instance::new(
             Hitable::Cuboid(
-                storage.alloc_cuboid(Cuboid::new(Vec3::zero(), Vec3::new(165.0, 165.0, 165.0))),
+                storage.alloc_cuboid(Cuboid::new(Vec3::ZERO, Vec3::new(165.0, 165.0, 165.0))),
                 white,
             ),
             box1_transform,
         ))),
         Hitable::Instance(storage.alloc_instance(Instance::new(
             Hitable::Cuboid(
-                storage.alloc_cuboid(Cuboid::new(Vec3::zero(), Vec3::new(165.0, 330.0, 165.0))),
+                storage.alloc_cuboid(Cuboid::new(Vec3::ZERO, Vec3::new(165.0, 330.0, 165.0))),
                 white,
             ),
             box2_transform,
         ))),
     ];
 
-    (hitables, camera, Some(Vec3::zero()))
+    (hitables, camera, Some(Vec3::ZERO))
 }
 
 pub fn cornell_smoke<'a>(
@@ -528,28 +528,28 @@ pub fn cornell_smoke<'a>(
         Hitable::ConstantMedium(storage.alloc_constant_medium(ConstantMedium::new(
             Hitable::Instance(storage.alloc_instance(Instance::new(
                 Hitable::Cuboid(
-                    storage.alloc_cuboid(Cuboid::new(Vec3::zero(), Vec3::new(165.0, 165.0, 165.0))),
+                    storage.alloc_cuboid(Cuboid::new(Vec3::ZERO, Vec3::new(165.0, 165.0, 165.0))),
                     white,
                 ),
                 box1_transform,
             ))),
             0.01,
-            storage.alloc_texture(texture::constant(Vec3::one())),
+            storage.alloc_texture(texture::constant(Vec3::ONE)),
         ))),
         Hitable::ConstantMedium(storage.alloc_constant_medium(ConstantMedium::new(
             Hitable::Instance(storage.alloc_instance(Instance::new(
                 Hitable::Cuboid(
-                    storage.alloc_cuboid(Cuboid::new(Vec3::zero(), Vec3::new(165.0, 330.0, 165.0))),
+                    storage.alloc_cuboid(Cuboid::new(Vec3::ZERO, Vec3::new(165.0, 330.0, 165.0))),
                     white,
                 ),
                 box2_transform,
             ))),
             0.01,
-            storage.alloc_texture(texture::constant(Vec3::zero())),
+            storage.alloc_texture(texture::constant(Vec3::ZERO)),
         ))),
     ];
 
-    (hitables, camera, Some(Vec3::zero()))
+    (hitables, camera, Some(Vec3::ZERO))
 }
 
 pub fn earth<'a>(
@@ -926,5 +926,5 @@ pub fn smallpt<'a>(
         ), //Lite
     ];
 
-    (hitables, camera, Some(Vec3::zero()))
+    (hitables, camera, Some(Vec3::ZERO))
 }

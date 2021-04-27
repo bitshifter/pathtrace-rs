@@ -266,14 +266,14 @@ impl<'a> BVHNode<'a> {
 
     #[inline]
     fn sort_by_axis(rng: &mut Xoshiro256Plus, hitables: &mut [Hitable<'a>], t0: f32, t1: f32) {
-        let axis = rng.gen_range(0, 3);
+        let axis = rng.gen_range(0..3);
         hitables.sort_unstable_by(|lhs, rhs| {
             let lhs_min = lhs.bounding_box(t0, t1).unwrap().min;
             let rhs_min = rhs.bounding_box(t0, t1).unwrap().min;
             let ord = match axis {
-                0 => lhs_min.x().partial_cmp(&rhs_min.x()),
-                1 => lhs_min.y().partial_cmp(&rhs_min.y()),
-                2 => lhs_min.z().partial_cmp(&rhs_min.z()),
+                0 => lhs_min.x.partial_cmp(&rhs_min.x),
+                1 => lhs_min.y.partial_cmp(&rhs_min.y),
+                2 => lhs_min.z.partial_cmp(&rhs_min.z),
                 _ => unreachable!(),
             };
             ord.unwrap()

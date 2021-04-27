@@ -13,7 +13,7 @@ pub struct Perlin {
 
 impl Perlin {
     fn generate(rng: &mut Xoshiro256Plus) -> Vec<Vec3> {
-        let mut randvec = vec![Vec3::zero(); 256];
+        let mut randvec = vec![Vec3::ZERO; 256];
         for v in randvec.iter_mut() {
             *v = vec3(
                 -1.0 + 2.0 * rng.gen::<f32>(),
@@ -87,16 +87,16 @@ impl Perlin {
     }
 
     pub fn noise(&self, p: Vec3) -> f32 {
-        let x = p.x();
-        let y = p.y();
-        let z = p.z();
+        let x = p.x;
+        let y = p.y;
+        let z = p.z;
         let u = x - x.floor();
         let v = y - y.floor();
         let w = z - z.floor();
         let i = x.floor() as usize;
         let j = y.floor() as usize;
         let k = z.floor() as usize;
-        let mut c = [[[Vec3::zero(); 2]; 2]; 2];
+        let mut c = [[[Vec3::ZERO; 2]; 2]; 2];
         for di in 0..2 {
             for dj in 0..2 {
                 for dk in 0..2 {
