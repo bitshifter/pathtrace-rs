@@ -338,8 +338,6 @@ dependencies = [
 [[package]]
 name = "glam"
 version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "333928d5eb103c5d4050533cec0384302db6be8ef7d3cebd30ec6a35350353da"
 
 [[package]]
 name = "gleam"

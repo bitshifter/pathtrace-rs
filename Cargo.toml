@@ -39,5 +39,5 @@ opt-level = 3
 debug = true
 # lto = true
 
-# [patch.crates-io]
-# glam = { path = "../glam-rs" }
+[patch.crates-io]
+glam = { path = "../glam-rs" }

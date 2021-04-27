@@ -1,4 +1,4 @@
-use glam::{Mat4, Vec3};
+use glam::{Affine3, Vec3};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Ray {
@@ -26,7 +26,7 @@ impl Ray {
     }
 
     #[inline]
-    pub fn transform(&self, m: &Mat4) -> Self {
+    pub fn transform(&self, m: &Affine3) -> Self {
         let origin = m.transform_point3(self.origin);
         let direction = m.transform_vector3(self.direction);
         let rcp_direction = direction.recip();
@@ -51,7 +51,7 @@ pub struct RayHit {
 
 impl RayHit {
     #[inline]
-    pub fn transform(&self, m: &Mat4) -> Self {
+    pub fn transform(&self, m: &Affine3) -> Self {
         let point = m.transform_point3(self.point);
         let normal = m.transform_vector3(self.normal);
         RayHit {
