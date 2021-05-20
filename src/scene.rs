@@ -72,7 +72,7 @@ impl Scene {
             let sphere_centre = self.spheres.centre(*index);
             let sphere_radius_sq = self.spheres.radius_sq(*index);
             let sw = (sphere_centre - ray_in_hit.point).normalize();
-            let su = (if sw.get_x().abs() > 0.01 {
+            let su = (if sw.x().abs() > 0.01 {
                 vec3(0.0, 1.0, 0.0)
             } else {
                 vec3(1.0, 0.0, 0.0)
@@ -158,7 +158,7 @@ impl Scene {
             return material.emissive;
         } else {
             // sky
-            let t = 0.5 * (ray_in.direction.get_y() + 1.0);
+            let t = 0.5 * (ray_in.direction.y() + 1.0);
             (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0) * 0.3
         }
     }
@@ -206,9 +206,9 @@ impl Scene {
                         );
                     }
                     col *= inv_ns;
-                    color_out.0 = color_out.0 * mix_prev + col.get_x() * mix_new;
-                    color_out.1 = color_out.1 * mix_prev + col.get_y() * mix_new;
-                    color_out.2 = color_out.2 * mix_prev + col.get_z() * mix_new;
+                    color_out.0 = color_out.0 * mix_prev + col.x() * mix_new;
+                    color_out.1 = color_out.1 * mix_prev + col.y() * mix_new;
+                    color_out.2 = color_out.2 * mix_prev + col.z() * mix_new;
                 });
                 self.ray_count.fetch_add(ray_count, Ordering::Relaxed);
             });

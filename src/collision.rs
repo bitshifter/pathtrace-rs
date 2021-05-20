@@ -135,9 +135,9 @@ impl SpheresSoA {
         let mut radius_inv = Vec::with_capacity(len);
         let mut radius_sq = Vec::with_capacity(len);
         for sphere in spheres {
-            centre_x.push(sphere.centre.get_x());
-            centre_y.push(sphere.centre.get_y());
-            centre_z.push(sphere.centre.get_z());
+            centre_x.push(sphere.centre.x());
+            centre_y.push(sphere.centre.y());
+            centre_z.push(sphere.centre.z());
             radius_sq.push(sphere.radius * sphere.radius);
             radius_inv.push(1.0 / sphere.radius);
         }
