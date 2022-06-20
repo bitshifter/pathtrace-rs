@@ -6,7 +6,7 @@ use crate::{
     storage::Storage,
     texture::{self, RgbImage, Texture},
 };
-use glam::{Affine3, Quat, Vec3};
+use glam::{Affine3A, Quat, Vec3};
 use rand::Rng;
 use rand_xoshiro::Xoshiro256Plus;
 
@@ -404,11 +404,11 @@ pub fn cornell_box<'a>(
         storage.alloc_texture(texture::constant(Vec3::new(15.0, 15.0, 15.0))),
     ));
 
-    let box1_transform = Affine3::from_rotation_translation(
+    let box1_transform = Affine3A::from_rotation_translation(
         Quat::from_rotation_y(f32::to_radians(-18.0)),
         Vec3::new(130.0, 0.0, 65.0),
     );
-    let box2_transform = Affine3::from_rotation_translation(
+    let box2_transform = Affine3A::from_rotation_translation(
         Quat::from_rotation_y(f32::to_radians(15.0)),
         Vec3::new(265.0, 0.0, 295.0),
     );
@@ -491,11 +491,11 @@ pub fn cornell_smoke<'a>(
         storage.alloc_texture(texture::constant(Vec3::new(7.0, 7.0, 7.0))),
     ));
 
-    let box1_transform = Affine3::from_rotation_translation(
+    let box1_transform = Affine3A::from_rotation_translation(
         Quat::from_rotation_y(f32::to_radians(-18.0)),
         Vec3::new(130.0, 0.0, 65.0),
     );
-    let box2_transform = Affine3::from_rotation_translation(
+    let box2_transform = Affine3A::from_rotation_translation(
         Quat::from_rotation_y(f32::to_radians(15.0)),
         Vec3::new(265.0, 0.0, 295.0),
     );

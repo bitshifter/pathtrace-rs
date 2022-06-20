@@ -2,18 +2,18 @@ use crate::{
     collision::{Hitable, Ray, RayHit, AABB},
     material::Material,
 };
-use glam::Affine3;
+use glam::Affine3A;
 use rand_xoshiro::Xoshiro256Plus;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Instance<'a> {
     hitable: Hitable<'a>,
-    transform: Affine3,
-    inv_transform: Affine3,
+    transform: Affine3A,
+    inv_transform: Affine3A,
 }
 
 impl<'a> Instance<'a> {
-    pub fn new(hitable: Hitable<'a>, transform: Affine3) -> Instance<'a> {
+    pub fn new(hitable: Hitable<'a>, transform: Affine3A) -> Instance<'a> {
         Instance {
             hitable,
             transform,

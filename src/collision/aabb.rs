@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::collision::Ray;
-use glam::{Affine3, Vec3, Vec3A};
+use glam::{Affine3A, Vec3, Vec3A};
 use std::f32;
 
 #[derive(Clone, Copy, Debug)]
@@ -72,8 +72,8 @@ impl AABB {
     }
 
     #[inline]
-    pub fn transform(&self, m: &Affine3) -> Self {
-        let min = Vec3A::from(m.w_axis);
+    pub fn transform(&self, m: &Affine3A) -> Self {
+        let min = m.w_axis;
         let max = min;
 
         let mut min_out = min;
