@@ -43,7 +43,7 @@ impl<'a> HitableList<'a> {
         t_min: f32,
         t_max: f32,
         rng: &mut Xoshiro256Plus,
-    ) -> Option<(RayHit, &Material)> {
+    ) -> Option<(RayHit, &Material<'_>)> {
         let mut result = None;
         let mut closest_so_far = t_max;
         for hitable in &self.hitables {

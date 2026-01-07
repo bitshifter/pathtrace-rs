@@ -42,7 +42,7 @@ impl<'a> Hitable<'a> {
         t_min: f32,
         t_max: f32,
         rng: &mut Xoshiro256Plus,
-    ) -> Option<(RayHit, &Material)> {
+    ) -> Option<(RayHit, &Material<'_>)> {
         let (ray_hit, material) = match self {
             Hitable::BVHNode(node) => return node.ray_hit(ray, t_min, t_max, rng),
             Hitable::Instance(instance) => return instance.ray_hit(ray, t_min, t_max, rng),

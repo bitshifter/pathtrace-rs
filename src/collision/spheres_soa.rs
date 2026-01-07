@@ -94,7 +94,7 @@ impl<'a> SpheresSoA<'a> {
         self.radius_sq[index as usize]
     }
 
-    pub fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
+    pub fn ray_hit(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material<'_>)> {
         match self.feature {
             TargetFeature::AVX2 => unsafe { self.hit_avx2(ray, t_min, t_max) },
             TargetFeature::SSE4_1 => unsafe { self.hit_sse4_1(ray, t_min, t_max) },
@@ -102,7 +102,7 @@ impl<'a> SpheresSoA<'a> {
         }
     }
 
-    pub fn hit_scalar(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material)> {
+    pub fn hit_scalar(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material<'_>)> {
         let mut hit_t = t_max;
         let mut hit_index = self.len;
         for ((((index, centre_x), centre_y), centre_z), radius_sq) in self
@@ -163,7 +163,7 @@ impl<'a> SpheresSoA<'a> {
         ray: &Ray,
         t_min: f32,
         t_max: f32,
-    ) -> Option<(RayHit, &Material)> {
+    ) -> Option<(RayHit, &Material<'_>)> {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::*;
         #[cfg(target_arch = "x86_64")]
@@ -276,7 +276,7 @@ impl<'a> SpheresSoA<'a> {
         ray: &Ray,
         t_min: f32,
         t_max: f32,
-    ) -> Option<(RayHit, &Material)> {
+    ) -> Option<(RayHit, &Material<'_>)> {
         #[cfg(target_arch = "x86")]
         use std::arch::x86::*;
         #[cfg(target_arch = "x86_64")]

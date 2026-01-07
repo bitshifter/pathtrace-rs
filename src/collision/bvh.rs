@@ -40,7 +40,7 @@ impl<'a> BVHNode<'a> {
         t_min: f32,
         t_max: f32,
         rng: &mut Xoshiro256Plus,
-    ) -> Option<(RayHit, &Material)> {
+    ) -> Option<(RayHit, &Material<'_>)> {
         if self.aabb.ray_hit(ray, t_min, t_max) {
             let hit_lhs = self.lhs.ray_hit(ray, t_min, t_max, rng);
             let hit_rhs = self.rhs.ray_hit(ray, t_min, t_max, rng);
@@ -109,7 +109,7 @@ impl<'a> BVHNode<'a> {
         t_min: f32,
         t_max: f32,
         rng: &mut Xoshiro256Plus,
-    ) -> Option<(RayHit, &Material)> {
+    ) -> Option<(RayHit, &Material<'_>)> {
         stats.num_nodes += 1;
         let hit = self.aabb.ray_hit(ray, t_min, t_max);
         println!(
@@ -145,7 +145,7 @@ impl<'a> BVHNode<'a> {
         t_min: f32,
         t_max: f32,
         rng: &mut Xoshiro256Plus,
-    ) -> Option<(RayHit, &Material)> {
+    ) -> Option<(RayHit, &Material<'_>)> {
         match hitable {
             Hitable::BVHNode(node) => {
                 return node.print_ray_hit_node(depth + 1, stats, ray, t_min, t_max, rng);

@@ -39,7 +39,7 @@ pub fn from_name<'a>(
 
 pub fn final_scene<'a>(
     params: &Params,
-    rng: &mut Xoshiro256Plus,
+    _rng: &mut Xoshiro256Plus,
     storage: &'a Storage<'a>,
 ) -> (Vec<Hitable<'a>>, Camera, Option<Vec3>) {
     let lookfrom = Vec3::new(13.0, 2.0, 3.0);
@@ -58,13 +58,13 @@ pub fn final_scene<'a>(
         1.0,
     );
     let n = 500;
-    let mut hitables = Vec::with_capacity(n + 1);
+    let hitables = Vec::with_capacity(n + 1);
     // let mut boxes1 = Vec::with_capacity(10000);
     // let mut boxes2 = Vec::with_capacity(10000);
 
-    let white =
+    let _white =
         material::lambertian(storage.alloc_texture(texture::constant(Vec3::new(0.73, 0.73, 0.73))));
-    let ground =
+    let _ground =
         material::lambertian(storage.alloc_texture(texture::constant(Vec3::new(0.48, 0.83, 0.53))));
 
     (hitables, camera, None)

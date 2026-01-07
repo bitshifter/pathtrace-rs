@@ -35,7 +35,7 @@ impl<'a> Instance<'a> {
         t_min: f32,
         t_max: f32,
         rng: &mut Xoshiro256Plus,
-    ) -> Option<(RayHit, &Material)> {
+    ) -> Option<(RayHit, &Material<'_>)> {
         if let Some((ray_hit, material)) =
             self.hitable
                 .ray_hit(&ray.transform(&self.inv_transform), t_min, t_max, rng)

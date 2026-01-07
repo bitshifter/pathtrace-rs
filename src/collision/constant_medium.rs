@@ -35,7 +35,7 @@ impl<'a> ConstantMedium<'a> {
         t_min: f32,
         t_max: f32,
         rng: &mut Xoshiro256Plus,
-    ) -> Option<(RayHit, &Material)> {
+    ) -> Option<(RayHit, &Material<'_>)> {
         if let Some((ray_hit1, _)) = self.hitable.ray_hit(ray, -f32::MAX, f32::MAX, rng) {
             if let Some((ray_hit2, _)) =
                 self.hitable
