@@ -1,6 +1,6 @@
 use crate::{
     camera::Camera,
-    collision::{Hitable, Ray},
+    collision::{Hitable, Ray, SpheresSoA},
     params::Params,
 };
 use glam::{Vec3, vec3};
@@ -12,14 +12,19 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 pub const MAX_T: f32 = f32::MAX;
 pub const MIN_T: f32 = 0.001;
 
+pub enum World<'a> {
+    Hitable(Hitable<'a>),
+    Spheres(SpheresSoA<'a>),
+}
+
 pub struct Scene<'a> {
-    world: Hitable<'a>,
+    world: World<'a>,
     sky: Option<Vec3>,
     ray_count: AtomicUsize,
 }
 
 impl<'a> Scene<'a> {
-    pub fn new(world: Hitable<'a>, sky: Option<Vec3>) -> Scene<'a> {
+    pub fn new(world: World<'a>, sky: Option<Vec3>) -> Scene<'a> {
         Scene {
             world,
             sky,
@@ -28,7 +33,7 @@ impl<'a> Scene<'a> {
     }
 
     pub fn print_ray_trace(&self, ray: &Ray, rng: &mut Xoshiro256Plus) {
-        if let Hitable::BVHNode(node) = self.world {
+        if let World::Hitable(Hitable::BVHNode(node)) = &self.world {
             node.print_ray_hit(ray, MIN_T, MAX_T, rng);
         }
     }
@@ -52,7 +57,11 @@ impl<'a> Scene<'a> {
         ray_count: &mut usize,
     ) -> Vec3 {
         *ray_count += 1;
-        if let Some((ray_hit, material)) = self.world.ray_hit(ray_in, MIN_T, MAX_T, rng) {
+        let hit = match &self.world {
+            World::Hitable(world) => world.ray_hit(ray_in, MIN_T, MAX_T, rng),
+            World::Spheres(spheres) => spheres.ray_hit(ray_in, MIN_T, MAX_T),
+        };
+        if let Some((ray_hit, material)) = hit {
             let emitted = material.emitted(ray_hit.u, ray_hit.v, ray_hit.point);
             if depth < max_depth
                 && let Some((attenuation, scattered)) = material.scatter(ray_in, &ray_hit, rng)

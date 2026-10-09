@@ -71,6 +71,11 @@ fn main() {
                 .short('B')
                 .long("bvh")
                 .action(ArgAction::SetTrue),
+            Arg::new("soa")
+                .help("Use a spheres structure of arrays for collision instead of a flat list")
+                .short('A')
+                .long("soa")
+                .action(ArgAction::SetTrue),
             Arg::new("offline")
                 .help("Don't create a preview render window")
                 .short('O')
@@ -91,6 +96,7 @@ fn main() {
         max_depth: *matches.get_one::<u32>("depth").unwrap(),
         random_seed: matches.get_flag("random"),
         use_bvh: matches.get_flag("bvh"),
+        use_soa: matches.get_flag("soa"),
     };
 
     let preset = matches.get_one::<String>("preset").unwrap();

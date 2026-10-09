@@ -14,6 +14,13 @@ pub enum TargetFeature {
 
 impl TargetFeature {
     pub fn detect() -> TargetFeature {
+        // Optional override for experimenting with the collision code paths.
+        match std::env::var("PATHTRACE_SIMD").as_deref() {
+            Ok("scalar") | Ok("fallback") => return TargetFeature::FallBack,
+            Ok("sse4_1") | Ok("sse4.1") => return TargetFeature::SSE4_1,
+            Ok("avx2") => return TargetFeature::AVX2,
+            _ => {}
+        }
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
             if is_x86_feature_detected!("avx2") {

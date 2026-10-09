@@ -1,6 +1,6 @@
 use crate::{
-    collision::{BVHNode, Hitable},
-    scene::Scene,
+    collision::{BVHNode, Hitable, SpheresSoA},
+    scene::{Scene, World},
     storage::Storage,
 };
 use glam::Vec3;
@@ -15,6 +15,7 @@ pub struct Params {
     pub max_depth: u32,
     pub random_seed: bool,
     pub use_bvh: bool,
+    pub use_soa: bool,
 }
 
 impl Params {
@@ -33,6 +34,14 @@ impl Params {
         mut hitables: Vec<Hitable<'a>>,
         sky: Option<Vec3>,
     ) -> Scene<'a> {
+        if self.use_soa {
+            assert!(
+                hitables.iter().all(|h| matches!(h, Hitable::Sphere(..))),
+                "--soa only supports all-sphere presets"
+            );
+            return Scene::new(World::Spheres(SpheresSoA::new(&hitables)), sky);
+        }
+
         let hitable_list = if self.use_bvh {
             let bvh_root = BVHNode::new(rng, &mut hitables, &storage.bvhnode_arena).unwrap();
             dbg!(bvh_root.get_stats());
@@ -42,6 +51,6 @@ impl Params {
             Hitable::List(storage.alloc_hitables(hitables))
         };
 
-        Scene::new(hitable_list, sky)
+        Scene::new(World::Hitable(hitable_list), sky)
     }
 }

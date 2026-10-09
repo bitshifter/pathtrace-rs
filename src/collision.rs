@@ -22,4 +22,5 @@ pub use moving_sphere::MovingSphere;
 pub use ray::{Ray, RayHit};
 pub use rect::Rect;
 pub use sphere::Sphere;
-// pub use spheres_soa::SpheresSoA;
+#[allow(unused_imports)]
+pub use spheres_soa::SpheresSoA;

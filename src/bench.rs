@@ -12,6 +12,7 @@ pub const PARAMS: Params = Params {
     max_depth: 10,
     random_seed: false,
     use_bvh: false,
+    use_soa: false,
 };
 
 pub fn hitables_bench<F>(f: F)
