@@ -10,6 +10,20 @@ use glam::{Affine3A, Quat, Vec3};
 use rand::RngExt;
 use rand_xoshiro::Xoshiro256Plus;
 
+/// Preset names accepted by [`from_name`], in the order shown in `--help`.
+pub const NAMES: &[&str] = &[
+    "random",
+    "random_spheres",
+    "small",
+    "smallpt",
+    "cornell",
+    "cornell_smoke",
+    "two_perlin_spheres",
+    "simple_light",
+    "earth",
+    "final",
+];
+
 pub fn from_name<'a>(
     name: &str,
     params: &Params,

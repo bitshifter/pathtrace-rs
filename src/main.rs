@@ -20,78 +20,87 @@ mod simd;
 mod storage;
 mod texture;
 
-use clap::{App, Arg, value_t};
+use clap::{Arg, ArgAction, Command, builder::PossibleValuesParser, value_parser};
 
 fn main() {
-    let matches = App::new("Toy Path Tracer")
+    let matches = Command::new("Toy Path Tracer")
         .version("0.1")
-        .args(&[
-            Arg::with_name("width")
+        .args([
+            Arg::new("width")
                 .help("Image width to generate")
-                .short("W")
+                .short('W')
                 .long("width")
-                .takes_value(true),
-            Arg::with_name("height")
+                .default_value("1280")
+                .value_parser(value_parser!(u32)),
+            Arg::new("height")
                 .help("Image height to generate")
-                .short("H")
+                .short('H')
                 .long("height")
-                .takes_value(true),
-            Arg::with_name("samples")
+                .default_value("720")
+                .value_parser(value_parser!(u32)),
+            Arg::new("samples")
                 .help("Number of samples per pixel")
-                .short("S")
+                .short('S')
                 .long("samples")
-                .takes_value(true),
-            Arg::with_name("depth")
+                .default_value("4")
+                .value_parser(value_parser!(u32)),
+            Arg::new("depth")
                 .help("Maximum bounces per ray")
-                .short("D")
+                .short('D')
                 .long("depth")
-                .takes_value(true),
-            Arg::with_name("random")
+                .default_value("10")
+                .value_parser(value_parser!(u32)),
+            Arg::new("random")
                 .help("Use a random seed")
-                .short("R")
-                .long("random"),
-            Arg::with_name("preset")
+                .short('R')
+                .long("random")
+                .action(ArgAction::SetTrue),
+            Arg::new("preset")
                 .help("Scene preset to render")
-                .short("P")
+                .short('P')
                 .long("preset")
-                .takes_value(true),
-            Arg::with_name("frames")
+                .default_value("two_perlin_spheres")
+                .value_parser(PossibleValuesParser::new(presets::NAMES)),
+            Arg::new("frames")
                 .help("Process a fixed number of frames and exit")
-                .short("F")
+                .short('F')
                 .long("frames")
-                .takes_value(true),
-            Arg::with_name("bvh")
+                .value_parser(value_parser!(u32)),
+            Arg::new("bvh")
                 .help("Use bounding volume hierarchy instead of a flat list")
-                .short("B")
-                .long("bvh"),
-            Arg::with_name("offline")
+                .short('B')
+                .long("bvh")
+                .action(ArgAction::SetTrue),
+            Arg::new("offline")
                 .help("Don't create a preview render window")
-                .short("O")
-                .long("offline"),
-            Arg::with_name("print")
+                .short('O')
+                .long("offline")
+                .action(ArgAction::SetTrue),
+            Arg::new("print")
                 .help("Debug print a ray trace and exit")
-                .short("X")
-                .long("print"),
+                .short('X')
+                .long("print")
+                .action(ArgAction::SetTrue),
         ])
         .get_matches();
 
     let params = params::Params {
-        width: value_t!(matches, "width", u32).unwrap_or(1280),
-        height: value_t!(matches, "height", u32).unwrap_or(720),
-        samples: value_t!(matches, "samples", u32).unwrap_or(4),
-        max_depth: value_t!(matches, "depth", u32).unwrap_or(10),
-        random_seed: matches.is_present("random"),
-        use_bvh: matches.is_present("bvh"),
+        width: *matches.get_one::<u32>("width").unwrap(),
+        height: *matches.get_one::<u32>("height").unwrap(),
+        samples: *matches.get_one::<u32>("samples").unwrap(),
+        max_depth: *matches.get_one::<u32>("depth").unwrap(),
+        random_seed: matches.get_flag("random"),
+        use_bvh: matches.get_flag("bvh"),
     };
 
-    let preset = matches.value_of("preset").unwrap_or("two_perlin_spheres");
+    let preset = matches.get_one::<String>("preset").unwrap();
 
-    if matches.is_present("print") {
+    if matches.get_flag("print") {
         offline::print_ray_trace(preset, params);
-    } else if matches.is_present("offline") {
+    } else if matches.get_flag("offline") {
         offline::render_offline(preset, params);
     } else {
-        let max_frames = value_t!(matches, "frames", u32).ok();
+        let max_frames = matches.get_one::<u32>("frames").copied();
         glium_window::start_loop(preset, params, max_frames);
     }
 }
