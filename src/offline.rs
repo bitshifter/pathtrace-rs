@@ -1,5 +1,4 @@
 use crate::{math::linear_to_srgb, params::Params, presets, storage::Storage};
-use image;
 use std::time::SystemTime;
 
 pub fn print_ray_trace(preset: &str, params: Params) {
@@ -7,7 +6,7 @@ pub fn print_ray_trace(preset: &str, params: Params) {
 
     let storage = Storage::new(&mut rng);
     let (hitables, camera, sky) =
-        presets::from_name(&preset, &params, &mut rng, &storage).expect("unrecognised preset");
+        presets::from_name(preset, &params, &mut rng, &storage).expect("unrecognised preset");
     let scene = params.new_scene(&mut rng, &storage, hitables, sky);
     let ray = camera.get_ray(0.5, 0.5, &mut rng);
     scene.print_ray_trace(&ray, &mut rng);
@@ -18,7 +17,7 @@ pub fn render_offline(preset: &str, params: Params) {
 
     let storage = Storage::new(&mut rng);
     let (hitables, camera, sky) =
-        presets::from_name(&preset, &params, &mut rng, &storage).expect("unrecognised preset");
+        presets::from_name(preset, &params, &mut rng, &storage).expect("unrecognised preset");
 
     let scene = params.new_scene(&mut rng, &storage, hitables, sky);
 

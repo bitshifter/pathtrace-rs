@@ -91,7 +91,7 @@ fn main() {
     } else if matches.is_present("offline") {
         offline::render_offline(preset, params);
     } else {
-        let max_frames = value_t!(matches, "frames", u32).ok().and_then(Some);
+        let max_frames = value_t!(matches, "frames", u32).ok();
         glium_window::start_loop(preset, params, max_frames);
     }
 }

@@ -22,11 +22,9 @@ impl<'a> Instance<'a> {
     }
 
     pub fn bounding_box(&self, t0: f32, t1: f32) -> Option<AABB> {
-        if let Some(aabb) = self.hitable.bounding_box(t0, t1) {
-            Some(aabb.transform(&self.transform))
-        } else {
-            None
-        }
+        self.hitable
+            .bounding_box(t0, t1)
+            .map(|aabb| aabb.transform(&self.transform))
     }
 
     pub fn ray_hit(

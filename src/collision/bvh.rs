@@ -136,6 +136,7 @@ impl<'a> BVHNode<'a> {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn print_ray_hit_child(
         &self,
         depth: usize,
@@ -339,11 +340,7 @@ impl<'a> BVHNode<'a> {
         rhs: Hitable<'a>,
         aabb: AABB,
     ) -> &'a BVHNode<'a> {
-        arena.alloc(BVHNode {
-            aabb,
-            lhs: lhs,
-            rhs: rhs,
-        })
+        arena.alloc(BVHNode { aabb, lhs, rhs })
     }
 }
 

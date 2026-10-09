@@ -32,8 +32,8 @@ impl Ray {
         let rcp_direction = direction.recip();
         Ray {
             origin,
-            direction: direction,
-            rcp_direction: rcp_direction,
+            direction,
+            rcp_direction,
             time: self.time,
         }
     }

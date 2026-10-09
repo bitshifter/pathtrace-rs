@@ -25,7 +25,7 @@ impl Perlin {
         randvec
     }
 
-    fn permute(rng: &mut Xoshiro256Plus, perm: &mut Vec<u32>) {
+    fn permute(rng: &mut Xoshiro256Plus, perm: &mut [u32]) {
         for i in (0..perm.len()).rev() {
             let target = (rng.random::<f32>() * (i + 1) as f32).floor() as usize;
             perm.swap(i, target);
@@ -56,17 +56,17 @@ impl Perlin {
         let vv = v * v * (3.0 - 2.0 * v);
         let ww = w * w * (3.0 - 2.0 * w);
         let mut accum = 0.0;
-        for i in 0..2 {
+        for (i, c_i) in c.iter().enumerate() {
             let ii = i as f32;
-            for j in 0..2 {
+            for (j, c_ij) in c_i.iter().enumerate() {
                 let jj = j as f32;
-                for k in 0..2 {
+                for (k, c_ijk) in c_ij.iter().enumerate() {
                     let kk = k as f32;
                     let weight = vec3(u - ii, v - jj, w - kk);
                     accum += (ii * uu + (1.0 - ii) * (1.0 - uu))
                         * (jj * vv + (1.0 - jj) * (1.0 - vv))
                         * (kk * ww + (1.0 - kk) * (1.0 - ww))
-                        * c[i][j][k].dot(weight);
+                        * c_ijk.dot(weight);
                 }
             }
         }
@@ -97,10 +97,10 @@ impl Perlin {
         let j = y.floor() as usize;
         let k = z.floor() as usize;
         let mut c = [[[Vec3::ZERO; 2]; 2]; 2];
-        for di in 0..2 {
-            for dj in 0..2 {
-                for dk in 0..2 {
-                    c[di][dj][dk] = self.randvec[(self.perm_x[i.wrapping_add(di) & 255]
+        for (di, c_i) in c.iter_mut().enumerate() {
+            for (dj, c_ij) in c_i.iter_mut().enumerate() {
+                for (dk, c_ijk) in c_ij.iter_mut().enumerate() {
+                    *c_ijk = self.randvec[(self.perm_x[i.wrapping_add(di) & 255]
                         ^ self.perm_y[j.wrapping_add(dj) & 255]
                         ^ self.perm_z[k.wrapping_add(dk) & 255])
                         as usize]

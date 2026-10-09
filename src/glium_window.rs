@@ -7,14 +7,13 @@ use glium::{
     uniform,
     vertex::EmptyVertexAttributes,
 };
-use image;
 use std::{
     sync::mpsc::{RecvTimeoutError, channel},
     thread,
     time::{Duration, SystemTime},
 };
 
-pub fn start_loop<'a>(preset: &str, params: Params, max_frames: Option<u32>) {
+pub fn start_loop(preset: &str, params: Params, max_frames: Option<u32>) {
     let mut events_loop = glium::glutin::EventsLoop::new();
     let window = glium::glutin::WindowBuilder::new()
         .with_dimensions((params.width, params.height).into())
@@ -146,11 +145,11 @@ pub fn start_loop<'a>(preset: &str, params: Params, max_frames: Option<u32>) {
                         save = true;
                     }
                     WindowEvent::KeyboardInput { input, .. } => {
-                        if let ElementState::Released = input.state {
-                            if let Some(VirtualKeyCode::Escape) = input.virtual_keycode {
-                                quit = true;
-                                save = true;
-                            }
+                        if let ElementState::Released = input.state
+                            && let Some(VirtualKeyCode::Escape) = input.virtual_keycode
+                        {
+                            quit = true;
+                            save = true;
                         }
                     }
                     _ => (),
@@ -176,9 +175,9 @@ pub fn start_loop<'a>(preset: &str, params: Params, max_frames: Option<u32>) {
                     let mut mapping = buffer_texture.map();
                     for (texel, rgb) in mapping.iter_mut().zip(rgb_buffer.iter()) {
                         *texel = (
-                            (255.99 * rgb.0.min(1.0).max(0.0)) as u8,
-                            (255.99 * rgb.1.min(1.0).max(0.0)) as u8,
-                            (255.99 * rgb.2.min(1.0).max(0.0)) as u8,
+                            (255.99 * rgb.0.clamp(0.0, 1.0)) as u8,
+                            (255.99 * rgb.1.clamp(0.0, 1.0)) as u8,
+                            (255.99 * rgb.2.clamp(0.0, 1.0)) as u8,
                             255,
                         );
                     }
@@ -198,10 +197,10 @@ pub fn start_loop<'a>(preset: &str, params: Params, max_frames: Option<u32>) {
                 target.finish().unwrap();
 
                 frame_num += 1;
-                if let Some(max_frames) = max_frames {
-                    if frame_num >= max_frames {
-                        quit = true;
-                    }
+                if let Some(max_frames) = max_frames
+                    && frame_num >= max_frames
+                {
+                    quit = true;
                 }
 
                 Some(rgb_buffer)

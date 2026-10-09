@@ -35,41 +35,40 @@ impl<'a> ConstantMedium<'a> {
         t_max: f32,
         rng: &mut Xoshiro256Plus,
     ) -> Option<(RayHit, &Material<'_>)> {
-        if let Some((ray_hit1, _)) = self.hitable.ray_hit(ray, -f32::MAX, f32::MAX, rng) {
-            if let Some((ray_hit2, _)) =
+        if let Some((ray_hit1, _)) = self.hitable.ray_hit(ray, -f32::MAX, f32::MAX, rng)
+            && let Some((ray_hit2, _)) =
                 self.hitable
                     .ray_hit(ray, ray_hit1.t + 0.0001, f32::MAX, rng)
-            {
-                let mut t1 = ray_hit1.t;
-                let mut t2 = ray_hit2.t;
-                if t1 < t_min {
-                    t1 = t_min;
-                }
-                if t2 > t_max {
-                    t2 = t_max;
-                }
-                if t1 >= t2 {
-                    return None;
-                }
-                if t1 < 0.0 {
-                    t1 = 0.0;
-                }
-                let ray_length = ray.direction.length();
-                let distance_inside_boundary = (t2 - t1) * ray_length;
-                let hit_distance = -(1.0 / self.density) * rng.random::<f32>().ln();
-                if hit_distance < distance_inside_boundary {
-                    let t = t1 + hit_distance / ray_length;
-                    return Some((
-                        RayHit {
-                            point: ray.point_at_parameter(t),
-                            normal: Vec3::X, // arbitrary
-                            t,
-                            u: 0.0,
-                            v: 0.0,
-                        },
-                        &self.phase_function,
-                    ));
-                }
+        {
+            let mut t1 = ray_hit1.t;
+            let mut t2 = ray_hit2.t;
+            if t1 < t_min {
+                t1 = t_min;
+            }
+            if t2 > t_max {
+                t2 = t_max;
+            }
+            if t1 >= t2 {
+                return None;
+            }
+            if t1 < 0.0 {
+                t1 = 0.0;
+            }
+            let ray_length = ray.direction.length();
+            let distance_inside_boundary = (t2 - t1) * ray_length;
+            let hit_distance = -(1.0 / self.density) * rng.random::<f32>().ln();
+            if hit_distance < distance_inside_boundary {
+                let t = t1 + hit_distance / ray_length;
+                return Some((
+                    RayHit {
+                        point: ray.point_at_parameter(t),
+                        normal: Vec3::X, // arbitrary
+                        t,
+                        u: 0.0,
+                        v: 0.0,
+                    },
+                    &self.phase_function,
+                ));
             }
         }
         None

@@ -20,18 +20,11 @@ impl<'a> HitableList<'a> {
             return None;
         }
 
-        let mut result = if let Some(aabb) = self.hitables[0].bounding_box(t0, t1) {
-            aabb
-        } else {
-            return None;
-        };
+        let mut result = self.hitables[0].bounding_box(t0, t1)?;
 
         for hitable in &self.hitables[1..] {
-            if let Some(aabb) = hitable.bounding_box(t0, t1) {
-                result.add_assign(&aabb);
-            } else {
-                return None;
-            }
+            let aabb = hitable.bounding_box(t0, t1)?;
+            result.add_assign(&aabb);
         }
 
         Some(result)

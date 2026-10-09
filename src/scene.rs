@@ -54,12 +54,12 @@ impl<'a> Scene<'a> {
         *ray_count += 1;
         if let Some((ray_hit, material)) = self.world.ray_hit(ray_in, MIN_T, MAX_T, rng) {
             let emitted = material.emitted(ray_hit.u, ray_hit.v, ray_hit.point);
-            if depth < max_depth {
-                if let Some((attenuation, scattered)) = material.scatter(ray_in, &ray_hit, rng) {
-                    return emitted
-                        + attenuation
-                            * self.ray_trace(&scattered, depth + 1, max_depth, rng, ray_count);
-                }
+            if depth < max_depth
+                && let Some((attenuation, scattered)) = material.scatter(ray_in, &ray_hit, rng)
+            {
+                return emitted
+                    + attenuation
+                        * self.ray_trace(&scattered, depth + 1, max_depth, rng, ray_count);
             }
             emitted
         } else {

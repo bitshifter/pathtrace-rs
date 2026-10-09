@@ -3,6 +3,7 @@ use crate::collision::Ray;
 use glam::{Affine3A, Vec3, Vec3A};
 
 #[derive(Clone, Copy, Debug)]
+#[allow(clippy::upper_case_acronyms)]
 pub struct AABB {
     pub min: Vec3,
     pub max: Vec3,
@@ -78,11 +79,11 @@ impl AABB {
         let mut min_out = min;
         let mut max_out = max;
 
-        let x_axis = Vec3A::from(m.x_axis);
+        let x_axis = m.x_axis;
         let x_mask = x_axis.cmpgt(Vec3A::ZERO);
-        let y_axis = Vec3A::from(m.y_axis);
+        let y_axis = m.y_axis;
         let y_mask = y_axis.cmpgt(Vec3A::ZERO);
-        let z_axis = Vec3A::from(m.z_axis);
+        let z_axis = m.z_axis;
         let z_mask = z_axis.cmpgt(Vec3A::ZERO);
 
         min_out += x_axis * Vec3A::select(x_mask, min, max);

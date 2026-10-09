@@ -44,7 +44,7 @@ fn get_sphere_uv(normal: Vec3) -> (f32, f32) {
     let theta = y.asin();
     let u = 1.0 - (phi + core::f32::consts::PI) * FRAC_1_2PI;
     let v = (theta + core::f32::consts::FRAC_PI_2) * core::f32::consts::FRAC_1_PI;
-    return (u, v);
+    (u, v)
 }
 
 impl<'a> Material<'a> {
@@ -170,10 +170,10 @@ impl<'a> Material<'a> {
             if let Texture::Image { image: _ } = albedo {
                 return get_sphere_uv(normal);
             }
-        } else if let Material::DiffuseLight { emit } = self {
-            if let Texture::Image { image: _ } = emit {
-                return get_sphere_uv(normal);
-            }
+        } else if let Material::DiffuseLight { emit } = self
+            && let Texture::Image { image: _ } = emit
+        {
+            return get_sphere_uv(normal);
         }
         (0.0, 0.0)
     }

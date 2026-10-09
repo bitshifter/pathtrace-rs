@@ -70,6 +70,7 @@ impl Rect {
     }
 
     #[inline]
+    #[allow(clippy::too_many_arguments)]
     fn xy_ray_hit(
         ray: &Ray,
         t_min: f32,
@@ -100,6 +101,7 @@ impl Rect {
     }
 
     #[inline]
+    #[allow(clippy::too_many_arguments)]
     fn xz_ray_hit(
         ray: &Ray,
         t_min: f32,
@@ -130,6 +132,7 @@ impl Rect {
     }
 
     #[inline]
+    #[allow(clippy::too_many_arguments)]
     fn yz_ray_hit(
         ray: &Ray,
         t_min: f32,
