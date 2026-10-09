@@ -15,7 +15,7 @@ pub struct SpheresSoA<'a> {
     centre_y: Vec<f32>,
     centre_z: Vec<f32>,
     radius_sq: Vec<f32>,
-    radius_inv: Vec<f32>,
+    radius: Vec<f32>,
     material: Vec<Option<&'a Material<'a>>>,
     len: usize,
     num_spheres: usize,
@@ -33,8 +33,8 @@ impl<'a> SpheresSoA<'a> {
         let mut centre_x = Vec::with_capacity(len);
         let mut centre_y = Vec::with_capacity(len);
         let mut centre_z = Vec::with_capacity(len);
-        let mut radius_inv = Vec::with_capacity(len);
         let mut radius_sq = Vec::with_capacity(len);
+        let mut radius = Vec::with_capacity(len);
         let mut material: Vec<Option<&'a Material>> = Vec::with_capacity(len);
         for hitable in hitables {
             if let Hitable::Sphere(sphere, mat) = hitable {
@@ -43,7 +43,7 @@ impl<'a> SpheresSoA<'a> {
                 centre_y.push(sphere.centre().y);
                 centre_z.push(sphere.centre().z);
                 radius_sq.push(sphere.radius() * sphere.radius());
-                radius_inv.push(1.0 / sphere.radius());
+                radius.push(sphere.radius());
                 material.push(Some(mat));
             } else {
                 panic!("Expected Hitable::Sphere, got {:?}", hitable);
@@ -55,7 +55,7 @@ impl<'a> SpheresSoA<'a> {
             centre_y.push(f32::MAX);
             centre_z.push(f32::MAX);
             radius_sq.push(0.0);
-            radius_inv.push(0.0);
+            radius.push(1.0);
             material.push(None);
         }
         SpheresSoA {
@@ -65,7 +65,7 @@ impl<'a> SpheresSoA<'a> {
             centre_y,
             centre_z,
             radius_sq,
-            radius_inv,
+            radius,
             material,
             len,
             num_spheres,
@@ -102,6 +102,7 @@ impl<'a> SpheresSoA<'a> {
     }
 
     pub fn hit_scalar(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material<'_>)> {
+        let a = ray.direction.dot(ray.direction);
         let mut hit_t = t_max;
         let mut hit_index = self.len;
         for ((((index, centre_x), centre_y), centre_z), radius_sq) in self
@@ -112,16 +113,16 @@ impl<'a> SpheresSoA<'a> {
             .zip(self.centre_z.iter())
             .zip(self.radius_sq.iter())
         {
-            let co = vec3(*centre_x, *centre_y, *centre_z) - ray.origin;
-            let nb = co.dot(ray.direction);
-            let c = co.dot(co) - radius_sq;
-            let discriminant = nb * nb - c;
+            let centre = vec3(*centre_x, *centre_y, *centre_z);
+            let oc = ray.origin - centre;
+            let b = oc.dot(ray.direction);
+            let c = oc.dot(oc) - radius_sq;
+            let discriminant = b * b - a * c;
             if discriminant > 0.0 {
                 let discriminant_sqrt = discriminant.sqrt();
-                let mut t = nb - discriminant_sqrt;
-                if t < t_min {
-                    t = nb + discriminant_sqrt;
-                }
+                let t_near = (-b - discriminant_sqrt) / a;
+                let t_far = (-b + discriminant_sqrt) / a;
+                let t = if t_near > t_min { t_near } else { t_far };
                 if t > t_min && t < hit_t {
                     hit_t = t;
                     hit_index = index;
@@ -135,7 +136,7 @@ impl<'a> SpheresSoA<'a> {
                 self.centre_y[hit_index],
                 self.centre_z[hit_index],
             );
-            let normal = (point - centre) * self.radius_inv[hit_index];
+            let normal = (point - centre) / self.radius[hit_index];
             let material = self.material[hit_index].unwrap();
             let (u, v) = material.get_sphere_uv(normal);
             Some((
@@ -193,25 +194,29 @@ impl<'a> SpheresSoA<'a> {
                 let c_z = _mm_loadu_ps(self.centre_z.get_unchecked(chunk_index));
                 // load radius_sq
                 let r_sq = _mm_loadu_ps(self.radius_sq.get_unchecked(chunk_index));
-                // let co = centre - ray.origin
-                let co_x = _mm_sub_ps(c_x, ro_x);
-                let co_y = _mm_sub_ps(c_y, ro_y);
-                let co_z = _mm_sub_ps(c_z, ro_z);
-                // let nb = dot(co, ray.direction);
-                let nb = dot3_sse2(co_x, rd_x, co_y, rd_y, co_z, rd_z);
-                // let c = dot(co, co) - radius_sq;
-                let c = _mm_sub_ps(dot3_sse2(co_x, co_x, co_y, co_y, co_z, co_z), r_sq);
-                // let discriminant = nb * nb - c;
-                let discr = _mm_sub_ps(_mm_mul_ps(nb, nb), c);
+                // ray direction dot product
+                let a = _mm_set_ps1(ray.direction.dot(ray.direction));
+                // let oc = ray.origin - centre
+                let oc_x = _mm_sub_ps(ro_x, c_x);
+                let oc_y = _mm_sub_ps(ro_y, c_y);
+                let oc_z = _mm_sub_ps(ro_z, c_z);
+                // let b = dot(oc, ray.direction);
+                let b = dot3_sse2(oc_x, rd_x, oc_y, rd_y, oc_z, rd_z);
+                // let c = dot(oc, oc) - radius_sq;
+                let c = _mm_sub_ps(dot3_sse2(oc_x, oc_x, oc_y, oc_y, oc_z, oc_z), r_sq);
+                // let discriminant = b * b - a * c;
+                let discr = _mm_sub_ps(_mm_mul_ps(b, b), _mm_mul_ps(a, c));
                 // if discr > 0.0
                 let pos_discr = _mm_cmpgt_ps(discr, _mm_set_ps1(0.0));
                 if _mm_movemask_ps(pos_discr) != 0 {
                     // let discr_sqrt = discr.sqrt();
                     let discr_sqrt = _mm_sqrt_ps(discr);
-                    // let t0 = nb - discr_sqrt;
-                    let t0 = _mm_sub_ps(nb, discr_sqrt);
-                    // let t1 = nb + discr_sqrt;
-                    let t1 = _mm_add_ps(nb, discr_sqrt);
+                    // let neg_b = -b;
+                    let neg_b = _mm_sub_ps(_mm_set_ps1(0.0), b);
+                    // let t0 = (-b - discr_sqrt) / a;
+                    let t0 = _mm_div_ps(_mm_sub_ps(neg_b, discr_sqrt), a);
+                    // let t1 = (-b + discr_sqrt) / a;
+                    let t1 = _mm_div_ps(_mm_add_ps(neg_b, discr_sqrt), a);
                     // let t = if t0 > t_min { t0 } else { t1 };
                     let t = _mm_blendv_ps(t1, t0, _mm_cmpgt_ps(t0, t_min));
                     // from rygs opts
@@ -250,7 +255,7 @@ impl<'a> SpheresSoA<'a> {
                         *self.centre_z.get_unchecked(hit_index_scalar),
                     );
                     let normal =
-                        (point - centre) * *self.radius_inv.get_unchecked(hit_index_scalar);
+                        (point - centre) / *self.radius.get_unchecked(hit_index_scalar);
                     let material = self.material.get_unchecked(hit_index_scalar).unwrap();
                     let (u, v) = material.get_sphere_uv(normal);
                     return Some((
@@ -315,25 +320,29 @@ impl<'a> SpheresSoA<'a> {
                 let c_z = _mm256_loadu_ps(self.centre_z.get_unchecked(chunk_index));
                 // load radius_sq
                 let r_sq = _mm256_loadu_ps(self.radius_sq.get_unchecked(chunk_index));
-                // let co = centre - ray.origin
-                let co_x = _mm256_sub_ps(c_x, ro_x);
-                let co_y = _mm256_sub_ps(c_y, ro_y);
-                let co_z = _mm256_sub_ps(c_z, ro_z);
-                // let nb = dot(co, ray.direction);
-                let nb = dot3_avx2(co_x, rd_x, co_y, rd_y, co_z, rd_z);
-                // let c = dot(co, co) - radius_sq;
-                let c = _mm256_sub_ps(dot3_avx2(co_x, co_x, co_y, co_y, co_z, co_z), r_sq);
-                // let discriminant = nb * nb - c;
-                let discr = _mm256_sub_ps(_mm256_mul_ps(nb, nb), c);
+                // ray direction dot product
+                let a = _mm256_set1_ps(ray.direction.dot(ray.direction));
+                // let oc = ray.origin - centre
+                let oc_x = _mm256_sub_ps(ro_x, c_x);
+                let oc_y = _mm256_sub_ps(ro_y, c_y);
+                let oc_z = _mm256_sub_ps(ro_z, c_z);
+                // let b = dot(oc, ray.direction);
+                let b = dot3_avx2(oc_x, rd_x, oc_y, rd_y, oc_z, rd_z);
+                // let c = dot(oc, oc) - radius_sq;
+                let c = _mm256_sub_ps(dot3_avx2(oc_x, oc_x, oc_y, oc_y, oc_z, oc_z), r_sq);
+                // let discriminant = b * b - a * c;
+                let discr = _mm256_sub_ps(_mm256_mul_ps(b, b), _mm256_mul_ps(a, c));
                 // if discr > 0.0
                 let pos_discr = _mm256_cmp_ps(discr, _mm256_set1_ps(0.0), _CMP_GT_OQ);
                 if _mm256_movemask_ps(pos_discr) != 0 {
                     // let discr_sqrt = discr.sqrt();
                     let discr_sqrt = _mm256_sqrt_ps(discr);
-                    // let t0 = nb - discr_sqrt;
-                    let t0 = _mm256_sub_ps(nb, discr_sqrt);
-                    // let t1 = nb + discr_sqrt;
-                    let t1 = _mm256_add_ps(nb, discr_sqrt);
+                    // let neg_b = -b;
+                    let neg_b = _mm256_sub_ps(_mm256_set1_ps(0.0), b);
+                    // let t0 = (-b - discr_sqrt) / a;
+                    let t0 = _mm256_div_ps(_mm256_sub_ps(neg_b, discr_sqrt), a);
+                    // let t1 = (-b + discr_sqrt) / a;
+                    let t1 = _mm256_div_ps(_mm256_add_ps(neg_b, discr_sqrt), a);
                     // let t = if t0 > t_min { t0 } else { t1 };
                     let t = _mm256_blendv_ps(t1, t0, _mm256_cmp_ps(t0, t_min, _CMP_GT_OQ));
                     // from rygs opts
@@ -376,7 +385,7 @@ impl<'a> SpheresSoA<'a> {
                         *self.centre_z.get_unchecked(hit_index_scalar),
                     );
                     let normal =
-                        (point - centre) * *self.radius_inv.get_unchecked(hit_index_scalar);
+                        (point - centre) / *self.radius.get_unchecked(hit_index_scalar);
                     let material = self.material.get_unchecked(hit_index_scalar).unwrap();
                     let (u, v) = material.get_sphere_uv(normal);
                     return Some((

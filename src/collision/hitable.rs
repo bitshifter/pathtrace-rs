@@ -48,10 +48,24 @@ impl<'a> Hitable<'a> {
             Hitable::Instance(instance) => return instance.ray_hit(ray, t_min, t_max, rng),
             Hitable::Rect(rect, material) => (rect.ray_hit(ray, t_min, t_max), material),
             Hitable::Cuboid(cuboid, material) => (cuboid.ray_hit(ray, t_min, t_max), material),
-            Hitable::Sphere(sphere, material) => (sphere.ray_hit(ray, t_min, t_max), material),
-            Hitable::MovingSphere(sphere, material) => {
-                (sphere.ray_hit(ray, t_min, t_max), material)
-            }
+            Hitable::Sphere(sphere, material) => (
+                sphere.ray_hit(ray, t_min, t_max).map(|mut hit| {
+                    let (u, v) = material.get_sphere_uv(hit.normal);
+                    hit.u = u;
+                    hit.v = v;
+                    hit
+                }),
+                material,
+            ),
+            Hitable::MovingSphere(sphere, material) => (
+                sphere.ray_hit(ray, t_min, t_max).map(|mut hit| {
+                    let (u, v) = material.get_sphere_uv(hit.normal);
+                    hit.u = u;
+                    hit.v = v;
+                    hit
+                }),
+                material,
+            ),
             Hitable::ConstantMedium(constant_medium) => {
                 return constant_medium.ray_hit(ray, t_min, t_max, rng);
             }
