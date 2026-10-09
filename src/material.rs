@@ -6,7 +6,6 @@ use crate::{
 use glam::{vec3, Vec3};
 use rand::Rng;
 use rand_xoshiro::Xoshiro256Plus;
-use std::f32;
 
 // #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[derive(Clone, Copy, Debug)]
@@ -39,12 +38,12 @@ pub fn isotropic<'a>(albedo: &'a Texture<'a>) -> Material<'a> {
 }
 
 fn get_sphere_uv(normal: Vec3) -> (f32, f32) {
-    const FRAC_1_2PI: f32 = 1.0 / (2.0 * f32::consts::PI);
+    const FRAC_1_2PI: f32 = 1.0 / (2.0 * core::f32::consts::PI);
     let (x, y, _) = normal.into();
     let phi = x.atan2(y);
     let theta = y.asin();
-    let u = 1.0 - (phi + f32::consts::PI) * FRAC_1_2PI;
-    let v = (theta + f32::consts::FRAC_PI_2) * f32::consts::FRAC_1_PI;
+    let u = 1.0 - (phi + core::f32::consts::PI) * FRAC_1_2PI;
+    let v = (theta + core::f32::consts::FRAC_PI_2) * core::f32::consts::FRAC_1_PI;
     return (u, v);
 }
 

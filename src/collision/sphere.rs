@@ -1,6 +1,5 @@
 use crate::collision::{Ray, RayHit, AABB};
 use glam::{Vec3, Vec3A};
-use std::f32;
 
 // #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[derive(Clone, Copy, Debug)]

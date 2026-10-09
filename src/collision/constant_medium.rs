@@ -6,7 +6,6 @@ use crate::{
 use glam::Vec3;
 use rand::Rng;
 use rand_xoshiro::Xoshiro256Plus;
-use std::f32;
 
 #[derive(Copy, Clone, Debug)]
 pub struct ConstantMedium<'a> {

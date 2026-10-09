@@ -1,7 +1,6 @@
 use crate::{collision::Ray, math::random_in_unit_disk};
 use glam::Vec3;
 use rand::Rng;
-use std::f32;
 
 // #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 #[derive(Copy, Clone, Debug)]
@@ -30,7 +29,7 @@ impl Camera {
         time0: f32,
         time1: f32,
     ) -> Camera {
-        let theta = vfov * f32::consts::PI / 180.0;
+        let theta = vfov * core::f32::consts::PI / 180.0;
         let half_height = (theta * 0.5).tan();
         let half_width = aspect * half_height;
         let w = (lookfrom - lookat).normalize();

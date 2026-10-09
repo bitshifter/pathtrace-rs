@@ -1,7 +1,6 @@
 use crate::simd::sinf_cosf;
 use glam::{vec3, Vec3};
 use rand::Rng;
-use std::f32;
 
 pub fn random_in_unit_disk<T: Rng>(rng: &mut T) -> Vec3 {
     loop {
@@ -27,7 +26,7 @@ pub fn random_in_unit_sphere<T: Rng>(rng: &mut T) -> Vec3 {
 
 pub fn random_unit_vector<T: Rng>(rng: &mut T) -> Vec3 {
     let z = rng.gen::<f32>() * 2.0 - 1.0;
-    let a = rng.gen::<f32>() * 2.0 * f32::consts::PI;
+    let a = rng.gen::<f32>() * 2.0 * core::f32::consts::PI;
     let r = (1.0 - z * z).sqrt();
     let (sina, cosa) = sinf_cosf(a);
     vec3(r * cosa, r * sina, z)

@@ -6,7 +6,6 @@ use crate::{
     simd::*,
 };
 use glam::{vec3, Vec3, Vec3A};
-use std::f32;
 
 #[derive(Debug)]
 pub struct SpheresSoA<'a> {

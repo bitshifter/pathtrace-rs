@@ -8,7 +8,6 @@ use rand::{Rng, SeedableRng};
 use rand_xoshiro::Xoshiro256Plus;
 use rayon::prelude::*;
 use std::{
-    f32,
     sync::atomic::{AtomicUsize, Ordering},
 };
 

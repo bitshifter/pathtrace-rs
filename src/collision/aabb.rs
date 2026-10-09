@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 use crate::collision::Ray;
 use glam::{Affine3A, Vec3, Vec3A};
-use std::f32;
 
 #[derive(Clone, Copy, Debug)]
 pub struct AABB {
@@ -19,8 +18,8 @@ impl AABB {
     #[inline]
     pub fn invalid() -> AABB {
         AABB {
-            min: Vec3::splat(f32::MAX),
-            max: Vec3::splat(-f32::MAX),
+            min: Vec3::MAX,
+            max: -Vec3::MIN,
         }
     }
 
