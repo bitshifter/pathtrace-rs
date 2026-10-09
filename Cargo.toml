@@ -24,10 +24,11 @@ version = "4"
 default-features = false
 features = ["std", "help", "usage", "error-context", "suggestions"]
 
-[dependencies.glium]
-version = "0.25"
-default-features = false
-features = ["glutin"]
+[dependencies.pixels]
+version = "0.17"
+
+[dependencies.winit]
+version = "0.30"
 
 [dependencies.image]
 version = "0.25"

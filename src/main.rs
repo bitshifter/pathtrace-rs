@@ -8,12 +8,12 @@ extern crate test;
 mod bench;
 mod camera;
 mod collision;
-mod glium_window;
 mod material;
 mod math;
 mod offline;
 mod params;
 mod perlin;
+mod pixels_window;
 mod presets;
 mod scene;
 mod simd;
@@ -101,6 +101,6 @@ fn main() {
         offline::render_offline(preset, params);
     } else {
         let max_frames = matches.get_one::<u32>("frames").copied();
-        glium_window::start_loop(preset, params, max_frames);
+        pixels_window::start_loop(preset, params, max_frames);
     }
 }
