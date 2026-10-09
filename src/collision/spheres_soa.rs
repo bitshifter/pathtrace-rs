@@ -7,6 +7,11 @@ use crate::{
 };
 use glam::{Vec3, Vec3A, vec3};
 
+#[cfg(feature = "fearless_simd")]
+use fearless_simd::{Level, dispatch, prelude::*};
+#[cfg(feature = "fearless_simd")]
+use fearless_simd_macros::simd;
+
 #[derive(Debug)]
 pub struct SpheresSoA<'a> {
     bounds: AABB,
@@ -97,6 +102,10 @@ impl<'a> SpheresSoA<'a> {
         match self.feature {
             TargetFeature::AVX2 => unsafe { self.hit_avx2(ray, t_min, t_max) },
             TargetFeature::SSE4_1 => unsafe { self.hit_sse4_1(ray, t_min, t_max) },
+            #[cfg(feature = "fearless_simd")]
+            TargetFeature::PortableSimd => self.hit_portable_simd(ray, t_min, t_max),
+            #[cfg(feature = "fearless_simd")]
+            TargetFeature::AutoVectorize => self.hit_auto_vectorize(ray, t_min, t_max),
             TargetFeature::FallBack => self.hit_scalar(ray, t_min, t_max),
         }
     }
@@ -152,6 +161,172 @@ impl<'a> SpheresSoA<'a> {
         } else {
             None
         }
+    }
+
+    /// Build the `RayHit` for a winning sphere index, shared by the fearless_simd paths.
+    #[cfg(feature = "fearless_simd")]
+    #[inline]
+    fn hit_record(
+        &self,
+        ray: &Ray,
+        hit_t: f32,
+        hit_index: usize,
+    ) -> Option<(RayHit, &Material<'_>)> {
+        if hit_index < self.len {
+            let point = ray.point_at_parameter(hit_t);
+            let centre = vec3(
+                self.centre_x[hit_index],
+                self.centre_y[hit_index],
+                self.centre_z[hit_index],
+            );
+            let normal = (point - centre) / self.radius[hit_index];
+            let material = self.material[hit_index].unwrap();
+            let (u, v) = material.get_sphere_uv(normal);
+            Some((
+                RayHit {
+                    point,
+                    normal,
+                    t: hit_t,
+                    u,
+                    v,
+                },
+                material,
+            ))
+        } else {
+            None
+        }
+    }
+
+    /// Ray hit using `fearless_simd`'s `#[simd]` auto-vectorization.
+    ///
+    /// The body is ordinary scalar code; `#[simd]` compiles a copy for each available SIMD
+    /// level with that level's target features enabled, and `dispatch!` runs the best one.
+    #[cfg(feature = "fearless_simd")]
+    pub fn hit_auto_vectorize(
+        &self,
+        ray: &Ray,
+        t_min: f32,
+        t_max: f32,
+    ) -> Option<(RayHit, &Material<'_>)> {
+        let level = Level::new();
+        dispatch!(level, simd => self.hit_auto_vectorize_impl(simd, ray, t_min, t_max))
+    }
+
+    #[cfg(feature = "fearless_simd")]
+    #[simd]
+    fn hit_auto_vectorize_impl<S: Simd>(
+        &self,
+        _: S,
+        ray: &Ray,
+        t_min: f32,
+        t_max: f32,
+    ) -> Option<(RayHit, &Material<'_>)> {
+        let a = ray.direction.dot(ray.direction);
+        let mut hit_t = t_max;
+        let mut hit_index = self.len;
+        for index in 0..self.len {
+            let centre = vec3(
+                self.centre_x[index],
+                self.centre_y[index],
+                self.centre_z[index],
+            );
+            let oc = ray.origin - centre;
+            let b = oc.dot(ray.direction);
+            let c = oc.dot(oc) - self.radius_sq[index];
+            let discr = b * b - a * c;
+            // `discr.sqrt()` is NaN for a miss, so the comparisons below stay branch-free.
+            let discr_sqrt = discr.sqrt();
+            let t_near = (-b - discr_sqrt) / a;
+            let t_far = (-b + discr_sqrt) / a;
+            let t = if t_near > t_min { t_near } else { t_far };
+            let is_hit = (discr > 0.0) & (t > t_min) & (t < hit_t);
+            hit_index = if is_hit { index } else { hit_index };
+            hit_t = if is_hit { t } else { hit_t };
+        }
+        self.hit_record(ray, hit_t, hit_index)
+    }
+
+    /// Ray hit using `fearless_simd`'s portable SIMD vector types.
+    ///
+    /// Mirrors `hit_sse4_1`/`hit_avx2`, but generic over the `Simd` level and using the
+    /// CPU's native `f32` width selected by `dispatch!`.
+    #[cfg(feature = "fearless_simd")]
+    pub fn hit_portable_simd(
+        &self,
+        ray: &Ray,
+        t_min: f32,
+        t_max: f32,
+    ) -> Option<(RayHit, &Material<'_>)> {
+        let level = Level::new();
+        dispatch!(level, simd => self.hit_portable_simd_impl(simd, ray, t_min, t_max))
+    }
+
+    #[cfg(feature = "fearless_simd")]
+    #[simd]
+    fn hit_portable_simd_impl<S: Simd>(
+        &self,
+        simd: S,
+        ray: &Ray,
+        t_min: f32,
+        t_max: f32,
+    ) -> Option<(RayHit, &Material<'_>)> {
+        // `self.len` is padded to a multiple of the native width, see `SpheresSoA::new`.
+        const LANE_OFFSETS: [u32; 16] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+        let num_lanes = S::f32s::LEN;
+        assert!(num_lanes <= LANE_OFFSETS.len());
+
+        let a = S::f32s::splat(simd, ray.direction.dot(ray.direction));
+        let ro_x = S::f32s::splat(simd, ray.origin.x);
+        let ro_y = S::f32s::splat(simd, ray.origin.y);
+        let ro_z = S::f32s::splat(simd, ray.origin.z);
+        let rd_x = S::f32s::splat(simd, ray.direction.x);
+        let rd_y = S::f32s::splat(simd, ray.direction.y);
+        let rd_z = S::f32s::splat(simd, ray.direction.z);
+        let t_min_v = S::f32s::splat(simd, t_min);
+        let mut hit_t = S::f32s::splat(simd, t_max);
+        let mut hit_index = S::u32s::splat(simd, self.len as u32);
+        let lane_offsets = S::u32s::from_slice(simd, &LANE_OFFSETS[..num_lanes]);
+
+        for chunk_index in (0..self.len).step_by(num_lanes) {
+            let c_x =
+                S::f32s::from_slice(simd, &self.centre_x[chunk_index..chunk_index + num_lanes]);
+            let c_y =
+                S::f32s::from_slice(simd, &self.centre_y[chunk_index..chunk_index + num_lanes]);
+            let c_z =
+                S::f32s::from_slice(simd, &self.centre_z[chunk_index..chunk_index + num_lanes]);
+            let r_sq =
+                S::f32s::from_slice(simd, &self.radius_sq[chunk_index..chunk_index + num_lanes]);
+
+            let oc_x = ro_x - c_x;
+            let oc_y = ro_y - c_y;
+            let oc_z = ro_z - c_z;
+            let b = oc_x * rd_x + oc_y * rd_y + oc_z * rd_z;
+            let c = oc_x * oc_x + oc_y * oc_y + oc_z * oc_z - r_sq;
+            let discr = b * b - a * c;
+            let pos_discr = discr.simd_gt(0.0);
+            if pos_discr.any_true() {
+                let discr_sqrt = discr.sqrt();
+                let t0 = (-b - discr_sqrt) / a;
+                let t1 = (-b + discr_sqrt) / a;
+                let t = t0.simd_gt(t_min_v).select(t0, t1);
+                let mask = pos_discr & t.simd_gt(t_min_v) & t.simd_lt(hit_t);
+                let index = S::u32s::splat(simd, chunk_index as u32) + lane_offsets;
+                hit_index = mask.select(index, hit_index);
+                hit_t = mask.select(t, hit_t);
+            }
+        }
+
+        let min_hit_t = hit_t.reduce_min();
+        if min_hit_t < t_max {
+            let min_mask = hit_t.simd_eq(min_hit_t).to_bitmask();
+            if min_mask != 0 {
+                // Lowest set bit is the lowest lane, matching the scalar tie-break.
+                let lane = min_mask.trailing_zeros() as usize;
+                let hit_index = hit_index.as_slice()[lane] as usize;
+                return self.hit_record(ray, min_hit_t, hit_index);
+            }
+        }
+        None
     }
 
     #[cfg_attr(
@@ -496,5 +671,158 @@ mod bench {
                 b.iter(|| unsafe { spheres.hit_avx2(&ray, MIN_T, MAX_T) })
             }
         });
+    }
+
+    #[cfg(feature = "fearless_simd")]
+    #[bench]
+    fn ray_hit_auto_vectorize(b: &mut Bencher) {
+        spheres_bench(|ray, spheres| b.iter(|| spheres.hit_auto_vectorize(&ray, MIN_T, MAX_T)));
+    }
+
+    #[cfg(feature = "fearless_simd")]
+    #[bench]
+    fn ray_hit_portable_simd(b: &mut Bencher) {
+        spheres_bench(|ray, spheres| b.iter(|| spheres.hit_portable_simd(&ray, MIN_T, MAX_T)));
+    }
+}
+
+#[cfg(all(test, feature = "fearless_simd"))]
+mod fearless_tests {
+    use super::*;
+    use crate::{
+        collision::Sphere,
+        material::metal,
+        scene::{MAX_T, MIN_T},
+        storage::Storage,
+    };
+    use glam::vec3;
+    use rand::SeedableRng;
+    use rand_xoshiro::Xoshiro256Plus;
+
+    /// Deterministic pseudo-random float in `[-1.0, 1.0]`.
+    struct Lcg(u32);
+
+    impl Lcg {
+        fn next(&mut self) -> f32 {
+            self.0 = self.0.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            (self.0 >> 8) as f32 / (1 << 24) as f32 * 2.0 - 1.0
+        }
+    }
+
+    fn assert_same_hit(
+        ray: &Ray,
+        expected: Option<(RayHit, &Material<'_>)>,
+        actual: Option<(RayHit, &Material<'_>)>,
+    ) {
+        match (expected, actual) {
+            (None, None) => {}
+            (Some((e, e_mat)), Some((a, a_mat))) => {
+                assert!((a.t - e.t).abs() <= 1e-4, "t mismatch: {} vs {}", e.t, a.t);
+                assert!(
+                    (a.point - e.point).length() <= 1e-3,
+                    "point mismatch: {:?} vs {:?}",
+                    e.point,
+                    a.point
+                );
+                assert!(
+                    (a.normal - e.normal).length() <= 1e-3,
+                    "normal mismatch: {:?} vs {:?}",
+                    e.normal,
+                    a.normal
+                );
+                assert!(
+                    (a.u - e.u).abs() <= 1e-3 && (a.v - e.v).abs() <= 1e-3,
+                    "uv mismatch"
+                );
+                assert!(std::ptr::eq(e_mat, a_mat), "material mismatch");
+            }
+            (e, a) => panic!(
+                "ray {:?} -> {:?}: scalar hit={} but fearless hit={}",
+                ray.origin,
+                ray.direction,
+                e.is_some(),
+                a.is_some()
+            ),
+        }
+    }
+
+    #[test]
+    fn fearless_hits_match_scalar() {
+        let mut rng = Xoshiro256Plus::seed_from_u64(0);
+        let storage = Storage::new(&mut rng);
+        let material = storage.alloc_material(metal(vec3(0.8, 0.2, 0.1), 0.0));
+
+        // 40 spheres gives several native-width chunks plus padding for 4/8/16 lanes.
+        let mut lcg = Lcg(0x1234_5678);
+        let mut hitables = Vec::new();
+        for i in 0..40 {
+            let centre = vec3(lcg.next() * 3.0, lcg.next() * 3.0, -1.0 - i as f32 * 0.4);
+            let radius = 0.2 + lcg.next().abs() * 0.8;
+            let sphere = storage.alloc_sphere(Sphere::new(centre, radius));
+            hitables.push(Hitable::Sphere(sphere, material));
+        }
+        let spheres = SpheresSoA::new(&hitables);
+
+        let origins = [
+            vec3(0.0, 0.0, 0.0),
+            vec3(0.3, -0.4, 1.5),
+            vec3(-1.0, 0.8, 0.5),
+            vec3(2.5, 2.5, 2.5),
+            // Inside the first sphere.
+            vec3(0.0, 0.0, -1.0),
+        ];
+        for origin in origins {
+            for _ in 0..256 {
+                let direction = vec3(lcg.next(), lcg.next(), -lcg.next().abs() - 0.05).normalize();
+                let ray = Ray::new(origin, direction, 0.0);
+                let expected = spheres.hit_scalar(&ray, MIN_T, MAX_T);
+                assert_same_hit(
+                    &ray,
+                    expected,
+                    spheres.hit_auto_vectorize(&ray, MIN_T, MAX_T),
+                );
+                assert_same_hit(
+                    &ray,
+                    expected,
+                    spheres.hit_portable_simd(&ray, MIN_T, MAX_T),
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn fearless_hits_match_scalar_on_preset() {
+        use crate::params::{Params, SoaMode};
+
+        const PARAMS: Params = Params {
+            width: 200,
+            height: 100,
+            samples: 10,
+            max_depth: 10,
+            random_seed: false,
+            use_bvh: false,
+            soa: SoaMode::Auto,
+        };
+        let mut rng = PARAMS.new_rng();
+        let storage = Storage::new(&mut rng);
+        let (hitables, camera, _) = crate::presets::random_spheres(&PARAMS, &mut rng, &storage);
+        assert!(hitables.iter().all(|h| matches!(h, Hitable::Sphere(..))));
+        let spheres = SpheresSoA::new(&hitables);
+        for i in 0..16 {
+            for j in 0..16 {
+                let ray = camera.get_ray(i as f32 / 16.0, j as f32 / 16.0, &mut rng);
+                let expected = spheres.hit_scalar(&ray, MIN_T, MAX_T);
+                assert_same_hit(
+                    &ray,
+                    expected,
+                    spheres.hit_auto_vectorize(&ray, MIN_T, MAX_T),
+                );
+                assert_same_hit(
+                    &ray,
+                    expected,
+                    spheres.hit_portable_simd(&ray, MIN_T, MAX_T),
+                );
+            }
+        }
     }
 }

@@ -9,18 +9,41 @@ use std::arch::x86_64::*;
 pub enum TargetFeature {
     AVX2,
     SSE4_1,
+    /// Portable SIMD via `fearless_simd`, dispatched to the best available level.
+    #[cfg(feature = "fearless_simd")]
+    PortableSimd,
+    /// Auto-vectorization via `fearless_simd`'s `#[simd]` attribute.
+    #[cfg(feature = "fearless_simd")]
+    AutoVectorize,
     FallBack,
 }
 
 impl TargetFeature {
     pub fn detect() -> TargetFeature {
         // Optional override for experimenting with the collision code paths.
-        match std::env::var("PATHTRACE_SIMD").as_deref() {
-            Ok("scalar") | Ok("fallback") => return TargetFeature::FallBack,
-            Ok("sse4_1") | Ok("sse4.1") => return TargetFeature::SSE4_1,
-            Ok("avx2") => return TargetFeature::AVX2,
-            _ => {}
+        if let Ok(value) = std::env::var("PATHTRACE_SIMD") {
+            match value.as_str() {
+                #[cfg(feature = "fearless_simd")]
+                "portable" | "portable_simd" | "fearless" => return TargetFeature::PortableSimd,
+                #[cfg(feature = "fearless_simd")]
+                "auto" | "auto_vectorize" => return TargetFeature::AutoVectorize,
+                "scalar" | "fallback" => return TargetFeature::FallBack,
+                "sse4_1" | "sse4.1" => return TargetFeature::SSE4_1,
+                "avx2" => return TargetFeature::AVX2,
+                _ => {}
+            }
         }
+        Self::detect_best()
+    }
+
+    #[cfg(feature = "fearless_simd")]
+    fn detect_best() -> TargetFeature {
+        // `fearless_simd` multiversions and selects the best SIMD level at runtime.
+        TargetFeature::PortableSimd
+    }
+
+    #[cfg(not(feature = "fearless_simd"))]
+    fn detect_best() -> TargetFeature {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
             if is_x86_feature_detected!("avx2") {
@@ -36,6 +59,10 @@ impl TargetFeature {
         match self {
             TargetFeature::AVX2 => println!("Using AVX2"),
             TargetFeature::SSE4_1 => println!("Using SSE4.1"),
+            #[cfg(feature = "fearless_simd")]
+            TargetFeature::PortableSimd => println!("Using fearless_simd portable SIMD"),
+            #[cfg(feature = "fearless_simd")]
+            TargetFeature::AutoVectorize => println!("Using fearless_simd auto-vectorization"),
             TargetFeature::FallBack => println!("Using scalar"),
         }
     }
@@ -43,9 +70,25 @@ impl TargetFeature {
         match self {
             TargetFeature::AVX2 => 256,
             TargetFeature::SSE4_1 => 128,
+            #[cfg(feature = "fearless_simd")]
+            TargetFeature::PortableSimd | TargetFeature::AutoVectorize => fearless_simd_bits(),
             TargetFeature::FallBack => 32,
         }
     }
+}
+
+/// Native `f32` SIMD width, in bits, of the level `fearless_simd` selects.
+#[cfg(feature = "fearless_simd")]
+fn fearless_simd_bits() -> usize {
+    let level = fearless_simd::Level::new();
+    fearless_simd::dispatch!(level, simd => fearless_native_bits(simd))
+}
+
+#[cfg(feature = "fearless_simd")]
+#[fearless_simd_macros::simd]
+fn fearless_native_bits<S: fearless_simd::Simd>(_: S) -> usize {
+    use fearless_simd::SimdBase;
+    S::f32s::LEN * 32
 }
 
 macro_rules! _ps_const_ty {

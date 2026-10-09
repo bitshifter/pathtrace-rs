@@ -22,6 +22,30 @@ cargo +nightly run --release --features core_intrinsics
 
 If you build without the `--release` flag the application will be very slow!
 
+## SIMD backends
+
+The sphere collision path can run through several SIMD backends. On x86 the best one is
+detected at runtime; the `PATHTRACE_SIMD` environment variable overrides the choice:
+
+| Value | Backend |
+| --- | --- |
+| `scalar` / `fallback` | Plain scalar code |
+| `sse4_1` | SSE4.1 intrinsics |
+| `avx2` | AVX2 intrinsics |
+| `portable` / `portable_simd` / `fearless` | `fearless_simd` portable SIMD |
+| `auto` / `auto_vectorize` | `fearless_simd` `#[simd]` auto-vectorization |
+
+The last two are provided by the `fearless_simd` cargo feature, which is enabled by default and makes
+the portable backend the default choice:
+
+```
+cargo run --release
+PATHTRACE_SIMD=auto cargo run --release
+```
+
+Disable the feature (and fall back to runtime SSE4.1/AVX2 detection) with
+`--no-default-features`.
+
 ## License
 [license]: #license
 
