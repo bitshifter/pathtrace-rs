@@ -41,7 +41,6 @@ features = ["jpeg", "png"]
 
 [features]
 default = ["fearless_simd"]
-bench = []
 core_intrinsics = []
 fearless_simd = ["dep:fearless_simd", "dep:fearless_simd_macros"]
 
@@ -54,3 +53,28 @@ debug = true
 
 # [patch.crates-io]
 # glam = { path = "../glam-rs" }
+
+[dev-dependencies]
+criterion = { version = "0.8", features = ["html_reports"] }
+
+# Only the criterion targets in `benches/` are benchmarks; keep cargo from also running the
+# (empty) built-in test harnesses for the lib and bin targets.
+[lib]
+bench = false
+
+[[bin]]
+name = "pathtrace-rs"
+path = "src/main.rs"
+bench = false
+
+[[bench]]
+name = "bvh"
+harness = false
+
+[[bench]]
+name = "hitable_list"
+harness = false
+
+[[bench]]
+name = "spheres_soa"
+harness = false

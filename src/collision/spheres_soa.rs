@@ -630,62 +630,6 @@ fn cttz_4bits_nonzero(x: u32) -> u32 {
     }
 }
 
-#[cfg(all(feature = "bench", test))]
-mod bench {
-    use crate::{
-        bench::hitables_bench,
-        collision::{Ray, SpheresSoA},
-        scene::{MAX_T, MIN_T},
-        simd::TargetFeature,
-    };
-    use test::Bencher;
-
-    fn spheres_bench<F>(f: F)
-    where
-        F: FnOnce(&Ray, &SpheresSoA),
-    {
-        hitables_bench(|ray, hitables| {
-            let spheres = SpheresSoA::new(&hitables);
-            f(&ray, &spheres)
-        })
-    }
-
-    #[bench]
-    fn ray_hit_scalar(b: &mut Bencher) {
-        spheres_bench(|ray, spheres| b.iter(|| spheres.hit_scalar(&ray, MIN_T, MAX_T)));
-    }
-
-    #[bench]
-    fn ray_hit_sse4_1(b: &mut Bencher) {
-        spheres_bench(|ray, spheres| {
-            if spheres.feature != TargetFeature::FallBack {
-                b.iter(|| unsafe { spheres.hit_sse4_1(&ray, MIN_T, MAX_T) })
-            }
-        });
-    }
-
-    #[bench]
-    fn ray_hit_avx2(b: &mut Bencher) {
-        spheres_bench(|ray, spheres| {
-            if spheres.feature == TargetFeature::AVX2 {
-                b.iter(|| unsafe { spheres.hit_avx2(&ray, MIN_T, MAX_T) })
-            }
-        });
-    }
-
-    #[cfg(feature = "fearless_simd")]
-    #[bench]
-    fn ray_hit_auto_vectorize(b: &mut Bencher) {
-        spheres_bench(|ray, spheres| b.iter(|| spheres.hit_auto_vectorize(&ray, MIN_T, MAX_T)));
-    }
-
-    #[cfg(feature = "fearless_simd")]
-    #[bench]
-    fn ray_hit_portable_simd(b: &mut Bencher) {
-        spheres_bench(|ray, spheres| b.iter(|| spheres.hit_portable_simd(&ray, MIN_T, MAX_T)));
-    }
-}
-
 #[cfg(all(test, feature = "fearless_simd"))]
 mod fearless_tests {
     use super::*;

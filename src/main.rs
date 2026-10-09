@@ -1,24 +1,6 @@
-#![cfg_attr(feature = "core_intrinsics", feature(core_intrinsics))] // for cttz
-#![cfg_attr(feature = "bench", feature(test))] // for bench
-
-#[cfg(feature = "bench")]
-extern crate test;
-
-#[cfg(feature = "bench")]
-mod bench;
-mod camera;
-mod collision;
-mod material;
-mod math;
-mod offline;
-mod params;
-mod perlin;
-mod pixels_window;
-mod presets;
-mod scene;
-mod simd;
-mod storage;
-mod texture;
+// The tracer lives in the library target (`src/lib.rs`) so that the criterion benchmarks in
+// `benches/` can build scenes and rays through the same API as the tracer itself.
+use pathtrace_rs::{offline, params, pixels_window, presets};
 
 use clap::{Arg, ArgAction, Command, builder::PossibleValuesParser, value_parser};
 

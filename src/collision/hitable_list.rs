@@ -48,22 +48,3 @@ impl<'a> HitableList<'a> {
         result
     }
 }
-
-#[cfg(all(feature = "bench", test))]
-mod bench {
-    use crate::{
-        bench::{PARAMS, hitables_bench},
-        collision::HitableList,
-        scene::{MAX_T, MIN_T},
-    };
-    use test::Bencher;
-
-    #[bench]
-    fn ray_hit(b: &mut Bencher) {
-        hitables_bench(|ray, hitables| {
-            let mut rng = PARAMS.new_rng();
-            let list = HitableList::new(hitables);
-            b.iter(|| list.ray_hit(&ray, MIN_T, MAX_T, &mut rng));
-        })
-    }
-}
