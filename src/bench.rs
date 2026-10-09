@@ -1,6 +1,6 @@
 use crate::{
     collision::{Hitable, Ray},
-    params::Params,
+    params::{Params, SoaMode},
     presets,
     storage::Storage,
 };
@@ -12,7 +12,7 @@ pub const PARAMS: Params = Params {
     max_depth: 10,
     random_seed: false,
     use_bvh: false,
-    use_soa: false,
+    soa: SoaMode::Auto,
 };
 
 pub fn hitables_bench<F>(f: F)

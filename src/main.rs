@@ -59,7 +59,7 @@ fn main() {
                 .help("Scene preset to render")
                 .short('P')
                 .long("preset")
-                .default_value("two_perlin_spheres")
+                .default_value("random_spheres")
                 .value_parser(PossibleValuesParser::new(presets::NAMES)),
             Arg::new("frames")
                 .help("Process a fixed number of frames and exit")
@@ -72,10 +72,11 @@ fn main() {
                 .long("bvh")
                 .action(ArgAction::SetTrue),
             Arg::new("soa")
-                .help("Use a spheres structure of arrays for collision instead of a flat list")
+                .help("Sphere structure of arrays collision: auto uses SoA for all-sphere scenes")
                 .short('A')
                 .long("soa")
-                .action(ArgAction::SetTrue),
+                .default_value("auto")
+                .value_parser(PossibleValuesParser::new(["auto", "on", "off"])),
             Arg::new("offline")
                 .help("Don't create a preview render window")
                 .short('O')
@@ -96,7 +97,11 @@ fn main() {
         max_depth: *matches.get_one::<u32>("depth").unwrap(),
         random_seed: matches.get_flag("random"),
         use_bvh: matches.get_flag("bvh"),
-        use_soa: matches.get_flag("soa"),
+        soa: match matches.get_one::<String>("soa").map(String::as_str) {
+            Some("on") => params::SoaMode::On,
+            Some("off") => params::SoaMode::Off,
+            _ => params::SoaMode::Auto,
+        },
     };
 
     let preset = matches.get_one::<String>("preset").unwrap();
