@@ -2,11 +2,11 @@
 name = "pathtrace-rs"
 version = "0.1.2"
 authors = ["Cameron Hart <cameron.hart@gmail.com>"]
-edition = "2018"
+edition = "2024"
 
 [dependencies]
-rand = "0.8"
-rand_xoshiro = "0.6"
+rand = "0.10"
+rand_xoshiro = "0.8"
 rayon = "1"
 glam = "0.34"
 # serde = "1.0"

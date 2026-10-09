@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::perlin::Perlin;
-use glam::{vec3, Vec3};
+use glam::{Vec3, vec3};
 
 #[derive(Clone, Debug)]
 pub struct RgbImage {

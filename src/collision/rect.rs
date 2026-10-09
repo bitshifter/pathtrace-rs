@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::collision::{Ray, RayHit, AABB};
+use crate::collision::{AABB, Ray, RayHit};
 use glam::vec3;
 
 #[derive(Copy, Clone, Debug)]

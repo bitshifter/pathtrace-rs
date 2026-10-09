@@ -1,22 +1,22 @@
 use crate::simd::sinf_cosf;
-use glam::{vec3, Vec3};
-use rand::Rng;
+use glam::{Vec3, vec3};
+use rand::RngExt;
 
-pub fn random_in_unit_disk<T: Rng>(rng: &mut T) -> Vec3 {
+pub fn random_in_unit_disk<T: RngExt>(rng: &mut T) -> Vec3 {
     loop {
-        let p = 2.0 * vec3(rng.gen(), rng.gen(), 0.0) - vec3(1.0, 1.0, 0.0);
+        let p = 2.0 * vec3(rng.random(), rng.random(), 0.0) - vec3(1.0, 1.0, 0.0);
         if p.dot(p) < 1.0 {
             return p;
         }
     }
 }
 
-pub fn random_in_unit_sphere<T: Rng>(rng: &mut T) -> Vec3 {
+pub fn random_in_unit_sphere<T: RngExt>(rng: &mut T) -> Vec3 {
     loop {
         let p = vec3(
-            2.0 * rng.gen::<f32>() - 1.0,
-            2.0 * rng.gen::<f32>() - 1.0,
-            2.0 * rng.gen::<f32>() - 1.0,
+            2.0 * rng.random::<f32>() - 1.0,
+            2.0 * rng.random::<f32>() - 1.0,
+            2.0 * rng.random::<f32>() - 1.0,
         );
         if p.length_squared() < 1.0 {
             return p;
@@ -24,9 +24,9 @@ pub fn random_in_unit_sphere<T: Rng>(rng: &mut T) -> Vec3 {
     }
 }
 
-pub fn random_unit_vector<T: Rng>(rng: &mut T) -> Vec3 {
-    let z = rng.gen::<f32>() * 2.0 - 1.0;
-    let a = rng.gen::<f32>() * 2.0 * core::f32::consts::PI;
+pub fn random_unit_vector<T: RngExt>(rng: &mut T) -> Vec3 {
+    let z = rng.random::<f32>() * 2.0 - 1.0;
+    let a = rng.random::<f32>() * 2.0 * core::f32::consts::PI;
     let r = (1.0 - z * z).sqrt();
     let (sina, cosa) = sinf_cosf(a);
     vec3(r * cosa, r * sina, z)
@@ -49,11 +49,7 @@ pub fn linear_to_srgb(rgb: (f32, f32, f32)) -> (u8, u8, u8) {
 #[inline]
 #[allow(dead_code)]
 pub fn maxf(a: f32, b: f32) -> f32 {
-    if a > b {
-        a
-    } else {
-        b
-    }
+    if a > b { a } else { b }
 }
 
 #[inline]

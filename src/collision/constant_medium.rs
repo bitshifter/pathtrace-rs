@@ -1,10 +1,10 @@
 use crate::{
-    collision::{Hitable, Ray, RayHit, AABB},
-    material::{isotropic, Material},
+    collision::{AABB, Hitable, Ray, RayHit},
+    material::{Material, isotropic},
     texture::Texture,
 };
 use glam::Vec3;
-use rand::Rng;
+use rand::RngExt;
 use rand_xoshiro::Xoshiro256Plus;
 
 #[derive(Copy, Clone, Debug)]
@@ -56,7 +56,7 @@ impl<'a> ConstantMedium<'a> {
                 }
                 let ray_length = ray.direction.length();
                 let distance_inside_boundary = (t2 - t1) * ray_length;
-                let hit_distance = -(1.0 / self.density) * rng.gen::<f32>().ln();
+                let hit_distance = -(1.0 / self.density) * rng.random::<f32>().ln();
                 if hit_distance < distance_inside_boundary {
                     let t = t1 + hit_distance / ray_length;
                     return Some((

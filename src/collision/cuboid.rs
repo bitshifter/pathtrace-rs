@@ -1,4 +1,4 @@
-use crate::collision::{Ray, RayHit, Rect, AABB};
+use crate::collision::{AABB, Ray, RayHit, Rect};
 use glam::Vec3;
 
 #[derive(Clone, Copy, Debug)]

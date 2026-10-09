@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::{
-    collision::{Hitable, Ray, RayHit, AABB},
+    collision::{AABB, Hitable, Ray, RayHit},
     material::Material,
 };
 use rand_xoshiro::Xoshiro256Plus;
@@ -59,7 +59,7 @@ impl<'a> HitableList<'a> {
 #[cfg(all(feature = "bench", test))]
 mod bench {
     use crate::{
-        bench::{hitables_bench, PARAMS},
+        bench::{PARAMS, hitables_bench},
         collision::HitableList,
         scene::{MAX_T, MIN_T},
     };

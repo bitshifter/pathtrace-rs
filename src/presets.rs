@@ -7,7 +7,7 @@ use crate::{
     texture::{self, RgbImage, Texture},
 };
 use glam::{Affine3A, Quat, Vec3};
-use rand::Rng;
+use rand::RngExt;
 use rand_xoshiro::Xoshiro256Plus;
 
 pub fn from_name<'a>(
@@ -140,22 +140,22 @@ fn random_impl<'a>(
 
     for a in -11..11 {
         for b in -11..11 {
-            let choose_material = rng.gen::<f32>();
+            let choose_material = rng.random::<f32>();
             let centre = Vec3::new(
-                a as f32 + 0.9 * rng.gen::<f32>(),
+                a as f32 + 0.9 * rng.random::<f32>(),
                 0.2,
-                b as f32 + 0.9 * rng.gen::<f32>(),
+                b as f32 + 0.9 * rng.random::<f32>(),
             );
             if choose_material < 0.8 {
-                let centre1 = centre + Vec3::new(0.0, 0.5 * rng.gen::<f32>(), 0.0);
+                let centre1 = centre + Vec3::new(0.0, 0.5 * rng.random::<f32>(), 0.0);
                 if only_spheres {
                     hitables.push(sphere(
                         centre,
                         0.2,
                         material::lambertian(constant(Vec3::new(
-                            rng.gen::<f32>() * rng.gen::<f32>(),
-                            rng.gen::<f32>() * rng.gen::<f32>(),
-                            rng.gen::<f32>() * rng.gen::<f32>(),
+                            rng.random::<f32>() * rng.random::<f32>(),
+                            rng.random::<f32>() * rng.random::<f32>(),
+                            rng.random::<f32>() * rng.random::<f32>(),
                         ))),
                     ));
                 } else {
@@ -164,9 +164,9 @@ fn random_impl<'a>(
                         centre1,
                         0.2,
                         material::lambertian(constant(Vec3::new(
-                            rng.gen::<f32>() * rng.gen::<f32>(),
-                            rng.gen::<f32>() * rng.gen::<f32>(),
-                            rng.gen::<f32>() * rng.gen::<f32>(),
+                            rng.random::<f32>() * rng.random::<f32>(),
+                            rng.random::<f32>() * rng.random::<f32>(),
+                            rng.random::<f32>() * rng.random::<f32>(),
                         ))),
                     ));
                 }
@@ -176,11 +176,11 @@ fn random_impl<'a>(
                     0.2,
                     material::metal(
                         Vec3::new(
-                            0.5 * (1.0 + rng.gen::<f32>()),
-                            0.5 * (1.0 + rng.gen::<f32>()),
-                            0.5 * (1.0 + rng.gen::<f32>()),
+                            0.5 * (1.0 + rng.random::<f32>()),
+                            0.5 * (1.0 + rng.random::<f32>()),
+                            0.5 * (1.0 + rng.random::<f32>()),
                         ),
-                        0.5 * rng.gen::<f32>(),
+                        0.5 * rng.random::<f32>(),
                     ),
                 ));
             } else {

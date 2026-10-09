@@ -1,16 +1,15 @@
 use crate::{params::Params, presets, storage::Storage};
 use glium::{
-    self,
+    self, Surface,
     glutin::{Api, GlProfile, GlRequest},
     index::{NoIndices, PrimitiveType},
     texture::buffer_texture::{BufferTexture, BufferTextureType},
     uniform,
     vertex::EmptyVertexAttributes,
-    Surface,
 };
 use image;
 use std::{
-    sync::mpsc::{channel, RecvTimeoutError},
+    sync::mpsc::{RecvTimeoutError, channel},
     thread,
     time::{Duration, SystemTime},
 };

@@ -20,7 +20,7 @@ mod simd;
 mod storage;
 mod texture;
 
-use clap::{value_t, App, Arg};
+use clap::{App, Arg, value_t};
 
 fn main() {
     let matches = App::new("Toy Path Tracer")

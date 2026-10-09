@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 use crate::{
     collision::{
-        BVHNode, ConstantMedium, Cuboid, HitableList, Instance, MovingSphere, Ray, RayHit, Rect,
-        Sphere, AABB,
+        AABB, BVHNode, ConstantMedium, Cuboid, HitableList, Instance, MovingSphere, Ray, RayHit,
+        Rect, Sphere,
     },
     material::Material,
 };
@@ -53,7 +53,7 @@ impl<'a> Hitable<'a> {
                 (sphere.ray_hit(ray, t_min, t_max), material)
             }
             Hitable::ConstantMedium(constant_medium) => {
-                return constant_medium.ray_hit(ray, t_min, t_max, rng)
+                return constant_medium.ray_hit(ray, t_min, t_max, rng);
             }
             Hitable::List(list) => return list.ray_hit(ray, t_min, t_max, rng),
         };

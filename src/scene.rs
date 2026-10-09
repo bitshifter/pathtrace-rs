@@ -3,13 +3,11 @@ use crate::{
     collision::{Hitable, Ray},
     params::Params,
 };
-use glam::{vec3, Vec3};
-use rand::{Rng, SeedableRng};
+use glam::{Vec3, vec3};
+use rand::{RngExt, SeedableRng};
 use rand_xoshiro::Xoshiro256Plus;
 use rayon::prelude::*;
-use std::{
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub const MAX_T: f32 = f32::MAX;
 pub const MIN_T: f32 = 0.001;
@@ -103,8 +101,8 @@ impl<'a> Scene<'a> {
                 let mut ray_count = 0;
                 let mut col = Vec3::ZERO;
                 for _ in 0..params.samples {
-                    let u = (x as f32 + rng.gen::<f32>()) * inv_nx;
-                    let v = (y as f32 + rng.gen::<f32>()) * inv_ny;
+                    let u = (x as f32 + rng.random::<f32>()) * inv_nx;
+                    let v = (y as f32 + rng.random::<f32>()) * inv_ny;
                     let ray = camera.get_ray(u, v, &mut rng);
                     col += self.ray_trace(&ray, 0, params.max_depth, &mut rng, &mut ray_count);
                 }

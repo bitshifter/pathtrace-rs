@@ -1,11 +1,11 @@
 #![allow(dead_code)]
 use crate::{
-    collision::{Hitable, Ray, RayHit, AABB},
+    collision::{AABB, Hitable, Ray, RayHit},
     material::Material,
     math::align_to,
     simd::*,
 };
-use glam::{vec3, Vec3, Vec3A};
+use glam::{Vec3, Vec3A, vec3};
 
 #[derive(Debug)]
 pub struct SpheresSoA<'a> {
@@ -163,107 +163,110 @@ impl<'a> SpheresSoA<'a> {
         t_min: f32,
         t_max: f32,
     ) -> Option<(RayHit, &Material<'_>)> {
-        #[cfg(target_arch = "x86")]
-        use std::arch::x86::*;
-        #[cfg(target_arch = "x86_64")]
-        use std::arch::x86_64::*;
-        const NUM_LANES: usize = 4;
-        let t_min = _mm_set_ps1(t_min);
-        let mut hit_t = _mm_set_ps1(t_max);
-        let mut hit_index = _mm_set_epi32(-1, -1, -1, -1);
-        // load ray origin
-        let ro = Vec3A::from(ray.origin).into();
-        let ro_x = _mm_shuffle_ps(ro, ro, 0b00_00_00_00);
-        let ro_y = _mm_shuffle_ps(ro, ro, 0b01_01_01_01);
-        let ro_z = _mm_shuffle_ps(ro, ro, 0b10_10_10_10);
-        // load ray direction
-        let rd = Vec3A::from(ray.direction).into();
-        let rd_x = _mm_shuffle_ps(rd, rd, 0b00_00_00_00);
-        let rd_y = _mm_shuffle_ps(rd, rd, 0b01_01_01_01);
-        let rd_z = _mm_shuffle_ps(rd, rd, 0b10_10_10_10);
-        // current indices being processed (little endian ordering)
-        let mut index = _mm_set_epi32(3, 2, 1, 0);
-        // loop over 4 spheres at a time
-        let num_chunks = self.len >> 2;
-        for chunk_index in (0..num_chunks).map(|i| i << 2) {
-            // load sphere centres
-            let c_x = _mm_loadu_ps(self.centre_x.get_unchecked(chunk_index));
-            let c_y = _mm_loadu_ps(self.centre_y.get_unchecked(chunk_index));
-            let c_z = _mm_loadu_ps(self.centre_z.get_unchecked(chunk_index));
-            // load radius_sq
-            let r_sq = _mm_loadu_ps(self.radius_sq.get_unchecked(chunk_index));
-            // let co = centre - ray.origin
-            let co_x = _mm_sub_ps(c_x, ro_x);
-            let co_y = _mm_sub_ps(c_y, ro_y);
-            let co_z = _mm_sub_ps(c_z, ro_z);
-            // let nb = dot(co, ray.direction);
-            let nb = dot3_sse2(co_x, rd_x, co_y, rd_y, co_z, rd_z);
-            // let c = dot(co, co) - radius_sq;
-            let c = _mm_sub_ps(dot3_sse2(co_x, co_x, co_y, co_y, co_z, co_z), r_sq);
-            // let discriminant = nb * nb - c;
-            let discr = _mm_sub_ps(_mm_mul_ps(nb, nb), c);
-            // if discr > 0.0
-            let pos_discr = _mm_cmpgt_ps(discr, _mm_set_ps1(0.0));
-            if _mm_movemask_ps(pos_discr) != 0 {
-                // let discr_sqrt = discr.sqrt();
-                let discr_sqrt = _mm_sqrt_ps(discr);
-                // let t0 = nb - discr_sqrt;
-                let t0 = _mm_sub_ps(nb, discr_sqrt);
-                // let t1 = nb + discr_sqrt;
-                let t1 = _mm_add_ps(nb, discr_sqrt);
-                // let t = if t0 > t_min { t0 } else { t1 };
-                let t = _mm_blendv_ps(t1, t0, _mm_cmpgt_ps(t0, t_min));
-                // from rygs opts
-                // bool4 msk = discrPos & (t > tMin4) & (t < hitT);
-                let mask = _mm_and_ps(
-                    pos_discr,
-                    _mm_and_ps(_mm_cmpgt_ps(t, t_min), _mm_cmplt_ps(t, hit_t)),
-                );
-                // hit_index = mask ? index : hit_index;
-                hit_index = _mm_blendv_epi8(hit_index, index, _mm_castps_si128(mask));
-                // hit_t = mask ? t : hit_t;
-                hit_t = _mm_blendv_ps(hit_t, t, mask);
+        unsafe {
+            #[cfg(target_arch = "x86")]
+            use std::arch::x86::*;
+            #[cfg(target_arch = "x86_64")]
+            use std::arch::x86_64::*;
+            const NUM_LANES: usize = 4;
+            let t_min = _mm_set_ps1(t_min);
+            let mut hit_t = _mm_set_ps1(t_max);
+            let mut hit_index = _mm_set_epi32(-1, -1, -1, -1);
+            // load ray origin
+            let ro = Vec3A::from(ray.origin).into();
+            let ro_x = _mm_shuffle_ps(ro, ro, 0b00_00_00_00);
+            let ro_y = _mm_shuffle_ps(ro, ro, 0b01_01_01_01);
+            let ro_z = _mm_shuffle_ps(ro, ro, 0b10_10_10_10);
+            // load ray direction
+            let rd = Vec3A::from(ray.direction).into();
+            let rd_x = _mm_shuffle_ps(rd, rd, 0b00_00_00_00);
+            let rd_y = _mm_shuffle_ps(rd, rd, 0b01_01_01_01);
+            let rd_z = _mm_shuffle_ps(rd, rd, 0b10_10_10_10);
+            // current indices being processed (little endian ordering)
+            let mut index = _mm_set_epi32(3, 2, 1, 0);
+            // loop over 4 spheres at a time
+            let num_chunks = self.len >> 2;
+            for chunk_index in (0..num_chunks).map(|i| i << 2) {
+                // load sphere centres
+                let c_x = _mm_loadu_ps(self.centre_x.get_unchecked(chunk_index));
+                let c_y = _mm_loadu_ps(self.centre_y.get_unchecked(chunk_index));
+                let c_z = _mm_loadu_ps(self.centre_z.get_unchecked(chunk_index));
+                // load radius_sq
+                let r_sq = _mm_loadu_ps(self.radius_sq.get_unchecked(chunk_index));
+                // let co = centre - ray.origin
+                let co_x = _mm_sub_ps(c_x, ro_x);
+                let co_y = _mm_sub_ps(c_y, ro_y);
+                let co_z = _mm_sub_ps(c_z, ro_z);
+                // let nb = dot(co, ray.direction);
+                let nb = dot3_sse2(co_x, rd_x, co_y, rd_y, co_z, rd_z);
+                // let c = dot(co, co) - radius_sq;
+                let c = _mm_sub_ps(dot3_sse2(co_x, co_x, co_y, co_y, co_z, co_z), r_sq);
+                // let discriminant = nb * nb - c;
+                let discr = _mm_sub_ps(_mm_mul_ps(nb, nb), c);
+                // if discr > 0.0
+                let pos_discr = _mm_cmpgt_ps(discr, _mm_set_ps1(0.0));
+                if _mm_movemask_ps(pos_discr) != 0 {
+                    // let discr_sqrt = discr.sqrt();
+                    let discr_sqrt = _mm_sqrt_ps(discr);
+                    // let t0 = nb - discr_sqrt;
+                    let t0 = _mm_sub_ps(nb, discr_sqrt);
+                    // let t1 = nb + discr_sqrt;
+                    let t1 = _mm_add_ps(nb, discr_sqrt);
+                    // let t = if t0 > t_min { t0 } else { t1 };
+                    let t = _mm_blendv_ps(t1, t0, _mm_cmpgt_ps(t0, t_min));
+                    // from rygs opts
+                    // bool4 msk = discrPos & (t > tMin4) & (t < hitT);
+                    let mask = _mm_and_ps(
+                        pos_discr,
+                        _mm_and_ps(_mm_cmpgt_ps(t, t_min), _mm_cmplt_ps(t, hit_t)),
+                    );
+                    // hit_index = mask ? index : hit_index;
+                    hit_index = _mm_blendv_epi8(hit_index, index, _mm_castps_si128(mask));
+                    // hit_t = mask ? t : hit_t;
+                    hit_t = _mm_blendv_ps(hit_t, t, mask);
+                }
+                // increment indices
+                index = _mm_add_epi32(index, _mm_set1_epi32(NUM_LANES as i32));
             }
-            // increment indices
-            index = _mm_add_epi32(index, _mm_set1_epi32(NUM_LANES as i32));
-        }
 
-        let min_hit_t = hmin_sse2(hit_t);
-        if min_hit_t < t_max {
-            let min_mask = _mm_movemask_ps(_mm_cmpeq_ps(hit_t, _mm_set1_ps(min_hit_t)));
-            if min_mask != 0 {
-                let hit_t_lane = cttz_4bits_nonzero(min_mask as u32) as usize;
-                debug_assert!(hit_t_lane < NUM_LANES);
+            let min_hit_t = hmin_sse2(hit_t);
+            if min_hit_t < t_max {
+                let min_mask = _mm_movemask_ps(_mm_cmpeq_ps(hit_t, _mm_set1_ps(min_hit_t)));
+                if min_mask != 0 {
+                    let hit_t_lane = cttz_4bits_nonzero(min_mask as u32) as usize;
+                    debug_assert!(hit_t_lane < NUM_LANES);
 
-                let hit_index_array = I32x4 { simd: hit_index }.array;
-                let hit_t_array = F32x4 { simd: hit_t }.array;
+                    let hit_index_array = I32x4 { simd: hit_index }.array;
+                    let hit_t_array = F32x4 { simd: hit_t }.array;
 
-                let hit_index_scalar = *hit_index_array.get_unchecked(hit_t_lane) as usize;
-                debug_assert!(hit_index_scalar < self.len);
-                let hit_t_scalar = *hit_t_array.get_unchecked(hit_t_lane);
+                    let hit_index_scalar = *hit_index_array.get_unchecked(hit_t_lane) as usize;
+                    debug_assert!(hit_index_scalar < self.len);
+                    let hit_t_scalar = *hit_t_array.get_unchecked(hit_t_lane);
 
-                let point = ray.point_at_parameter(hit_t_scalar);
-                let centre = vec3(
-                    *self.centre_x.get_unchecked(hit_index_scalar),
-                    *self.centre_y.get_unchecked(hit_index_scalar),
-                    *self.centre_z.get_unchecked(hit_index_scalar),
-                );
-                let normal = (point - centre) * *self.radius_inv.get_unchecked(hit_index_scalar);
-                let material = self.material.get_unchecked(hit_index_scalar).unwrap();
-                let (u, v) = material.get_sphere_uv(normal);
-                return Some((
-                    RayHit {
-                        point,
-                        normal,
-                        t: hit_t_scalar,
-                        u,
-                        v,
-                    },
-                    material,
-                ));
+                    let point = ray.point_at_parameter(hit_t_scalar);
+                    let centre = vec3(
+                        *self.centre_x.get_unchecked(hit_index_scalar),
+                        *self.centre_y.get_unchecked(hit_index_scalar),
+                        *self.centre_z.get_unchecked(hit_index_scalar),
+                    );
+                    let normal =
+                        (point - centre) * *self.radius_inv.get_unchecked(hit_index_scalar);
+                    let material = self.material.get_unchecked(hit_index_scalar).unwrap();
+                    let (u, v) = material.get_sphere_uv(normal);
+                    return Some((
+                        RayHit {
+                            point,
+                            normal,
+                            t: hit_t_scalar,
+                            u,
+                            v,
+                        },
+                        material,
+                    ));
+                }
             }
+            None
         }
-        None
     }
 
     #[cfg_attr(
@@ -276,117 +279,120 @@ impl<'a> SpheresSoA<'a> {
         t_min: f32,
         t_max: f32,
     ) -> Option<(RayHit, &Material<'_>)> {
-        #[cfg(target_arch = "x86")]
-        use std::arch::x86::*;
-        #[cfg(target_arch = "x86_64")]
-        use std::arch::x86_64::*;
-        const NUM_LANES: usize = 8;
-        let t_min = _mm256_set1_ps(t_min);
-        let mut hit_t = _mm256_set1_ps(t_max);
-        let mut hit_index = _mm256_set1_epi32(-1);
-        // load ray origin
-        let ro = Vec3A::from(ray.origin).into();
-        let ro_x = _mm_shuffle_ps(ro, ro, 0b00_00_00_00);
-        let ro_y = _mm_shuffle_ps(ro, ro, 0b01_01_01_01);
-        let ro_z = _mm_shuffle_ps(ro, ro, 0b10_10_10_10);
-        let ro_x = _mm256_set_m128(ro_x, ro_x);
-        let ro_y = _mm256_set_m128(ro_y, ro_y);
-        let ro_z = _mm256_set_m128(ro_z, ro_z);
-        // load ray direction
-        let rd = Vec3A::from(ray.direction).into();
-        let rd_x = _mm_shuffle_ps(rd, rd, 0b00_00_00_00);
-        let rd_y = _mm_shuffle_ps(rd, rd, 0b01_01_01_01);
-        let rd_z = _mm_shuffle_ps(rd, rd, 0b10_10_10_10);
-        let rd_x = _mm256_set_m128(rd_x, rd_x);
-        let rd_y = _mm256_set_m128(rd_y, rd_y);
-        let rd_z = _mm256_set_m128(rd_z, rd_z);
-        // current indices being processed (little endian ordering)
-        let mut index = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
-        // loop over NUM_LANES spheres at a time
-        let num_chunks = self.len >> 3;
-        for chunk_index in (0..num_chunks).map(|i| i << 3) {
-            // load sphere centres
-            let c_x = _mm256_loadu_ps(self.centre_x.get_unchecked(chunk_index));
-            let c_y = _mm256_loadu_ps(self.centre_y.get_unchecked(chunk_index));
-            let c_z = _mm256_loadu_ps(self.centre_z.get_unchecked(chunk_index));
-            // load radius_sq
-            let r_sq = _mm256_loadu_ps(self.radius_sq.get_unchecked(chunk_index));
-            // let co = centre - ray.origin
-            let co_x = _mm256_sub_ps(c_x, ro_x);
-            let co_y = _mm256_sub_ps(c_y, ro_y);
-            let co_z = _mm256_sub_ps(c_z, ro_z);
-            // let nb = dot(co, ray.direction);
-            let nb = dot3_avx2(co_x, rd_x, co_y, rd_y, co_z, rd_z);
-            // let c = dot(co, co) - radius_sq;
-            let c = _mm256_sub_ps(dot3_avx2(co_x, co_x, co_y, co_y, co_z, co_z), r_sq);
-            // let discriminant = nb * nb - c;
-            let discr = _mm256_sub_ps(_mm256_mul_ps(nb, nb), c);
-            // if discr > 0.0
-            let pos_discr = _mm256_cmp_ps(discr, _mm256_set1_ps(0.0), _CMP_GT_OQ);
-            if _mm256_movemask_ps(pos_discr) != 0 {
-                // let discr_sqrt = discr.sqrt();
-                let discr_sqrt = _mm256_sqrt_ps(discr);
-                // let t0 = nb - discr_sqrt;
-                let t0 = _mm256_sub_ps(nb, discr_sqrt);
-                // let t1 = nb + discr_sqrt;
-                let t1 = _mm256_add_ps(nb, discr_sqrt);
-                // let t = if t0 > t_min { t0 } else { t1 };
-                let t = _mm256_blendv_ps(t1, t0, _mm256_cmp_ps(t0, t_min, _CMP_GT_OQ));
-                // from rygs opts
-                // bool4 msk = discrPos & (t > tMin4) & (t < hitT);
-                let mask = _mm256_and_ps(
-                    pos_discr,
-                    _mm256_and_ps(
-                        _mm256_cmp_ps(t, t_min, _CMP_GT_OQ),
-                        _mm256_cmp_ps(t, hit_t, _CMP_LT_OQ),
-                    ),
-                );
-                // hit_index = mask ? index : hit_index;
-                hit_index = _mm256_blendv_epi8(hit_index, index, _mm256_castps_si256(mask));
-                // hit_t = mask ? t : hit_t;
-                hit_t = _mm256_blendv_ps(hit_t, t, mask);
+        unsafe {
+            #[cfg(target_arch = "x86")]
+            use std::arch::x86::*;
+            #[cfg(target_arch = "x86_64")]
+            use std::arch::x86_64::*;
+            const NUM_LANES: usize = 8;
+            let t_min = _mm256_set1_ps(t_min);
+            let mut hit_t = _mm256_set1_ps(t_max);
+            let mut hit_index = _mm256_set1_epi32(-1);
+            // load ray origin
+            let ro = Vec3A::from(ray.origin).into();
+            let ro_x = _mm_shuffle_ps(ro, ro, 0b00_00_00_00);
+            let ro_y = _mm_shuffle_ps(ro, ro, 0b01_01_01_01);
+            let ro_z = _mm_shuffle_ps(ro, ro, 0b10_10_10_10);
+            let ro_x = _mm256_set_m128(ro_x, ro_x);
+            let ro_y = _mm256_set_m128(ro_y, ro_y);
+            let ro_z = _mm256_set_m128(ro_z, ro_z);
+            // load ray direction
+            let rd = Vec3A::from(ray.direction).into();
+            let rd_x = _mm_shuffle_ps(rd, rd, 0b00_00_00_00);
+            let rd_y = _mm_shuffle_ps(rd, rd, 0b01_01_01_01);
+            let rd_z = _mm_shuffle_ps(rd, rd, 0b10_10_10_10);
+            let rd_x = _mm256_set_m128(rd_x, rd_x);
+            let rd_y = _mm256_set_m128(rd_y, rd_y);
+            let rd_z = _mm256_set_m128(rd_z, rd_z);
+            // current indices being processed (little endian ordering)
+            let mut index = _mm256_set_epi32(7, 6, 5, 4, 3, 2, 1, 0);
+            // loop over NUM_LANES spheres at a time
+            let num_chunks = self.len >> 3;
+            for chunk_index in (0..num_chunks).map(|i| i << 3) {
+                // load sphere centres
+                let c_x = _mm256_loadu_ps(self.centre_x.get_unchecked(chunk_index));
+                let c_y = _mm256_loadu_ps(self.centre_y.get_unchecked(chunk_index));
+                let c_z = _mm256_loadu_ps(self.centre_z.get_unchecked(chunk_index));
+                // load radius_sq
+                let r_sq = _mm256_loadu_ps(self.radius_sq.get_unchecked(chunk_index));
+                // let co = centre - ray.origin
+                let co_x = _mm256_sub_ps(c_x, ro_x);
+                let co_y = _mm256_sub_ps(c_y, ro_y);
+                let co_z = _mm256_sub_ps(c_z, ro_z);
+                // let nb = dot(co, ray.direction);
+                let nb = dot3_avx2(co_x, rd_x, co_y, rd_y, co_z, rd_z);
+                // let c = dot(co, co) - radius_sq;
+                let c = _mm256_sub_ps(dot3_avx2(co_x, co_x, co_y, co_y, co_z, co_z), r_sq);
+                // let discriminant = nb * nb - c;
+                let discr = _mm256_sub_ps(_mm256_mul_ps(nb, nb), c);
+                // if discr > 0.0
+                let pos_discr = _mm256_cmp_ps(discr, _mm256_set1_ps(0.0), _CMP_GT_OQ);
+                if _mm256_movemask_ps(pos_discr) != 0 {
+                    // let discr_sqrt = discr.sqrt();
+                    let discr_sqrt = _mm256_sqrt_ps(discr);
+                    // let t0 = nb - discr_sqrt;
+                    let t0 = _mm256_sub_ps(nb, discr_sqrt);
+                    // let t1 = nb + discr_sqrt;
+                    let t1 = _mm256_add_ps(nb, discr_sqrt);
+                    // let t = if t0 > t_min { t0 } else { t1 };
+                    let t = _mm256_blendv_ps(t1, t0, _mm256_cmp_ps(t0, t_min, _CMP_GT_OQ));
+                    // from rygs opts
+                    // bool4 msk = discrPos & (t > tMin4) & (t < hitT);
+                    let mask = _mm256_and_ps(
+                        pos_discr,
+                        _mm256_and_ps(
+                            _mm256_cmp_ps(t, t_min, _CMP_GT_OQ),
+                            _mm256_cmp_ps(t, hit_t, _CMP_LT_OQ),
+                        ),
+                    );
+                    // hit_index = mask ? index : hit_index;
+                    hit_index = _mm256_blendv_epi8(hit_index, index, _mm256_castps_si256(mask));
+                    // hit_t = mask ? t : hit_t;
+                    hit_t = _mm256_blendv_ps(hit_t, t, mask);
+                }
+                // increment indices
+                index = _mm256_add_epi32(index, _mm256_set1_epi32(NUM_LANES as i32));
             }
-            // increment indices
-            index = _mm256_add_epi32(index, _mm256_set1_epi32(NUM_LANES as i32));
-        }
 
-        let min_hit_t = hmin_avx2(hit_t);
-        if min_hit_t < t_max {
-            let min_mask =
-                _mm256_movemask_ps(_mm256_cmp_ps(hit_t, _mm256_set1_ps(min_hit_t), _CMP_EQ_OQ));
-            if min_mask != 0 {
-                let hit_t_lane = cttz_8bits_nonzero(min_mask as u32) as usize;
-                debug_assert!(hit_t_lane < NUM_LANES);
+            let min_hit_t = hmin_avx2(hit_t);
+            if min_hit_t < t_max {
+                let min_mask =
+                    _mm256_movemask_ps(_mm256_cmp_ps(hit_t, _mm256_set1_ps(min_hit_t), _CMP_EQ_OQ));
+                if min_mask != 0 {
+                    let hit_t_lane = cttz_8bits_nonzero(min_mask as u32) as usize;
+                    debug_assert!(hit_t_lane < NUM_LANES);
 
-                let hit_index_array = I32x8 { simd: hit_index }.array;
-                let hit_t_array = F32x8 { simd: hit_t }.array;
+                    let hit_index_array = I32x8 { simd: hit_index }.array;
+                    let hit_t_array = F32x8 { simd: hit_t }.array;
 
-                let hit_index_scalar = *hit_index_array.get_unchecked(hit_t_lane) as usize;
-                debug_assert!(hit_index_scalar < self.len);
-                let hit_t_scalar = *hit_t_array.get_unchecked(hit_t_lane);
+                    let hit_index_scalar = *hit_index_array.get_unchecked(hit_t_lane) as usize;
+                    debug_assert!(hit_index_scalar < self.len);
+                    let hit_t_scalar = *hit_t_array.get_unchecked(hit_t_lane);
 
-                let point = ray.point_at_parameter(hit_t_scalar);
-                let centre = vec3(
-                    *self.centre_x.get_unchecked(hit_index_scalar),
-                    *self.centre_y.get_unchecked(hit_index_scalar),
-                    *self.centre_z.get_unchecked(hit_index_scalar),
-                );
-                let normal = (point - centre) * *self.radius_inv.get_unchecked(hit_index_scalar);
-                let material = self.material.get_unchecked(hit_index_scalar).unwrap();
-                let (u, v) = material.get_sphere_uv(normal);
-                return Some((
-                    RayHit {
-                        point,
-                        normal,
-                        t: hit_t_scalar,
-                        u,
-                        v,
-                    },
-                    material,
-                ));
+                    let point = ray.point_at_parameter(hit_t_scalar);
+                    let centre = vec3(
+                        *self.centre_x.get_unchecked(hit_index_scalar),
+                        *self.centre_y.get_unchecked(hit_index_scalar),
+                        *self.centre_z.get_unchecked(hit_index_scalar),
+                    );
+                    let normal =
+                        (point - centre) * *self.radius_inv.get_unchecked(hit_index_scalar);
+                    let material = self.material.get_unchecked(hit_index_scalar).unwrap();
+                    let (u, v) = material.get_sphere_uv(normal);
+                    return Some((
+                        RayHit {
+                            point,
+                            normal,
+                            t: hit_t_scalar,
+                            u,
+                            v,
+                        },
+                        material,
+                    ));
+                }
             }
+            None
         }
-        None
     }
 }
 

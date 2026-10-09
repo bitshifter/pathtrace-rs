@@ -1,6 +1,6 @@
 #![allow(dead_code)]
-use glam::{vec3, Vec3};
-use rand::Rng;
+use glam::{Vec3, vec3};
+use rand::RngExt;
 use rand_xoshiro::Xoshiro256Plus;
 
 #[derive(Debug)]
@@ -16,9 +16,9 @@ impl Perlin {
         let mut randvec = vec![Vec3::ZERO; 256];
         for v in randvec.iter_mut() {
             *v = vec3(
-                -1.0 + 2.0 * rng.gen::<f32>(),
-                -1.0 + 2.0 * rng.gen::<f32>(),
-                -1.0 + 2.0 * rng.gen::<f32>(),
+                -1.0 + 2.0 * rng.random::<f32>(),
+                -1.0 + 2.0 * rng.random::<f32>(),
+                -1.0 + 2.0 * rng.random::<f32>(),
             )
             .normalize();
         }
@@ -27,7 +27,7 @@ impl Perlin {
 
     fn permute(rng: &mut Xoshiro256Plus, perm: &mut Vec<u32>) {
         for i in (0..perm.len()).rev() {
-            let target = (rng.gen::<f32>() * (i + 1) as f32).floor() as usize;
+            let target = (rng.random::<f32>() * (i + 1) as f32).floor() as usize;
             perm.swap(i, target);
         }
     }

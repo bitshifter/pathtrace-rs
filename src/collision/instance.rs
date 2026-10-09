@@ -1,5 +1,5 @@
 use crate::{
-    collision::{Hitable, Ray, RayHit, AABB},
+    collision::{AABB, Hitable, Ray, RayHit},
     material::Material,
 };
 use glam::Affine3A;

@@ -3,8 +3,8 @@ use crate::{
     math::{random_in_unit_sphere, random_unit_vector, reflect, refract, schlick},
     texture::Texture,
 };
-use glam::{vec3, Vec3};
-use rand::Rng;
+use glam::{Vec3, vec3};
+use rand::RngExt;
 use rand_xoshiro::Xoshiro256Plus;
 
 // #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -105,7 +105,7 @@ impl<'a> Material<'a> {
         };
         if let Some(refracted) = refract(ray_in.direction, outward_normal, ni_over_nt) {
             let reflect_prob = schlick(cosine, ref_idx);
-            if rng.gen::<f32>() > reflect_prob {
+            if rng.random::<f32>() > reflect_prob {
                 return Some((
                     attenuation,
                     Ray::new(ray_hit.point, refracted.normalize(), ray_in.time),

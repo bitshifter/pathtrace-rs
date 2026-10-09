@@ -1,6 +1,6 @@
 use crate::{collision::Ray, math::random_in_unit_disk};
 use glam::Vec3;
-use rand::Rng;
+use rand::RngExt;
 
 // #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 #[derive(Copy, Clone, Debug)]
@@ -52,10 +52,10 @@ impl Camera {
         }
     }
 
-    pub fn get_ray<T: Rng>(&self, s: f32, t: f32, rng: &mut T) -> Ray {
+    pub fn get_ray<T: RngExt>(&self, s: f32, t: f32, rng: &mut T) -> Ray {
         let rd = self.lens_radius * random_in_unit_disk(rng);
         let offset = self.u * rd.x + self.v * rd.y;
-        let time = self.time0 + rng.gen::<f32>() * (self.time1 - self.time0);
+        let time = self.time0 + rng.random::<f32>() * (self.time1 - self.time0);
         Ray::new(
             self.origin + offset,
             (self.lower_left_corner + s * self.horizontal + t * self.vertical
