@@ -51,6 +51,13 @@ fn spheres_benches(c: &mut Criterion) {
         });
     }
 
+    #[cfg(feature = "glam_fearless")]
+    {
+        group.bench_function("glam_fearless", |b| {
+            b.iter(|| black_box(spheres.hit_glam_fearless(&ray, MIN_T, MAX_T)))
+        });
+    }
+
     group.finish();
 }
 

@@ -1,0 +1,32 @@
+[package]
+name = "glam-fearless"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.89"
+description = "Wide SIMD maths types for glam, built on fearless_simd (exploration prototype)"
+license = "MIT OR Apache-2.0"
+publish = false
+repository = "https://github.com/bitshifter/pathtrace-rs"
+
+# Standalone workspace: this prototype crate is not a member of the pathtrace-rs package,
+# it is consumed as a path dependency.
+[workspace]
+
+[lib]
+name = "glam_fearless"
+
+[features]
+# Enables `Level::fallback()` so tests can check the emulated scalar backend.
+force_support_fallback = ["fearless_simd/force_support_fallback"]
+
+[dependencies]
+fearless_simd = "1.1"
+fearless_simd_macros = "0.1"
+# `splat_vec` takes glam's narrow vectors, so glam is a real dependency (the consumer
+# already depends on the same version).
+glam = "0.34"
+
+[lints.clippy]
+# The SIMD-generic test helpers take one slice per component and per result.
+too_many_arguments = "allow"
+

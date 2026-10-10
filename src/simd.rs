@@ -15,6 +15,9 @@ pub enum TargetFeature {
     /// Auto-vectorization via `fearless_simd`'s `#[simd]` attribute.
     #[cfg(feature = "fearless_simd")]
     AutoVectorize,
+    /// Wide `glam_fearless` vector types, dispatched to the best `fearless_simd` level.
+    #[cfg(feature = "glam_fearless")]
+    GlamFearless,
     FallBack,
 }
 
@@ -27,6 +30,8 @@ impl TargetFeature {
                 "portable" | "portable_simd" | "fearless" => return TargetFeature::PortableSimd,
                 #[cfg(feature = "fearless_simd")]
                 "auto" | "auto_vectorize" => return TargetFeature::AutoVectorize,
+                #[cfg(feature = "glam_fearless")]
+                "glam_fearless" | "glam-fearless" => return TargetFeature::GlamFearless,
                 "scalar" | "fallback" => return TargetFeature::FallBack,
                 "sse4_1" | "sse4.1" => return TargetFeature::SSE4_1,
                 "avx2" => return TargetFeature::AVX2,
@@ -61,6 +66,8 @@ impl TargetFeature {
             TargetFeature::SSE4_1 => println!("Using SSE4.1"),
             #[cfg(feature = "fearless_simd")]
             TargetFeature::PortableSimd => println!("Using fearless_simd portable SIMD"),
+            #[cfg(feature = "glam_fearless")]
+            TargetFeature::GlamFearless => println!("Using glam_fearless"),
             #[cfg(feature = "fearless_simd")]
             TargetFeature::AutoVectorize => println!("Using fearless_simd auto-vectorization"),
             TargetFeature::FallBack => println!("Using scalar"),
@@ -72,6 +79,8 @@ impl TargetFeature {
             TargetFeature::SSE4_1 => 128,
             #[cfg(feature = "fearless_simd")]
             TargetFeature::PortableSimd | TargetFeature::AutoVectorize => fearless_simd_bits(),
+            #[cfg(feature = "glam_fearless")]
+            TargetFeature::GlamFearless => fearless_simd_bits(),
             TargetFeature::FallBack => 32,
         }
     }

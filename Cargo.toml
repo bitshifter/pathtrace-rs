@@ -22,6 +22,8 @@ typed-arena = "2"
 # Optional: fearless_simd-backed SpheresSoA ray hit implementations.
 fearless_simd = { version = "1", optional = true }
 fearless_simd_macros = { version = "0.1", optional = true }
+# Local prototype crate in this repository: wide glam types built on fearless_simd.
+glam_fearless = { package = "glam-fearless", path = "./glam-fearless", optional = true }
 
 [dependencies.clap]
 version = "4"
@@ -40,9 +42,10 @@ default-features = false
 features = ["jpeg", "png"]
 
 [features]
-default = ["fearless_simd"]
+default = ["fearless_simd", "glam_fearless"]
 core_intrinsics = []
 fearless_simd = ["dep:fearless_simd", "dep:fearless_simd_macros"]
+glam_fearless = ["dep:glam_fearless", "fearless_simd"]
 
 [profile.dev]
 opt-level = 3

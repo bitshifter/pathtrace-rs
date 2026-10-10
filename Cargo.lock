@@ -735,6 +735,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc148d4ddd3930c52f9e5ae79b89805c6f07e9ff417e7b083e0348cea60a5aba"
 
 [[package]]
+name = "glam-fearless"
+version = "0.0.0"
+dependencies = [
+ "fearless_simd",
+ "fearless_simd_macros",
+ "glam",
+]
+
+[[package]]
 name = "glow"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1516,6 +1525,7 @@ dependencies = [
  "fearless_simd",
  "fearless_simd_macros",
  "glam",
+ "glam-fearless",
  "image",
  "pixels",
  "rand",

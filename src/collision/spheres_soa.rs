@@ -106,6 +106,8 @@ impl<'a> SpheresSoA<'a> {
             TargetFeature::PortableSimd => self.hit_portable_simd(ray, t_min, t_max),
             #[cfg(feature = "fearless_simd")]
             TargetFeature::AutoVectorize => self.hit_auto_vectorize(ray, t_min, t_max),
+            #[cfg(feature = "glam_fearless")]
+            TargetFeature::GlamFearless => self.hit_glam_fearless(ray, t_min, t_max),
             TargetFeature::FallBack => self.hit_scalar(ray, t_min, t_max),
         }
     }
@@ -271,9 +273,7 @@ impl<'a> SpheresSoA<'a> {
         t_max: f32,
     ) -> Option<(RayHit, &Material<'_>)> {
         // `self.len` is padded to a multiple of the native width, see `SpheresSoA::new`.
-        const LANE_OFFSETS: [u32; 16] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
         let num_lanes = S::f32s::LEN;
-        assert!(num_lanes <= LANE_OFFSETS.len());
 
         let a = S::f32s::splat(simd, ray.direction.dot(ray.direction));
         let ro_x = S::f32s::splat(simd, ray.origin.x);
@@ -284,8 +284,8 @@ impl<'a> SpheresSoA<'a> {
         let rd_z = S::f32s::splat(simd, ray.direction.z);
         let t_min_v = S::f32s::splat(simd, t_min);
         let mut hit_t = S::f32s::splat(simd, t_max);
-        let mut hit_index = S::u32s::splat(simd, self.len as u32);
-        let lane_offsets = S::u32s::from_slice(simd, &LANE_OFFSETS[..num_lanes]);
+        // Per lane, the base index of the chunk holding the closest hit so far.
+        let mut hit_base = S::u32s::splat(simd, self.len as u32);
 
         for chunk_index in (0..self.len).step_by(num_lanes) {
             let c_x =
@@ -310,8 +310,7 @@ impl<'a> SpheresSoA<'a> {
                 let t1 = (-b + discr_sqrt) / a;
                 let t = t0.simd_gt(t_min_v).select(t0, t1);
                 let mask = pos_discr & t.simd_gt(t_min_v) & t.simd_lt(hit_t);
-                let index = S::u32s::splat(simd, chunk_index as u32) + lane_offsets;
-                hit_index = mask.select(index, hit_index);
+                hit_base = mask.select(S::u32s::splat(simd, chunk_index as u32), hit_base);
                 hit_t = mask.select(t, hit_t);
             }
         }
@@ -322,7 +321,84 @@ impl<'a> SpheresSoA<'a> {
             if min_mask != 0 {
                 // Lowest set bit is the lowest lane, matching the scalar tie-break.
                 let lane = min_mask.trailing_zeros() as usize;
-                let hit_index = hit_index.as_slice()[lane] as usize;
+                let hit_index = hit_base.as_slice()[lane] as usize + lane;
+                return self.hit_record(ray, min_hit_t, hit_index);
+            }
+        }
+        None
+    }
+
+    /// Ray hit using wide `glam_fearless` vector types.
+    ///
+    /// Same algorithm as [`hit_portable_simd`](Self::hit_portable_simd), but the per-component
+    /// lane math is written with `Vec3xN` operations (`oc = ro - c`, `oc.dot(rd)`) instead of
+    /// spelling out `oc_x`/`oc_y`/`oc_z` at every step.
+    #[cfg(feature = "glam_fearless")]
+    pub fn hit_glam_fearless(
+        &self,
+        ray: &Ray,
+        t_min: f32,
+        t_max: f32,
+    ) -> Option<(RayHit, &Material<'_>)> {
+        let level = Level::new();
+        dispatch!(level, simd => self.hit_glam_fearless_impl(simd, ray, t_min, t_max))
+    }
+
+    #[cfg(feature = "glam_fearless")]
+    #[simd]
+    fn hit_glam_fearless_impl<S: Simd>(
+        &self,
+        simd: S,
+        ray: &Ray,
+        t_min: f32,
+        t_max: f32,
+    ) -> Option<(RayHit, &Material<'_>)> {
+        use glam_fearless::Vec3xN;
+
+        // `self.len` is padded to a multiple of the native width, see `SpheresSoA::new`.
+        let num_lanes = S::f32s::LEN;
+
+        let a = S::f32s::splat(simd, ray.direction.dot(ray.direction));
+        let ro = Vec3xN::splat_vec(simd, ray.origin);
+        let rd = Vec3xN::splat_vec(simd, ray.direction);
+        let t_min_v = S::f32s::splat(simd, t_min);
+        let mut hit_t = S::f32s::splat(simd, t_max);
+        // Per lane, the base index of the chunk holding the closest hit so far.
+        let mut hit_base = S::u32s::splat(simd, self.len as u32);
+
+        for chunk_index in (0..self.len).step_by(num_lanes) {
+            let centre = Vec3xN::from_slice(
+                simd,
+                &self.centre_x[chunk_index..chunk_index + num_lanes],
+                &self.centre_y[chunk_index..chunk_index + num_lanes],
+                &self.centre_z[chunk_index..chunk_index + num_lanes],
+            );
+            let r_sq =
+                S::f32s::from_slice(simd, &self.radius_sq[chunk_index..chunk_index + num_lanes]);
+
+            let oc = ro - centre;
+            let b = oc.dot(rd);
+            let c = oc.dot(oc) - r_sq;
+            let discr = b * b - a * c;
+            let pos_discr = discr.simd_gt(0.0);
+            if pos_discr.any_true() {
+                let discr_sqrt = discr.sqrt();
+                let t0 = (-b - discr_sqrt) / a;
+                let t1 = (-b + discr_sqrt) / a;
+                let t = t0.simd_gt(t_min_v).select(t0, t1);
+                let mask = pos_discr & t.simd_gt(t_min_v) & t.simd_lt(hit_t);
+                hit_base = mask.select(S::u32s::splat(simd, chunk_index as u32), hit_base);
+                hit_t = mask.select(t, hit_t);
+            }
+        }
+
+        let min_hit_t = hit_t.reduce_min();
+        if min_hit_t < t_max {
+            let min_mask = hit_t.simd_eq(min_hit_t).to_bitmask();
+            if min_mask != 0 {
+                // Lowest set bit is the lowest lane, matching the scalar tie-break.
+                let lane = min_mask.trailing_zeros() as usize;
+                let hit_index = hit_base.as_slice()[lane] as usize + lane;
                 return self.hit_record(ray, min_hit_t, hit_index);
             }
         }
@@ -429,8 +505,7 @@ impl<'a> SpheresSoA<'a> {
                         *self.centre_y.get_unchecked(hit_index_scalar),
                         *self.centre_z.get_unchecked(hit_index_scalar),
                     );
-                    let normal =
-                        (point - centre) / *self.radius.get_unchecked(hit_index_scalar);
+                    let normal = (point - centre) / *self.radius.get_unchecked(hit_index_scalar);
                     let material = self.material.get_unchecked(hit_index_scalar).unwrap();
                     let (u, v) = material.get_sphere_uv(normal);
                     return Some((
@@ -559,8 +634,7 @@ impl<'a> SpheresSoA<'a> {
                         *self.centre_y.get_unchecked(hit_index_scalar),
                         *self.centre_z.get_unchecked(hit_index_scalar),
                     );
-                    let normal =
-                        (point - centre) / *self.radius.get_unchecked(hit_index_scalar);
+                    let normal = (point - centre) / *self.radius.get_unchecked(hit_index_scalar);
                     let material = self.material.get_unchecked(hit_index_scalar).unwrap();
                     let (u, v) = material.get_sphere_uv(normal);
                     return Some((
@@ -765,6 +839,46 @@ mod fearless_tests {
                     &ray,
                     expected,
                     spheres.hit_portable_simd(&ray, MIN_T, MAX_T),
+                );
+            }
+        }
+    }
+    /// The wide `glam_fearless` path must agree with the scalar path.
+    #[cfg(feature = "glam_fearless")]
+    #[test]
+    fn glam_fearless_hits_match_scalar() {
+        let mut rng = Xoshiro256Plus::seed_from_u64(0);
+        let storage = Storage::new(&mut rng);
+        let material = storage.alloc_material(metal(vec3(0.8, 0.2, 0.1), 0.0));
+
+        // 40 spheres gives several native-width chunks plus padding for 4/8/16 lanes.
+        let mut lcg = Lcg(0x1234_5678);
+        let mut hitables = Vec::new();
+        for i in 0..40 {
+            let centre = vec3(lcg.next() * 3.0, lcg.next() * 3.0, -1.0 - i as f32 * 0.4);
+            let radius = 0.2 + lcg.next().abs() * 0.8;
+            let sphere = storage.alloc_sphere(Sphere::new(centre, radius));
+            hitables.push(Hitable::Sphere(sphere, material));
+        }
+        let spheres = SpheresSoA::new(&hitables);
+
+        let origins = [
+            vec3(0.0, 0.0, 0.0),
+            vec3(0.3, -0.4, 1.5),
+            vec3(-1.0, 0.8, 0.5),
+            vec3(2.5, 2.5, 2.5),
+            // Inside the first sphere.
+            vec3(0.0, 0.0, -1.0),
+        ];
+        for origin in origins {
+            for _ in 0..256 {
+                let direction = vec3(lcg.next(), lcg.next(), -lcg.next().abs() - 0.05).normalize();
+                let ray = Ray::new(origin, direction, 0.0);
+                let expected = spheres.hit_scalar(&ray, MIN_T, MAX_T);
+                assert_same_hit(
+                    &ray,
+                    expected,
+                    spheres.hit_glam_fearless(&ray, MIN_T, MAX_T),
                 );
             }
         }
