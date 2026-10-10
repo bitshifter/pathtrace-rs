@@ -308,6 +308,22 @@ macro_rules! impl_horizontal_ops {
             pub fn length(self) -> S::f32s {
                 self.length_squared().sqrt()
             }
+
+            /// Scale every lane to unit length.
+            ///
+            /// Divides by the length across lanes, rather than multiplying by a reciprocal:
+            /// one rounding instead of two, which is what glam's SIMD path and nalgebra do
+            /// (glam's scalar path uses a reciprocal, ultraviolet uses one too). A lane of
+            /// zero length produces infinities, as it does in glam.
+            #[inline(always)]
+            pub fn normalize(self) -> Self {
+                let len = self.length();
+                Self::new(
+                    self.token,
+                    self.$first / len,
+                    $(self.$rest / len),+
+                )
+            }
         }
     };
 }

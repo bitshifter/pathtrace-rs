@@ -131,6 +131,18 @@ macro_rules! conformance_type {
                 }
             }
 
+            /// Per-lane normalize.
+            #[simd]
+            #[inline(always)]
+            pub fn normalize<S: Simd>(simd: S, $($a: &[f32], $o: &mut [f32],)+) {
+                let n = S::f32s::LEN;
+                for i in (0..N).step_by(n) {
+                    let va = $vec::new(simd, $(S::f32s::from_slice(simd, &$a[i..i + n])),+);
+                    let r = va.normalize();
+                    $($o[i..i + n].copy_from_slice(r.$f.as_slice());)+
+                }
+            }
+
             /// Component-wise comparisons, reported as one lane bitmask per component.
             /// `op`: 0 gt, 1 ge, 2 lt, 3 le, 4 eq, 5 ne.
             #[simd]
@@ -263,6 +275,23 @@ macro_rules! conformance_type {
                         // `dot`/`length` may be contracted to FMA on some levels.
                         assert_lanes_close(&out, &exp, 1e-6, &what);
                     }
+                }
+            }
+
+            #[test]
+            fn normalize_matches_glam() {
+                for level in levels() {
+                    $(let $a = signed(N, $seed);)+
+                    let ga: Vec<$glam> = (0..N).map(|i| $glam::new($($a[i],)+)).collect();
+                    $(let mut $o = vec![0.0f32; N];)+
+                    dispatch!(level, simd => normalize(simd, $(&$a, &mut $o),+));
+                    $(
+                        let exp: Vec<f32> = ga.iter().map(|v| v.normalize().$f).collect();
+                        let what = format!("normalize level={level:?} component={}", stringify!($f));
+                        // glam's scalar normalize multiplies by the reciprocal; ours divides
+                        // (as glam's SIMD path does), so the results differ by rounding only.
+                        assert_lanes_close(&$o, &exp, 1e-6, &what);
+                    )+
                 }
             }
 
