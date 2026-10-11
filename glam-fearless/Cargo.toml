@@ -26,6 +26,13 @@ fearless_simd_macros = "0.1"
 # already depends on the same version).
 glam = "0.34"
 
+[dev-dependencies]
+criterion = "0.8"
+
+[[bench]]
+name = "dispatch_overhead"
+harness = false
+
 [lints.clippy]
 # The SIMD-generic test helpers take one slice per component and per result.
 too_many_arguments = "allow"
