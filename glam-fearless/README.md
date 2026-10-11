@@ -13,7 +13,7 @@ Design notes are deliberately kept out of this repository.
 ## Usage
 
 ```sh
-cargo test                 # 26 conformance tests against scalar glam, 4- and 8-lane widths
+cargo test                 # 32 conformance tests against scalar glam, 4- and 8-lane widths
 cargo test --features force_support_fallback   # adds the 4-lane emulated scalar backend
 cargo run --example smoke
 ```
@@ -34,7 +34,7 @@ cargo bench --bench spheres_soa    # criterion; see the spheres_soa/glam_fearles
   you only have a `Level`.
 - `QuatxN` covers multiply, conjugate/inverse, normalize and rotating a `Vec3xN`. Angles and `slerp`
   need `sin`/`cos`/`acos`, which fearless_simd does not provide yet, so quaternions are built from
-  components or from one scalar `glam::Quat` per lane (`splat_vec`).
+  components or from one scalar `glam::Quat` per lane (`splat_quat`).
 - The scalar fallback in fearless_simd is a 4-lane *emulated* backend, so lane counts are 4, 8 or 16;
   there is no 1-lane level.
 - No `unsafe` in this crate.

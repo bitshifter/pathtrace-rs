@@ -3,7 +3,7 @@
 //! Rotations that need trigonometry (angles, `slerp`, Euler conversion) are out of scope:
 //! `fearless_simd` 1.1 has no vector `sin`/`cos`/`acos`, so a wide quaternion is built from
 //! components, most naturally one scalar `glam::Quat` per lane via
-//! [`splat_vec`](QuatxN::splat_vec). Multiply, conjugate/inverse, normalize and rotating a
+//! [`splat_quat`](QuatxN::splat_quat). Multiply, conjugate/inverse, normalize and rotating a
 //! [`Vec3xN`] need no trigonometry and are what the type is for.
 
 use core::ops::{Add, AddAssign, Mul, Neg, Sub, SubAssign};
@@ -68,17 +68,10 @@ impl<S: Simd> QuatxN<S> {
         )
     }
 
-    /// Construct with every lane of every component set to `value`.
-    #[inline(always)]
-    pub fn splat(simd: S, value: f32) -> Self {
-        Self::splat_xyzw(simd, value, value, value, value)
-    }
-
     /// Construct from a narrow glam quaternion, one rotation broadcast to every lane.
     #[inline(always)]
-    pub fn splat_vec(simd: S, value: impl Into<glam::Quat>) -> Self {
-        let q: glam::Quat = value.into();
-        Self::splat_xyzw(simd, q.x, q.y, q.z, q.w)
+    pub fn splat_quat(simd: S, value: glam::Quat) -> Self {
+        Self::splat_xyzw(simd, value.x, value.y, value.z, value.w)
     }
 
     /// Construct from one lane slice per component.
