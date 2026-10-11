@@ -34,9 +34,11 @@
 //! ```
 
 pub mod bvec;
+pub mod quat;
 pub mod vec;
 
 pub use bvec::{BVec2xN, BVec3xN, BVec4xN};
+pub use quat::QuatxN;
 pub use vec::{Vec2xN, Vec3xN, Vec4xN};
 
 pub use fearless_simd::{self, Level, dispatch, prelude, prelude::*};

@@ -9,7 +9,9 @@
 //! 1-lane one, so it adds backend coverage rather than a new width.
 
 use glam::{Vec2 as GlamVec2, Vec3 as GlamVec3, Vec4 as GlamVec4};
-use glam_fearless::{Level, Vec2xN, Vec3xN, Vec4xN, dispatch, lane_len_f32, prelude::*, simd};
+use glam_fearless::{
+    Level, QuatxN, Vec2xN, Vec3xN, Vec4xN, dispatch, lane_len_f32, prelude::*, simd,
+};
 
 /// Lanes processed by each test; a multiple of every lane count under test.
 const N: usize = 64;
@@ -780,5 +782,282 @@ fn mask_bitmask_round_trips() {
         assert_eq!(out, expected, "bitmask round-trip level={level:?}");
         let expected_any: Vec<u32> = expected.iter().map(|b| u32::from(*b != 0)).collect();
         assert_eq!(any, expected_any, "any_true level={level:?}");
+    }
+}
+
+// --- Wide quaternions. ---
+
+mod quat {
+    use super::*;
+    use glam::Quat as GlamQuat;
+
+    fn refs4(a: &[Vec<f32>; 4]) -> [&[f32]; 4] {
+        [&a[0], &a[1], &a[2], &a[3]]
+    }
+
+    fn refs4_mut(a: &mut [Vec<f32>; 4]) -> [&mut [f32]; 4] {
+        let [a0, a1, a2, a3] = a;
+        [
+            a0.as_mut_slice(),
+            a1.as_mut_slice(),
+            a2.as_mut_slice(),
+            a3.as_mut_slice(),
+        ]
+    }
+
+    fn refs3(a: &[Vec<f32>; 3]) -> [&[f32]; 3] {
+        [&a[0], &a[1], &a[2]]
+    }
+
+    fn refs3_mut(a: &mut [Vec<f32>; 3]) -> [&mut [f32]; 3] {
+        let [a0, a1, a2] = a;
+        [a0.as_mut_slice(), a1.as_mut_slice(), a2.as_mut_slice()]
+    }
+
+    fn glam_quats(a: &[Vec<f32>; 4]) -> Vec<GlamQuat> {
+        (0..N)
+            .map(|i| GlamQuat::from_xyzw(a[0][i], a[1][i], a[2][i], a[3][i]))
+            .collect()
+    }
+
+    fn assert_quat_lanes(out: &[Vec<f32>; 4], exp: &[GlamQuat], eps: f32, what: &str) {
+        let components = [
+            exp.iter().map(|q| q.x).collect::<Vec<_>>(),
+            exp.iter().map(|q| q.y).collect::<Vec<_>>(),
+            exp.iter().map(|q| q.z).collect::<Vec<_>>(),
+            exp.iter().map(|q| q.w).collect::<Vec<_>>(),
+        ];
+        for (c, (got, want)) in out.iter().zip(&components).enumerate() {
+            assert_lanes_close(got, want, eps, &format!("{what} component {c}"));
+        }
+    }
+
+    /// `op`: 0 multiply, 1 conjugate, 2 normalize.
+    #[simd]
+    #[inline(always)]
+    pub fn quat_op<S: Simd>(
+        simd: S,
+        op: u32,
+        a: [&[f32]; 4],
+        b: [&[f32]; 4],
+        out: [&mut [f32]; 4],
+    ) {
+        let n = S::f32s::LEN;
+        let [ox, oy, oz, ow] = out;
+        for i in (0..a[0].len()).step_by(n) {
+            let qa = QuatxN::from_slice(
+                simd,
+                &a[0][i..i + n],
+                &a[1][i..i + n],
+                &a[2][i..i + n],
+                &a[3][i..i + n],
+            );
+            let qb = QuatxN::from_slice(
+                simd,
+                &b[0][i..i + n],
+                &b[1][i..i + n],
+                &b[2][i..i + n],
+                &b[3][i..i + n],
+            );
+            let r = match op {
+                0 => qa * qb,
+                1 => qa.conjugate(),
+                _ => qa.normalize(),
+            };
+            ox[i..i + n].copy_from_slice(r.x.as_slice());
+            oy[i..i + n].copy_from_slice(r.y.as_slice());
+            oz[i..i + n].copy_from_slice(r.z.as_slice());
+            ow[i..i + n].copy_from_slice(r.w.as_slice());
+        }
+    }
+
+    /// Rotate every lane of `v` by the quaternion in `q`.
+    #[simd]
+    #[inline(always)]
+    pub fn quat_rotate<S: Simd>(simd: S, q: [&[f32]; 4], v: [&[f32]; 3], out: [&mut [f32]; 3]) {
+        let n = S::f32s::LEN;
+        let [ox, oy, oz] = out;
+        for i in (0..v[0].len()).step_by(n) {
+            let qa = QuatxN::from_slice(
+                simd,
+                &q[0][i..i + n],
+                &q[1][i..i + n],
+                &q[2][i..i + n],
+                &q[3][i..i + n],
+            );
+            let va = Vec3xN::from_slice(simd, &v[0][i..i + n], &v[1][i..i + n], &v[2][i..i + n]);
+            let r = qa * va;
+            ox[i..i + n].copy_from_slice(r.x.as_slice());
+            oy[i..i + n].copy_from_slice(r.y.as_slice());
+            oz[i..i + n].copy_from_slice(r.z.as_slice());
+        }
+    }
+
+    /// `op`: 0 dot, 1 length.
+    #[simd]
+    #[inline(always)]
+    pub fn quat_dot_length<S: Simd>(
+        simd: S,
+        op: u32,
+        a: [&[f32]; 4],
+        b: [&[f32]; 4],
+        out: &mut [f32],
+    ) {
+        let n = S::f32s::LEN;
+        for i in (0..out.len()).step_by(n) {
+            let qa = QuatxN::from_slice(
+                simd,
+                &a[0][i..i + n],
+                &a[1][i..i + n],
+                &a[2][i..i + n],
+                &a[3][i..i + n],
+            );
+            let qb = QuatxN::from_slice(
+                simd,
+                &b[0][i..i + n],
+                &b[1][i..i + n],
+                &b[2][i..i + n],
+                &b[3][i..i + n],
+            );
+            let r = match op {
+                0 => qa.dot(qb),
+                _ => qa.length(),
+            };
+            r.store_slice(&mut out[i..i + n]);
+        }
+    }
+
+    #[test]
+    fn quat_ops_match_glam() {
+        let a = [
+            signed(N, 1.0),
+            signed(N, 2.5),
+            signed(N, 4.0),
+            signed(N, 5.5),
+        ];
+        let b = [
+            signed(N, 7.0),
+            signed(N, 8.5),
+            signed(N, 10.0),
+            signed(N, 11.5),
+        ];
+        let ga = glam_quats(&a);
+        let gb = glam_quats(&b);
+        for level in levels() {
+            let mut out = [
+                vec![0.0f32; N],
+                vec![0.0f32; N],
+                vec![0.0f32; N],
+                vec![0.0f32; N],
+            ];
+
+            dispatch!(level, simd => quat_op(simd, 0, refs4(&a), refs4(&b), refs4_mut(&mut out)));
+            let exp: Vec<GlamQuat> = ga.iter().zip(&gb).map(|(x, y)| *x * *y).collect();
+            assert_quat_lanes(&out, &exp, 1e-6, &format!("quat mul level={level:?}"));
+
+            dispatch!(level, simd => quat_op(simd, 1, refs4(&a), refs4(&b), refs4_mut(&mut out)));
+            let exp: Vec<GlamQuat> = ga.iter().map(|q| q.conjugate()).collect();
+            assert_quat_lanes(&out, &exp, 0.0, &format!("quat conjugate level={level:?}"));
+
+            dispatch!(level, simd => quat_op(simd, 2, refs4(&a), refs4(&b), refs4_mut(&mut out)));
+            let exp: Vec<GlamQuat> = ga.iter().map(|q| q.normalize()).collect();
+            assert_quat_lanes(&out, &exp, 1e-6, &format!("quat normalize level={level:?}"));
+
+            let mut dots = vec![0.0f32; N];
+            dispatch!(level, simd => quat_dot_length(simd, 0, refs4(&a), refs4(&b), &mut dots));
+            let exp: Vec<f32> = ga.iter().zip(&gb).map(|(x, y)| x.dot(*y)).collect();
+            assert_lanes_close(&dots, &exp, 1e-6, &format!("quat dot level={level:?}"));
+
+            dispatch!(level, simd => quat_dot_length(simd, 1, refs4(&a), refs4(&b), &mut dots));
+            let exp: Vec<f32> = ga.iter().map(|q| q.length()).collect();
+            assert_lanes_close(&dots, &exp, 1e-6, &format!("quat length level={level:?}"));
+        }
+    }
+
+    #[test]
+    fn quat_rotate_matches_glam() {
+        let a = [
+            signed(N, 1.0),
+            signed(N, 2.5),
+            signed(N, 4.0),
+            signed(N, 5.5),
+        ];
+        let v = [signed(N, 13.0), signed(N, 14.5), signed(N, 16.0)];
+        // Rotating assumes a unit quaternion, so normalise with glam and feed those
+        // components to the wide type rather than compounding two normalisations.
+        let ga: Vec<GlamQuat> = glam_quats(&a).iter().map(|q| q.normalize()).collect();
+        let unit = [
+            ga.iter().map(|q| q.x).collect::<Vec<_>>(),
+            ga.iter().map(|q| q.y).collect::<Vec<_>>(),
+            ga.iter().map(|q| q.z).collect::<Vec<_>>(),
+            ga.iter().map(|q| q.w).collect::<Vec<_>>(),
+        ];
+        let gv: Vec<glam::Vec3> = (0..N)
+            .map(|i| glam::Vec3::new(v[0][i], v[1][i], v[2][i]))
+            .collect();
+        for level in levels() {
+            let mut out = [vec![0.0f32; N], vec![0.0f32; N], vec![0.0f32; N]];
+            dispatch!(level, simd => quat_rotate(simd, refs4(&unit), refs3(&v), refs3_mut(&mut out)));
+            let what = format!("quat rotate level={level:?}");
+            let exp: Vec<f32> = ga.iter().zip(&gv).map(|(q, v)| q.mul_vec3(*v).x).collect();
+            assert_lanes_close(&out[0], &exp, 1e-6, &format!("{what} x"));
+            let exp: Vec<f32> = ga.iter().zip(&gv).map(|(q, v)| q.mul_vec3(*v).y).collect();
+            assert_lanes_close(&out[1], &exp, 1e-6, &format!("{what} y"));
+            let exp: Vec<f32> = ga.iter().zip(&gv).map(|(q, v)| q.mul_vec3(*v).z).collect();
+            assert_lanes_close(&out[2], &exp, 1e-6, &format!("{what} z"));
+        }
+    }
+
+    #[test]
+    fn quat_identity_holds() {
+        let a = [
+            signed(N, 1.0),
+            signed(N, 2.5),
+            signed(N, 4.0),
+            signed(N, 5.5),
+        ];
+        let v = [signed(N, 13.0), signed(N, 14.5), signed(N, 16.0)];
+        let ga: Vec<GlamQuat> = glam_quats(&a).iter().map(|q| q.normalize()).collect();
+        let unit = [
+            ga.iter().map(|q| q.x).collect::<Vec<_>>(),
+            ga.iter().map(|q| q.y).collect::<Vec<_>>(),
+            ga.iter().map(|q| q.z).collect::<Vec<_>>(),
+            ga.iter().map(|q| q.w).collect::<Vec<_>>(),
+        ];
+        let identity = [
+            vec![0.0f32; N],
+            vec![0.0f32; N],
+            vec![0.0f32; N],
+            vec![1.0f32; N],
+        ];
+        for level in levels() {
+            // q * conjugate(q) is the identity for a unit quaternion.
+            let mut conj = [
+                vec![0.0f32; N],
+                vec![0.0f32; N],
+                vec![0.0f32; N],
+                vec![0.0f32; N],
+            ];
+            dispatch!(level, simd => quat_op(simd, 1, refs4(&unit), refs4(&identity), refs4_mut(&mut conj)));
+            let mut product = [
+                vec![0.0f32; N],
+                vec![0.0f32; N],
+                vec![0.0f32; N],
+                vec![0.0f32; N],
+            ];
+            dispatch!(level, simd => quat_op(simd, 0, refs4(&unit), refs4(&conj), refs4_mut(&mut product)));
+            let what = format!("q * conjugate(q) level={level:?}");
+            for (c, (got, want)) in product.iter().zip(&identity).enumerate() {
+                assert_lanes_close(got, want, 1e-6, &format!("{what} component {c}"));
+            }
+
+            // Rotating by the identity leaves the vector alone.
+            let mut rotated = [vec![0.0f32; N], vec![0.0f32; N], vec![0.0f32; N]];
+            dispatch!(level, simd => quat_rotate(simd, refs4(&identity), refs3(&v), refs3_mut(&mut rotated)));
+            let what = format!("identity rotation level={level:?}");
+            for (c, got) in rotated.iter().enumerate() {
+                assert_lanes_close(got, &v[c], 1e-6, &format!("{what} component {c}"));
+            }
+        }
     }
 }
