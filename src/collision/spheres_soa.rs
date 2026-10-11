@@ -359,8 +359,8 @@ impl<'a> SpheresSoA<'a> {
         let num_lanes = S::f32s::LEN;
 
         let a = S::f32s::splat(simd, ray.direction.dot(ray.direction));
-        let ro = Vec3xN::splat_vec(simd, ray.origin);
-        let rd = Vec3xN::splat_vec(simd, ray.direction);
+        let ro = Vec3xN::splat_vec3(simd, ray.origin);
+        let rd = Vec3xN::splat_vec3(simd, ray.direction);
         let t_min_v = S::f32s::splat(simd, t_min);
         let mut hit_t = S::f32s::splat(simd, t_max);
         // Per lane, the base index of the chunk holding the closest hit so far.

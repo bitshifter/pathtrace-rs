@@ -161,7 +161,7 @@ pub struct Vec4xN<S: Simd> {
 }
 
 macro_rules! wide_vec_common {
-    ($name:ident, $bvec:ident, $glam_vec:ty, $splat:ident, ($($field:ident),+)) => {
+    ($name:ident, $bvec:ident, $glam_vec:ty, $splat:ident, $splat_vec:ident, ($($field:ident),+)) => {
         impl<S: Simd> $name<S> {
             /// The SIMD token this value carries.
             #[inline(always)]
@@ -188,11 +188,9 @@ macro_rules! wide_vec_common {
             /// Construct from a narrow glam vector, splatting each component across the
             /// lanes.
             ///
-            /// Takes anything convertible to the matching glam vector, so `glam::Vec3`
-            /// and `[f32; 3]` both work.
+            /// Other shapes, such as an array, convert with `from` first.
             #[inline(always)]
-            pub fn splat_vec(simd: S, value: impl Into<$glam_vec>) -> Self {
-                let value: $glam_vec = value.into();
+            pub fn $splat_vec(simd: S, value: $glam_vec) -> Self {
                 Self::$splat(simd, $(value.$field),+)
             }
 
@@ -336,9 +334,23 @@ macro_rules! replace_expr {
     };
 }
 
-wide_vec_common!(Vec2xN, BVec2xN, glam::Vec2, splat_xy, (x, y));
-wide_vec_common!(Vec3xN, BVec3xN, glam::Vec3, splat_xyz, (x, y, z));
-wide_vec_common!(Vec4xN, BVec4xN, glam::Vec4, splat_xyzw, (x, y, z, w));
+wide_vec_common!(Vec2xN, BVec2xN, glam::Vec2, splat_xy, splat_vec2, (x, y));
+wide_vec_common!(
+    Vec3xN,
+    BVec3xN,
+    glam::Vec3,
+    splat_xyz,
+    splat_vec3,
+    (x, y, z)
+);
+wide_vec_common!(
+    Vec4xN,
+    BVec4xN,
+    glam::Vec4,
+    splat_xyzw,
+    splat_vec4,
+    (x, y, z, w)
+);
 
 impl_horizontal_ops!(Vec2xN, x, y);
 impl_horizontal_ops!(Vec3xN, x, y, z);
@@ -357,6 +369,12 @@ impl<S: Simd> Vec2xN<S> {
 }
 
 impl<S: Simd> Vec3xN<S> {
+    /// Construct from a narrow `glam::Vec3A`.
+    #[inline(always)]
+    pub fn splat_vec3a(simd: S, value: glam::Vec3A) -> Self {
+        Self::splat_xyz(simd, value.x, value.y, value.z)
+    }
+
     /// Cross product.
     #[inline(always)]
     pub fn cross(self, rhs: Self) -> Self {

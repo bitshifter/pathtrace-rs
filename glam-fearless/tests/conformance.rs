@@ -458,14 +458,23 @@ fn constructors_impl<S: Simd>(simd: S, s: f32, ox: &mut [f32], oy: &mut [f32], o
     let zero = Vec3xN::zero(simd);
     let mixed = Vec3xN::splat_xyz(simd, s, s + 1.0, s + 2.0);
     let from_scalar: Vec3xN<S> = s.simd_into(simd);
-    let from_glam_vec = Vec3xN::splat_vec(simd, glam::Vec3::new(s, s + 1.0, s + 2.0));
-    let from_array = Vec3xN::splat_vec(simd, [s, s + 1.0, s + 2.0]);
+    let from_glam_vec = Vec3xN::splat_vec3(simd, glam::Vec3::new(s, s + 1.0, s + 2.0));
+    let from_vec3a = Vec3xN::splat_vec3a(simd, glam::Vec3A::new(s, s + 1.0, s + 2.0));
+    let from_array = Vec3xN::splat_vec3(simd, glam::Vec3::from([s, s + 1.0, s + 2.0]));
     // x2 then /2 is exact for any normal f32, so `acc` is `s` again afterwards.
     acc += acc;
     acc -= Vec3xN::splat(simd, s);
     acc *= Vec3xN::splat(simd, 2.0);
     acc /= Vec3xN::splat(simd, 2.0);
-    let rows = [acc, zero, mixed, from_scalar, from_glam_vec, from_array];
+    let rows = [
+        acc,
+        zero,
+        mixed,
+        from_scalar,
+        from_glam_vec,
+        from_vec3a,
+        from_array,
+    ];
     for (r, v) in rows.iter().enumerate() {
         let off = r * n;
         v.x.store_slice(&mut ox[off..off + n]);
@@ -480,9 +489,9 @@ fn constructors_and_assign_match_glam() {
     for level in levels() {
         let n = lane_len_f32(level);
         let (mut ox, mut oy, mut oz) = (
-            vec![0.0f32; 6 * n],
-            vec![0.0f32; 6 * n],
-            vec![0.0f32; 6 * n],
+            vec![0.0f32; 7 * n],
+            vec![0.0f32; 7 * n],
+            vec![0.0f32; 7 * n],
         );
         dispatch!(level, simd => constructors_impl(simd, s, &mut ox, &mut oy, &mut oz));
         let expected = [
@@ -490,7 +499,8 @@ fn constructors_and_assign_match_glam() {
             glam::Vec3::ZERO,
             glam::Vec3::new(s, s + 1.0, s + 2.0),
             glam::Vec3::splat(s),
-            // `splat_vec` from a glam vector and from an array.
+            // From a glam vector, a Vec3A and an array.
+            glam::Vec3::new(s, s + 1.0, s + 2.0),
             glam::Vec3::new(s, s + 1.0, s + 2.0),
             glam::Vec3::new(s, s + 1.0, s + 2.0),
         ];
@@ -644,7 +654,7 @@ const PAD: f32 = f32::MAX;
 #[inline(always)]
 fn padded_min_impl<S: Simd>(
     simd: S,
-    origin: [f32; 3],
+    origin: glam::Vec3,
     xs: &[f32],
     ys: &[f32],
     zs: &[f32],
@@ -652,7 +662,7 @@ fn padded_min_impl<S: Simd>(
     out_min: &mut [f32],
 ) {
     let n = S::f32s::LEN;
-    let o = Vec3xN::splat_vec(simd, origin);
+    let o = Vec3xN::splat_vec3(simd, origin);
     let c = Vec3xN::from_slice(simd, &xs[..n], &ys[..n], &zs[..n]);
     let d2 = (o - c).length_squared();
     let valid = d2.simd_lt(S::f32s::splat(simd, PAD));
@@ -669,7 +679,7 @@ fn padded_min_impl<S: Simd>(
 
 #[test]
 fn padding_lanes_are_ignored() {
-    let origin = [0.5, -0.5, 1.5];
+    let origin = glam::Vec3::new(0.5, -0.5, 1.5);
     for level in levels() {
         let n = lane_len_f32(level);
         for valid_count in 1..=n {
@@ -686,7 +696,7 @@ fn padding_lanes_are_ignored() {
             dispatch!(level, simd => padded_min_impl(simd, origin, &xs, &ys, &zs, &mut lane, &mut min));
 
             let d2 = |i: usize| {
-                let (dx, dy, dz) = (xs[i] - origin[0], ys[i] - origin[1], zs[i] - origin[2]);
+                let (dx, dy, dz) = (xs[i] - origin.x, ys[i] - origin.y, zs[i] - origin.z);
                 dx * dx + dy * dy + dz * dz
             };
             let expected_min = (0..valid_count).map(d2).fold(f32::INFINITY, f32::min);
