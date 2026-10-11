@@ -1,8 +1,8 @@
 # glam-fearless (prototype)
 
 Wide ("vertical") SIMD maths types for the glam ecosystem, built on
-[`fearless_simd`](https://docs.rs/fearless_simd): `Vec2xN`/`Vec3xN`/`Vec4xN<S>` and mask types
-generic over the SIMD token, so one type serves every dispatch level (4/8/16 lanes).
+[`fearless_simd`](https://docs.rs/fearless_simd): `Vec2xN`/`Vec3xN`/`Vec4xN<S>`, `QuatxN<S>` and mask
+types, generic over the SIMD token, so one type serves every dispatch level (4/8/16 lanes).
 
 This is a standalone crate (its own `[workspace]`), **not** part of `glam` and not part of the
 pathtrace-rs package graph. `pathtrace-rs` depends on it by path and uses it for the wide
@@ -32,6 +32,9 @@ cargo bench --bench spheres_soa    # criterion; see the spheres_soa/glam_fearles
   `let oc = ro - centre; let b = oc.dot(rd);`
 - Ask the width with `Vec3xN::<S>::LANES` inside a `#[simd]` function, or `lane_len_f32(level)` when
   you only have a `Level`.
+- `QuatxN` covers multiply, conjugate/inverse, normalize and rotating a `Vec3xN`. Angles and `slerp`
+  need `sin`/`cos`/`acos`, which fearless_simd does not provide yet, so quaternions are built from
+  components or from one scalar `glam::Quat` per lane (`splat_vec`).
 - The scalar fallback in fearless_simd is a 4-lane *emulated* backend, so lane counts are 4, 8 or 16;
   there is no 1-lane level.
 - No `unsafe` in this crate.
