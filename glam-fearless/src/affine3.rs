@@ -75,6 +75,12 @@ impl<S: Simd> Affine3xN<S> {
         )
     }
 
+    /// Construct from a linear part and a translation.
+    #[inline(always)]
+    pub fn new(simd: S, matrix3: Mat3xN<S>, translation: Vec3xN<S>) -> Self {
+        Self::from_mat3_translation(simd, matrix3, translation)
+    }
+
     /// The inverse transform.
     ///
     /// A lane whose linear part has a zero determinant produces infinities or NaN.

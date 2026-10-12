@@ -54,15 +54,50 @@ impl<S: Simd> Mat3xN<S> {
         [self.x_axis, self.y_axis, self.z_axis]
     }
 
-    /// The diagonal matrix with `value` on the diagonal.
+    /// The diagonal matrix with `value` on the diagonal, under the vector-constructor
+    /// naming the other wide types use.
     #[inline(always)]
-    pub fn from_diagonal(simd: S, value: glam::Vec3) -> Self {
+    pub fn splat_vec3(simd: S, value: glam::Vec3) -> Self {
         let zero = Vec3xN::<S>::splat(simd, 0.0);
         Self::new(
             simd,
             Vec3xN::new(simd, S::f32s::splat(simd, value.x), zero.x, zero.y),
             Vec3xN::new(simd, zero.x, S::f32s::splat(simd, value.y), zero.z),
             Vec3xN::new(simd, zero.y, zero.z, S::f32s::splat(simd, value.z)),
+        )
+    }
+
+    /// The diagonal matrix with a narrow `glam::Vec3A` on the diagonal.
+    #[inline(always)]
+    pub fn splat_vec3a(simd: S, value: glam::Vec3A) -> Self {
+        Self::splat_vec3(simd, glam::Vec3::new(value.x, value.y, value.z))
+    }
+
+    /// Construct from nine lane slices, in column-major order.
+    ///
+    /// Each slice must be exactly `S::f32s::LEN` long. Prefer
+    /// [`from_cols`](Self::from_cols) with three [`Vec3xN::from_slice`] calls; this exists for
+    /// callers that already have the nine slices.
+    #[inline(always)]
+    pub fn from_slice(
+        simd: S,
+        c0x: &[f32],
+        c0y: &[f32],
+        c0z: &[f32],
+        c1x: &[f32],
+        c1y: &[f32],
+        c1z: &[f32],
+        c2x: &[f32],
+        c2y: &[f32],
+        c2z: &[f32],
+    ) -> Self {
+        Self::from_cols(
+            simd,
+            [
+                Vec3xN::from_slice(simd, c0x, c0y, c0z),
+                Vec3xN::from_slice(simd, c1x, c1y, c1z),
+                Vec3xN::from_slice(simd, c2x, c2y, c2z),
+            ],
         )
     }
 

@@ -1129,6 +1129,16 @@ mod mat3 {
         }
     }
 
+    /// The vector constructor gives the diagonal matrix.
+    #[simd]
+    #[inline(always)]
+    pub fn mat3_from_vec3<S: Simd>(simd: S, value: glam::Vec3, out: &mut [Vec<f32>]) {
+        let n = S::f32s::LEN;
+        for i in (0..N).step_by(n) {
+            store(Mat3xN::splat_vec3(simd, value), out, i, n);
+        }
+    }
+
     /// `op`: 0 transpose, 1 inverse, 2 `m * m.inverse()`, 3 determinant (into `det`).
     #[simd]
     #[inline(always)]
@@ -1214,6 +1224,12 @@ mod mat3 {
             dispatch!(level, simd => mat3_mul_mat3(simd, &a, &b, &mut out));
             let exp: Vec<GlamMat3> = ga.iter().zip(&gb).map(|(x, y)| *x * *y).collect();
             assert_mat_lanes(&out, &exp, 1e-6, &format!("mat3 mul mat3 {l}"));
+
+            // The vector constructor broadcasts one vector to every lane.
+            let value = glam::Vec3::new(v[0][0], v[1][0], v[2][0]);
+            dispatch!(level, simd => mat3_from_vec3(simd, value, &mut out));
+            let exp: Vec<GlamMat3> = (0..N).map(|_| GlamMat3::from_diagonal(value)).collect();
+            assert_mat_lanes(&out, &exp, 0.0, &format!("mat3 splat_vec3 {l}"));
 
             let mut vout: Vec<Vec<f32>> = (0..3).map(|_| vec![0.0f32; N]).collect();
             dispatch!(level, simd => mat3_mul_vec3(simd, &a, &v, &mut vout));
@@ -1389,7 +1405,7 @@ mod affine3 {
 
             dispatch!(level, simd => affine_mul(simd, &a, &b, &mut out));
             let exp: Vec<GlamAffine3> = ga.iter().zip(&gb).map(|(x, y)| *x * *y).collect();
-            assert_affine_lanes(&out, &exp, 1e-4, &format!("affine mul {l}"));
+            assert_affine_lanes(&out, &exp, 1e-6, &format!("affine mul {l}"));
         }
     }
 }

@@ -13,7 +13,7 @@ Design notes are deliberately kept out of this repository.
 ## Usage
 
 ```sh
-cargo test                 # 32 conformance tests against scalar glam, 4- and 8-lane widths
+cargo test                 # conformance tests against scalar glam, 4- and 8-lane widths
 cargo test --features force_support_fallback   # adds the 4-lane emulated scalar backend
 cargo run --example smoke
 ```
