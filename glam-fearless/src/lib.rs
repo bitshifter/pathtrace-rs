@@ -44,6 +44,8 @@ pub use vec::{Vec2xN, Vec3xN, Vec4xN};
 pub use fearless_simd::{self, Level, dispatch, prelude, prelude::*};
 pub use fearless_simd_macros::simd;
 
+mod entry;
+
 /// The number of `f32` lanes the given level processes at a time (`S::f32s::LEN`).
 #[simd]
 #[inline(always)]
