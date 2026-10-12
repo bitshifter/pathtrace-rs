@@ -32,15 +32,21 @@ fn levels() -> Vec<Level> {
 /// Deterministic data, kept away from the origin so lengths stay conditioned.
 fn soa(n: usize) -> [Vec<f32>; 3] {
     let mut out = [vec![0.0f32; n], vec![0.0f32; n], vec![0.0f32; n]];
-    for i in 0..n {
+    let [xs, ys, zs] = &mut out;
+    for (i, ((x, y), z)) in xs
+        .iter_mut()
+        .zip(ys.iter_mut())
+        .zip(zs.iter_mut())
+        .enumerate()
+    {
         let v = glam::Vec3::new(
             (i as f32 * 0.37).sin() * 2.0 + 1.0,
             (i as f32 * 0.71).cos() * 2.0,
             (i as f32 * 1.13).sin() * 2.0 - 0.5,
         );
-        out[0][i] = v.x;
-        out[1][i] = v.y;
-        out[2][i] = v.z;
+        *x = v.x;
+        *y = v.y;
+        *z = v.z;
     }
     out
 }

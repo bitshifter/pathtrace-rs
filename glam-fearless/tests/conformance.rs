@@ -10,7 +10,7 @@
 
 use glam::{Vec2 as GlamVec2, Vec3 as GlamVec3, Vec4 as GlamVec4};
 use glam_fearless::{
-    Level, QuatxN, Vec2xN, Vec3xN, Vec4xN, dispatch, lane_len_f32, prelude::*, simd,
+    Level, Mat3xN, QuatxN, Vec2xN, Vec3xN, Vec4xN, dispatch, lane_len_f32, prelude::*, simd,
 };
 
 /// Lanes processed by each test; a multiple of every lane count under test.
@@ -1067,6 +1067,158 @@ mod quat {
             let what = format!("identity rotation level={level:?}");
             for (c, got) in rotated.iter().enumerate() {
                 assert_lanes_close(got, &v[c], 1e-6, &format!("{what} component {c}"));
+            }
+        }
+    }
+}
+
+// --- Wide 3x3 matrices. ---
+
+mod mat3 {
+    use super::*;
+    use glam::Mat3 as GlamMat3;
+
+    /// Component arrays are in column-major order: col0.x, col0.y, col0.z, col1.x, ...
+    fn load<S: Simd>(simd: S, a: &[Vec<f32>], i: usize, n: usize) -> Mat3xN<S> {
+        let sl = |c: usize| &a[c][i..i + n];
+        Mat3xN::from_cols(
+            simd,
+            [
+                Vec3xN::from_slice(simd, sl(0), sl(1), sl(2)),
+                Vec3xN::from_slice(simd, sl(3), sl(4), sl(5)),
+                Vec3xN::from_slice(simd, sl(6), sl(7), sl(8)),
+            ],
+        )
+    }
+
+    fn store<S: Simd>(r: Mat3xN<S>, out: &mut [Vec<f32>], i: usize, n: usize) {
+        let cols = r.cols();
+        let comps = [
+            cols[0].x, cols[0].y, cols[0].z, cols[1].x, cols[1].y, cols[1].z, cols[2].x, cols[2].y,
+            cols[2].z,
+        ];
+        for (c, comp) in comps.iter().enumerate() {
+            out[c][i..i + n].copy_from_slice(comp.as_slice());
+        }
+    }
+
+    fn glam_mats(a: &[Vec<f32>]) -> Vec<GlamMat3> {
+        (0..N)
+            .map(|i| {
+                GlamMat3::from_cols(
+                    glam::Vec3::new(a[0][i], a[1][i], a[2][i]),
+                    glam::Vec3::new(a[3][i], a[4][i], a[5][i]),
+                    glam::Vec3::new(a[6][i], a[7][i], a[8][i]),
+                )
+            })
+            .collect()
+    }
+
+    fn assert_mat_lanes(out: &[Vec<f32>], exp: &[GlamMat3], eps: f32, what: &str) {
+        for c in 0..3 {
+            for r in 0..3 {
+                let want: Vec<f32> = exp.iter().map(|m| m.col(c)[r]).collect();
+                assert_lanes_close(
+                    &out[c * 3 + r],
+                    &want,
+                    eps,
+                    &format!("{what} col{c} row{r}"),
+                );
+            }
+        }
+    }
+
+    /// `op`: 0 transpose, 1 inverse, 2 `m * m.inverse()`, 3 determinant (into `det`).
+    #[simd]
+    #[inline(always)]
+    pub fn mat3_unop<S: Simd>(
+        simd: S,
+        op: u32,
+        a: &[Vec<f32>],
+        out: &mut [Vec<f32>],
+        det: &mut [f32],
+    ) {
+        let n = S::f32s::LEN;
+        for i in (0..N).step_by(n) {
+            let m = load(simd, a, i, n);
+            match op {
+                0 => store(m.transpose(), out, i, n),
+                1 => store(m.inverse(), out, i, n),
+                2 => store(m * m.inverse(), out, i, n),
+                _ => m.determinant().store_slice(&mut det[i..i + n]),
+            }
+        }
+    }
+
+    #[simd]
+    #[inline(always)]
+    pub fn mat3_mul_mat3<S: Simd>(simd: S, a: &[Vec<f32>], b: &[Vec<f32>], out: &mut [Vec<f32>]) {
+        let n = S::f32s::LEN;
+        for i in (0..N).step_by(n) {
+            let ma = load(simd, a, i, n);
+            let mb = load(simd, b, i, n);
+            store(ma * mb, out, i, n);
+        }
+    }
+
+    #[simd]
+    #[inline(always)]
+    pub fn mat3_mul_vec3<S: Simd>(simd: S, a: &[Vec<f32>], v: &[Vec<f32>], out: &mut [Vec<f32>]) {
+        let n = S::f32s::LEN;
+        for i in (0..N).step_by(n) {
+            let m = load(simd, a, i, n);
+            let rhs = Vec3xN::from_slice(simd, &v[0][i..i + n], &v[1][i..i + n], &v[2][i..i + n]);
+            let r = m * rhs;
+            out[0][i..i + n].copy_from_slice(r.x.as_slice());
+            out[1][i..i + n].copy_from_slice(r.y.as_slice());
+            out[2][i..i + n].copy_from_slice(r.z.as_slice());
+        }
+    }
+
+    #[test]
+    fn mat3_ops_match_glam() {
+        let a: Vec<Vec<f32>> = (0..9).map(|c| signed(N, 1.0 + c as f32)).collect();
+        let b: Vec<Vec<f32>> = (0..9).map(|c| signed(N, 20.0 + c as f32)).collect();
+        let ga = glam_mats(&a);
+        let gb = glam_mats(&b);
+        let v: Vec<Vec<f32>> = (0..3).map(|c| signed(N, 60.0 + c as f32)).collect();
+        let gv: Vec<glam::Vec3> = (0..N)
+            .map(|i| glam::Vec3::new(v[0][i], v[1][i], v[2][i]))
+            .collect();
+
+        for level in levels() {
+            let mut out: Vec<Vec<f32>> = (0..9).map(|_| vec![0.0f32; N]).collect();
+            let mut det = vec![0.0f32; N];
+            let l = format!("level={level:?}");
+
+            dispatch!(level, simd => mat3_unop(simd, 0, &a, &mut out, &mut det));
+            let exp: Vec<GlamMat3> = ga.iter().map(|m| m.transpose()).collect();
+            assert_mat_lanes(&out, &exp, 0.0, &format!("mat3 transpose {l}"));
+
+            dispatch!(level, simd => mat3_unop(simd, 3, &a, &mut out, &mut det));
+            let exp: Vec<f32> = ga.iter().map(|m| m.determinant()).collect();
+            assert_lanes_close(&det, &exp, 1e-6, &format!("mat3 determinant {l}"));
+
+            dispatch!(level, simd => mat3_unop(simd, 1, &a, &mut out, &mut det));
+            let exp: Vec<GlamMat3> = ga.iter().map(|m| m.inverse()).collect();
+            assert_mat_lanes(&out, &exp, 1e-4, &format!("mat3 inverse {l}"));
+
+            // Round trip: m * m.inverse() is the identity. The bound is conditioning, not an
+            // exact identity: random matrices reach condition numbers around 1e2, which turns
+            // the 1e-6 relative error of an inverse into around 1e-4 in the product.
+            dispatch!(level, simd => mat3_unop(simd, 2, &a, &mut out, &mut det));
+            let exp: Vec<GlamMat3> = (0..N).map(|_| GlamMat3::IDENTITY).collect();
+            assert_mat_lanes(&out, &exp, 1e-4, &format!("mat3 inverse round trip {l}"));
+
+            dispatch!(level, simd => mat3_mul_mat3(simd, &a, &b, &mut out));
+            let exp: Vec<GlamMat3> = ga.iter().zip(&gb).map(|(x, y)| *x * *y).collect();
+            assert_mat_lanes(&out, &exp, 1e-6, &format!("mat3 mul mat3 {l}"));
+
+            let mut vout: Vec<Vec<f32>> = (0..3).map(|_| vec![0.0f32; N]).collect();
+            dispatch!(level, simd => mat3_mul_vec3(simd, &a, &v, &mut vout));
+            for (c, got) in vout.iter().enumerate() {
+                let exp: Vec<f32> = ga.iter().zip(&gv).map(|(m, v)| m.mul_vec3(*v)[c]).collect();
+                assert_lanes_close(got, &exp, 1e-6, &format!("mat3 mul vec3 {l} component {c}"));
             }
         }
     }

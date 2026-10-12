@@ -124,6 +124,13 @@ macro_rules! impl_wide_ops {
     };
 }
 
+/// Multiplies `v` by a lane vector across its components: glam's `Vec3 * f32` in the wide
+/// case. Kept crate-internal because an `impl Mul<S::f32s>` would collide with `impl Mul<Self>`.
+#[inline(always)]
+pub(crate) fn scale3<S: Simd>(v: Vec3xN<S>, s: S::f32s) -> Vec3xN<S> {
+    Vec3xN::new(v.token(), v.x * s, v.y * s, v.z * s)
+}
+
 /// A 2-dimensional wide vector.
 #[derive(Clone, Copy, Debug)]
 pub struct Vec2xN<S: Simd> {

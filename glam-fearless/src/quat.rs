@@ -11,7 +11,7 @@ use core::ops::{Add, AddAssign, Mul, Neg, Sub, SubAssign};
 use fearless_simd::prelude::*;
 use fearless_simd::{ExtractToken, Simd};
 
-use crate::vec::Vec3xN;
+use crate::vec::{Vec3xN, scale3};
 
 /// A wide quaternion; `x`/`y`/`z`/`w` are lane vectors, so one value holds `S::f32s::LEN`
 /// independent rotations.
@@ -26,15 +26,6 @@ pub struct QuatxN<S: Simd> {
     /// The W (scalar) component.
     pub w: S::f32s,
     token: S,
-}
-
-/// Multiplies `v` by a lane vector across its components. This is glam's `Vec3 * f32` in the
-/// wide case; it stays private because an operator impl cannot be written for it (an
-/// `impl Mul<S::f32s>` would collide with `impl Mul<Self>`, because coherence cannot prove the
-/// associated type differs from the type itself).
-#[inline(always)]
-fn scale3<S: Simd>(v: Vec3xN<S>, s: S::f32s) -> Vec3xN<S> {
-    Vec3xN::new(v.token(), v.x * s, v.y * s, v.z * s)
 }
 
 impl<S: Simd> QuatxN<S> {

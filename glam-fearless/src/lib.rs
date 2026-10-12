@@ -34,10 +34,12 @@
 //! ```
 
 pub mod bvec;
+pub mod mat3;
 pub mod quat;
 pub mod vec;
 
 pub use bvec::{BVec2xN, BVec3xN, BVec4xN};
+pub use mat3::Mat3xN;
 pub use quat::QuatxN;
 pub use vec::{Vec2xN, Vec3xN, Vec4xN};
 
