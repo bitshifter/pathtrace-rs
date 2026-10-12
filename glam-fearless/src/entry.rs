@@ -8,24 +8,27 @@
 //! the level's features.
 //!
 //! Measured on Zen 2 (AVX2), 16-element batches, kernel = per-lane length of three SoA component
-//! slices. Times are ns per call; the instruction counts are from `perf stat` in the first column's
-//! build and are steady, while the times move a few percent between runs on this machine.
+//! slices. Instruction counts are from `perf stat`; times are from one window on a machine that
+//! drifts by a fifth between sessions, so the ratios carry and the absolute values do not.
 //!
 //! | entry | insn/call | caller built without AVX2 | caller built with AVX2 |
 //! |---|---|---|---|
-//! | `dispatch!` per call | 104 | 6.18 | 5.44 |
-//! | entry held by the caller | 80 | 5.67 | 4.10 |
-//! | entry resolved on first use | 83 | 5.88 | 4.25 |
-//! | hand-written `#[target_feature]` loop | 85 | 4.23 | 4.30 |
+//! | `dispatch!` per call | 104 | 6.8 | 6.3 |
+//! | entry held by the caller | 80 | 5.8 | 3.3 |
+//! | entry resolved on first use | 83 | 5.9 | 3.5 |
+//! | hand-written `#[target_feature]` loop | 85 | 5.0 | 5.4 |
+//! | one `dispatch!` per 64-call batch | 73 | 3.6 | 3.5 |
 //!
-//! The entry is the cheapest way to call the kernel once per batch in both builds: 8% better than
-//! `dispatch!` per call when the caller is built without the level, and 25% better when it is built
-//! with it, where it also beats the hand-written loop because that one pays for an out-of-line
-//! call. The saving is fixed per call, so it matters for small batches and fades away once the
-//! kernel is throughput bound; wrapping a whole batch in one `dispatch!` is cheaper still.
+//! The entry is the cheapest way to call the kernel once per batch in both builds. With the
+//! caller built for the level it is indistinguishable from calling the kernel straight with a
+//! token, which is as low as this goes; without it, one indirect call is what remains. It also
+//! beats the hand-written loop, which pays for an out-of-line call of its own. The saving is
+//! fixed per call, so it matters for small batches and fades away once the kernel is throughput
+//! bound; wrapping a whole batch in one `dispatch!` beats all of it.
 //!
-//! Resolving the entry on first use costs one predictable atomic load and a branch: 3 instructions,
-//! and 0.1-0.2 ns above.
+//! The body matters as much as the entry: at 16 elements the same kernel walking its components
+//! with `chunks_exact` iterators costs about 0.45 ns more than one counting chunks over raw
+//! pointers, and bounds-checked subslices cost more than both.
 
 /// Define an entry point for one kernel body.
 ///
@@ -36,9 +39,11 @@
 /// The kernel must be a plain generic function over `S: Simd`, not a `#[simd]` kernel: a `#[simd]`
 /// kernel looks the level up again on every call, which is the cost this exists to avoid.
 ///
-/// If the crate that expands the macro is compiled with a level's target features, `call` uses
-/// that level directly and the kernel inlines into the caller, exactly as `dispatch!` would. The
-/// level argument still has to agree, so the values never change; only the call path does.
+/// If the crate that expands the macro is compiled with a level's target features, `call` goes
+/// straight to that level's kernel and the level it was built for only records what was asked
+/// for. The values are the same at every level, so this changes the width, not the answer; the
+/// alternative, checking the level on every call, measured about 0.9 ns more on a 16-element
+/// batch.
 ///
 /// ```
 /// use glam_fearless::{prelude::*, Level, Vec3xN};
@@ -175,25 +180,23 @@ macro_rules! dispatch_entry {
             /// Run the kernel.
             #[inline(always)]
             pub fn call(&self, $($arg: $ty),*) {
-                // If this crate is compiled with a level's features, there is nothing to select:
-                // call the kernel for that level directly so it inlines here. Going through the
-                // function pointer would stop it from inlining, which is the whole cost in a build
-                // like this one. The level still has to match, so the call is only taken when the
-                // detected level really is the one the build assumed.
+                // When this crate is compiled with a level's features, the whole program already
+                // assumes them, so that level's kernel is the right one and it can inline here:
+                // an indirect call, or a branch to keep the option open, costs more than the
+                // kernel itself on a small batch.
                 #[cfg(all(
                     any(target_arch = "x86", target_arch = "x86_64"),
                     target_feature = "avx512f"
                 ))]
-                if self.level.as_avx512().is_some() {
-                    // SAFETY: the level reports AVX-512 support and this build enables it.
+                {
                     return unsafe { Self::avx512($($arg),*) };
                 }
                 #[cfg(all(
                     any(target_arch = "x86", target_arch = "x86_64"),
-                    target_feature = "avx2"
+                    target_feature = "avx2",
+                    not(target_feature = "avx512f")
                 ))]
-                if self.level.as_avx2().is_some() {
-                    // SAFETY: the level reports AVX2 support and this build enables it.
+                {
                     return unsafe { Self::avx2($($arg),*) };
                 }
 
