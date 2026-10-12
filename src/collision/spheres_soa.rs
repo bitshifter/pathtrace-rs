@@ -122,18 +122,15 @@ impl<'a> SpheresSoA<'a> {
         let a = ray.direction.dot(ray.direction);
         let mut hit_t = t_max;
         let mut hit_index = self.len;
-        for ((((index, centre_x), centre_y), centre_z), radius_sq) in self
-            .centre_x
-            .iter()
-            .enumerate()
-            .zip(self.centre_y.iter())
-            .zip(self.centre_z.iter())
-            .zip(self.radius_sq.iter())
-        {
-            let centre = vec3(*centre_x, *centre_y, *centre_z);
+        for index in 0..self.len {
+            let centre = vec3(
+                self.centre_x[index],
+                self.centre_y[index],
+                self.centre_z[index],
+            );
             let oc = ray.origin - centre;
             let b = oc.dot(ray.direction);
-            let c = oc.dot(oc) - radius_sq;
+            let c = oc.dot(oc) - self.radius_sq[index];
             let discriminant = b * b - a * c;
             if discriminant > 0.0 {
                 let discriminant_sqrt = discriminant.sqrt();
