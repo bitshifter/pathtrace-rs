@@ -16,6 +16,9 @@ use fearless_simd_macros::simd;
 pub struct SpheresSoA<'a> {
     bounds: AABB,
     feature: TargetFeature,
+    /// `fearless_simd` level, resolved once at construction and reused by the SIMD backends.
+    #[cfg(feature = "fearless_simd")]
+    level: Level,
     centre_x: Vec<f32>,
     centre_y: Vec<f32>,
     centre_z: Vec<f32>,
@@ -30,6 +33,8 @@ impl<'a> SpheresSoA<'a> {
     pub fn new(hitables: &[Hitable<'a>]) -> SpheresSoA<'a> {
         let feature = TargetFeature::detect();
         feature.print_version();
+        #[cfg(feature = "fearless_simd")]
+        let level = Level::new();
 
         let mut bounds = AABB::invalid();
         let chunk_size = TargetFeature::detect().get_bits() / 32;
@@ -66,6 +71,8 @@ impl<'a> SpheresSoA<'a> {
         SpheresSoA {
             bounds,
             feature,
+            #[cfg(feature = "fearless_simd")]
+            level,
             centre_x,
             centre_y,
             centre_z,
@@ -110,6 +117,7 @@ impl<'a> SpheresSoA<'a> {
         }
     }
 
+    #[inline]
     pub fn hit_scalar(&self, ray: &Ray, t_min: f32, t_max: f32) -> Option<(RayHit, &Material<'_>)> {
         let a = ray.direction.dot(ray.direction);
         let mut hit_t = t_max;
@@ -199,8 +207,10 @@ impl<'a> SpheresSoA<'a> {
 
     /// Ray hit using `fearless_simd`'s `#[simd]` auto-vectorization.
     ///
-    /// The body is ordinary scalar code; `#[simd]` compiles a copy for each available SIMD
-    /// level with that level's target features enabled, and `dispatch!` runs the best one.
+    /// The body just calls the scalar `hit_scalar` implementation; `#[simd]` compiles a copy
+    /// of the inlined scalar loop for each available SIMD level with that level's target
+    /// features enabled, and `dispatch!` runs the best one. This exists to test whether LLVM
+    /// auto-vectorizes the shared scalar code without a hand-written SIMD kernel.
     #[cfg(feature = "fearless_simd")]
     pub fn hit_auto_vectorize(
         &self,
@@ -208,8 +218,7 @@ impl<'a> SpheresSoA<'a> {
         t_min: f32,
         t_max: f32,
     ) -> Option<(RayHit, &Material<'_>)> {
-        let level = Level::new();
-        dispatch!(level, simd => self.hit_auto_vectorize_impl(simd, ray, t_min, t_max))
+        dispatch!(self.level, simd => self.hit_auto_vectorize_impl(simd, ray, t_min, t_max))
     }
 
     #[cfg(feature = "fearless_simd")]
@@ -221,29 +230,7 @@ impl<'a> SpheresSoA<'a> {
         t_min: f32,
         t_max: f32,
     ) -> Option<(RayHit, &Material<'_>)> {
-        let a = ray.direction.dot(ray.direction);
-        let mut hit_t = t_max;
-        let mut hit_index = self.len;
-        for index in 0..self.len {
-            let centre = vec3(
-                self.centre_x[index],
-                self.centre_y[index],
-                self.centre_z[index],
-            );
-            let oc = ray.origin - centre;
-            let b = oc.dot(ray.direction);
-            let c = oc.dot(oc) - self.radius_sq[index];
-            let discr = b * b - a * c;
-            // `discr.sqrt()` is NaN for a miss, so the comparisons below stay branch-free.
-            let discr_sqrt = discr.sqrt();
-            let t_near = (-b - discr_sqrt) / a;
-            let t_far = (-b + discr_sqrt) / a;
-            let t = if t_near > t_min { t_near } else { t_far };
-            let is_hit = (discr > 0.0) & (t > t_min) & (t < hit_t);
-            hit_index = if is_hit { index } else { hit_index };
-            hit_t = if is_hit { t } else { hit_t };
-        }
-        self.hit_record(ray, hit_t, hit_index)
+        self.hit_scalar(ray, t_min, t_max)
     }
 
     /// Ray hit using `fearless_simd`'s portable SIMD vector types.
@@ -257,8 +244,7 @@ impl<'a> SpheresSoA<'a> {
         t_min: f32,
         t_max: f32,
     ) -> Option<(RayHit, &Material<'_>)> {
-        let level = Level::new();
-        dispatch!(level, simd => self.hit_portable_simd_impl(simd, ray, t_min, t_max))
+        dispatch!(self.level, simd => self.hit_portable_simd_impl(simd, ray, t_min, t_max))
     }
 
     #[cfg(feature = "fearless_simd")]
