@@ -33,11 +33,13 @@
 //! }
 //! ```
 
+pub mod affine3;
 pub mod bvec;
 pub mod mat3;
 pub mod quat;
 pub mod vec;
 
+pub use affine3::Affine3xN;
 pub use bvec::{BVec2xN, BVec3xN, BVec4xN};
 pub use mat3::Mat3xN;
 pub use quat::QuatxN;

@@ -10,7 +10,8 @@
 
 use glam::{Vec2 as GlamVec2, Vec3 as GlamVec3, Vec4 as GlamVec4};
 use glam_fearless::{
-    Level, Mat3xN, QuatxN, Vec2xN, Vec3xN, Vec4xN, dispatch, lane_len_f32, prelude::*, simd,
+    Affine3xN, Level, Mat3xN, QuatxN, Vec2xN, Vec3xN, Vec4xN, dispatch, lane_len_f32, prelude::*,
+    simd,
 };
 
 /// Lanes processed by each test; a multiple of every lane count under test.
@@ -1220,6 +1221,175 @@ mod mat3 {
                 let exp: Vec<f32> = ga.iter().zip(&gv).map(|(m, v)| m.mul_vec3(*v)[c]).collect();
                 assert_lanes_close(got, &exp, 1e-6, &format!("mat3 mul vec3 {l} component {c}"));
             }
+        }
+    }
+}
+
+// --- Wide affine transforms. ---
+
+mod affine3 {
+    use super::*;
+    use glam::Affine3 as GlamAffine3;
+
+    /// Component pools in column-major order: the nine matrix elements, then the translation.
+    fn load<S: Simd>(simd: S, a: &[Vec<f32>], i: usize, n: usize) -> Affine3xN<S> {
+        let sl = |c: usize| &a[c][i..i + n];
+        Affine3xN::from_mat3_translation(
+            simd,
+            Mat3xN::from_cols(
+                simd,
+                [
+                    Vec3xN::from_slice(simd, sl(0), sl(1), sl(2)),
+                    Vec3xN::from_slice(simd, sl(3), sl(4), sl(5)),
+                    Vec3xN::from_slice(simd, sl(6), sl(7), sl(8)),
+                ],
+            ),
+            Vec3xN::from_slice(simd, sl(9), sl(10), sl(11)),
+        )
+    }
+
+    fn store<S: Simd>(r: Affine3xN<S>, out: &mut [Vec<f32>], i: usize, n: usize) {
+        let cols = r.matrix3.cols();
+        let comps = [
+            cols[0].x,
+            cols[0].y,
+            cols[0].z,
+            cols[1].x,
+            cols[1].y,
+            cols[1].z,
+            cols[2].x,
+            cols[2].y,
+            cols[2].z,
+            r.translation.x,
+            r.translation.y,
+            r.translation.z,
+        ];
+        for (c, comp) in comps.iter().enumerate() {
+            out[c][i..i + n].copy_from_slice(comp.as_slice());
+        }
+    }
+
+    fn glam_affines(a: &[Vec<f32>]) -> Vec<GlamAffine3> {
+        (0..N)
+            .map(|i| {
+                GlamAffine3::from_mat3_translation(
+                    glam::Mat3::from_cols(
+                        glam::Vec3::new(a[0][i], a[1][i], a[2][i]),
+                        glam::Vec3::new(a[3][i], a[4][i], a[5][i]),
+                        glam::Vec3::new(a[6][i], a[7][i], a[8][i]),
+                    ),
+                    glam::Vec3::new(a[9][i], a[10][i], a[11][i]),
+                )
+            })
+            .collect()
+    }
+
+    fn lanes_of(a: &GlamAffine3) -> [f32; 12] {
+        let m = a.matrix3;
+        let t = a.translation;
+        [
+            m.x_axis.x, m.x_axis.y, m.x_axis.z, m.y_axis.x, m.y_axis.y, m.y_axis.z, m.z_axis.x,
+            m.z_axis.y, m.z_axis.z, t.x, t.y, t.z,
+        ]
+    }
+
+    fn assert_affine_lanes(out: &[Vec<f32>], exp: &[GlamAffine3], eps: f32, what: &str) {
+        for (c, got) in out.iter().enumerate() {
+            let want: Vec<f32> = exp.iter().map(|a| lanes_of(a)[c]).collect();
+            assert_lanes_close(got, &want, eps, &format!("{what} component {c}"));
+        }
+    }
+
+    /// `op`: 0 transform_point3, 1 transform_vector3, 2 inverse, 3 inverse round trip.
+    #[simd]
+    #[inline(always)]
+    pub fn affine_unop<S: Simd>(
+        simd: S,
+        op: u32,
+        a: &[Vec<f32>],
+        v: &[Vec<f32>],
+        out: &mut [Vec<f32>],
+    ) {
+        let n = S::f32s::LEN;
+        for i in (0..N).step_by(n) {
+            let m = load(simd, a, i, n);
+            match op {
+                0 | 1 => {
+                    let p =
+                        Vec3xN::from_slice(simd, &v[0][i..i + n], &v[1][i..i + n], &v[2][i..i + n]);
+                    let r = if op == 0 {
+                        m.transform_point3(p)
+                    } else {
+                        m.transform_vector3(p)
+                    };
+                    out[0][i..i + n].copy_from_slice(r.x.as_slice());
+                    out[1][i..i + n].copy_from_slice(r.y.as_slice());
+                    out[2][i..i + n].copy_from_slice(r.z.as_slice());
+                }
+                2 => store(m.inverse(), out, i, n),
+                _ => store(m * m.inverse(), out, i, n),
+            }
+        }
+    }
+
+    #[simd]
+    #[inline(always)]
+    pub fn affine_mul<S: Simd>(simd: S, a: &[Vec<f32>], b: &[Vec<f32>], out: &mut [Vec<f32>]) {
+        let n = S::f32s::LEN;
+        for i in (0..N).step_by(n) {
+            let ma = load(simd, a, i, n);
+            let mb = load(simd, b, i, n);
+            store(ma * mb, out, i, n);
+        }
+    }
+
+    #[test]
+    fn affine_ops_match_glam() {
+        let a: Vec<Vec<f32>> = (0..12).map(|c| signed(N, 1.0 + c as f32)).collect();
+        let b: Vec<Vec<f32>> = (0..12).map(|c| signed(N, 30.0 + c as f32)).collect();
+        let ga = glam_affines(&a);
+        let gb = glam_affines(&b);
+        let v: Vec<Vec<f32>> = (0..3).map(|c| signed(N, 70.0 + c as f32)).collect();
+        let gv: Vec<glam::Vec3> = (0..N)
+            .map(|i| glam::Vec3::new(v[0][i], v[1][i], v[2][i]))
+            .collect();
+
+        for level in levels() {
+            let mut out: Vec<Vec<f32>> = (0..12).map(|_| vec![0.0f32; N]).collect();
+            let mut pout: Vec<Vec<f32>> = (0..3).map(|_| vec![0.0f32; N]).collect();
+            let l = format!("level={level:?}");
+
+            dispatch!(level, simd => affine_unop(simd, 0, &a, &v, &mut pout));
+            for (c, got) in pout.iter().enumerate() {
+                let exp: Vec<f32> = ga
+                    .iter()
+                    .zip(&gv)
+                    .map(|(m, p)| m.transform_point3(*p)[c])
+                    .collect();
+                assert_lanes_close(got, &exp, 1e-6, &format!("affine point {l} component {c}"));
+            }
+
+            dispatch!(level, simd => affine_unop(simd, 1, &a, &v, &mut pout));
+            for (c, got) in pout.iter().enumerate() {
+                let exp: Vec<f32> = ga
+                    .iter()
+                    .zip(&gv)
+                    .map(|(m, p)| m.transform_vector3(*p)[c])
+                    .collect();
+                assert_lanes_close(got, &exp, 1e-6, &format!("affine vector {l} component {c}"));
+            }
+
+            dispatch!(level, simd => affine_unop(simd, 2, &a, &v, &mut out));
+            let exp: Vec<GlamAffine3> = ga.iter().map(|m| m.inverse()).collect();
+            assert_affine_lanes(&out, &exp, 1e-4, &format!("affine inverse {l}"));
+
+            dispatch!(level, simd => affine_unop(simd, 3, &a, &v, &mut out));
+            let exp: Vec<GlamAffine3> = (0..N).map(|_| GlamAffine3::IDENTITY).collect();
+            assert_affine_lanes(&out, &exp, 1e-4, &format!("affine inverse round trip {l}"));
+
+            dispatch!(level, simd => affine_mul(simd, &a, &b, &mut out));
+            let exp: Vec<GlamAffine3> = ga.iter().zip(&gb).map(|(x, y)| *x * *y).collect();
+            assert_affine_lanes(&out, &exp, 1e-4, &format!("affine mul {l}"));
         }
     }
 }
