@@ -16,6 +16,9 @@ use fearless_simd_macros::simd;
 pub struct SpheresSoA<'a> {
     bounds: AABB,
     feature: TargetFeature,
+    /// Widest SIMD level this CPU supports, detected once here instead of on every ray.
+    #[cfg(feature = "fearless_simd")]
+    level: Level,
     centre_x: Vec<f32>,
     centre_y: Vec<f32>,
     centre_z: Vec<f32>,
@@ -30,6 +33,9 @@ impl<'a> SpheresSoA<'a> {
     pub fn new(hitables: &[Hitable<'a>]) -> SpheresSoA<'a> {
         let feature = TargetFeature::detect();
         feature.print_version();
+
+        #[cfg(feature = "fearless_simd")]
+        let level = Level::new();
 
         let mut bounds = AABB::invalid();
         let chunk_size = TargetFeature::detect().get_bits() / 32;
@@ -66,6 +72,8 @@ impl<'a> SpheresSoA<'a> {
         SpheresSoA {
             bounds,
             feature,
+            #[cfg(feature = "fearless_simd")]
+            level,
             centre_x,
             centre_y,
             centre_z,
@@ -210,7 +218,7 @@ impl<'a> SpheresSoA<'a> {
         t_min: f32,
         t_max: f32,
     ) -> Option<(RayHit, &Material<'_>)> {
-        let level = Level::new();
+        let level = self.level;
         dispatch!(level, simd => self.hit_auto_vectorize_impl(simd, ray, t_min, t_max))
     }
 
@@ -259,7 +267,7 @@ impl<'a> SpheresSoA<'a> {
         t_min: f32,
         t_max: f32,
     ) -> Option<(RayHit, &Material<'_>)> {
-        let level = Level::new();
+        let level = self.level;
         dispatch!(level, simd => self.hit_portable_simd_impl(simd, ray, t_min, t_max))
     }
 
@@ -340,7 +348,7 @@ impl<'a> SpheresSoA<'a> {
         t_min: f32,
         t_max: f32,
     ) -> Option<(RayHit, &Material<'_>)> {
-        let level = Level::new();
+        let level = self.level;
         dispatch!(level, simd => self.hit_glam_fearless_impl(simd, ray, t_min, t_max))
     }
 
