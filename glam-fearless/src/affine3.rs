@@ -66,6 +66,17 @@ impl<S: Simd> Affine3xN<S> {
     }
 
     /// Compose two transforms: `self` applied after `rhs`.
+    /// Compose two transforms, as the [`Mul`] implementation does.
+    ///
+    /// Named for the operation it performs; the [`Mul`] implementation runs the same code, so the
+    /// name is allowed to read like the trait method it mirrors.
+    #[allow(clippy::should_implement_trait)]
+    #[inline(always)]
+    pub fn mul(self, rhs: Self) -> Self {
+        self.mul_affine(rhs)
+    }
+
+    /// Compose two transforms, under the name of the operation it performs.
     #[inline(always)]
     pub fn mul_affine(self, rhs: Self) -> Self {
         Self::from_mat3_translation(
