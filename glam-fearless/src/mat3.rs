@@ -136,17 +136,6 @@ impl<S: Simd> Mat3xN<S> {
         )
     }
 
-    /// Construct from a narrow `glam::Mat3A`, one matrix broadcast to every lane.
-    #[inline(always)]
-    pub fn splat_mat3a(simd: S, value: glam::Mat3A) -> Self {
-        Self::new(
-            simd,
-            Vec3xN::splat_vec3a(simd, value.x_axis),
-            Vec3xN::splat_vec3a(simd, value.y_axis),
-            Vec3xN::splat_vec3a(simd, value.z_axis),
-        )
-    }
-
     /// Swap rows and columns.
     ///
     /// In this representation that is regrouping lane vectors, no shuffles.
