@@ -43,9 +43,15 @@ impl<S: Simd> Affine3xN<S> {
         Self::from_mat3_translation(simd, Mat3xN::identity(simd), Vec3xN::zero(simd))
     }
 
+    /// All zeros.
+    #[inline(always)]
+    pub fn zero(simd: S) -> Self {
+        Self::from_mat3_translation(simd, Mat3xN::zero(simd), Vec3xN::zero(simd))
+    }
+
     /// Construct from a narrow glam affine transform, one transform broadcast to every lane.
     #[inline(always)]
-    pub fn splat_affine(simd: S, value: glam::Affine3) -> Self {
+    pub fn splat_affine3(simd: S, value: glam::Affine3) -> Self {
         Self::from_mat3_translation(
             simd,
             Mat3xN::splat_mat3(simd, value.matrix3),
@@ -66,30 +72,16 @@ impl<S: Simd> Affine3xN<S> {
     }
 
     /// Compose two transforms: `self` applied after `rhs`.
-    /// Compose two transforms, as the [`Mul`] implementation does.
     ///
-    /// Named for the operation it performs; the [`Mul`] implementation runs the same code, so the
-    /// name is allowed to read like the trait method it mirrors.
-    #[allow(clippy::should_implement_trait)]
+    /// glam names a matrix product after its right hand side, as [`Mat3xN::mul_mat3`] does, but
+    /// gives `Affine3` no named product, so this follows the matrix naming for symmetry.
     #[inline(always)]
-    pub fn mul(self, rhs: Self) -> Self {
-        self.mul_affine(rhs)
-    }
-
-    /// Compose two transforms, under the name of the operation it performs.
-    #[inline(always)]
-    pub fn mul_affine(self, rhs: Self) -> Self {
+    pub fn mul_affine3(self, rhs: Self) -> Self {
         Self::from_mat3_translation(
             self.token,
             self.matrix3 * rhs.matrix3,
             self.matrix3.mul_vec3(rhs.translation) + self.translation,
         )
-    }
-
-    /// Construct from a linear part and a translation.
-    #[inline(always)]
-    pub fn new(simd: S, matrix3: Mat3xN<S>, translation: Vec3xN<S>) -> Self {
-        Self::from_mat3_translation(simd, matrix3, translation)
     }
 
     /// The inverse transform.
@@ -112,9 +104,10 @@ impl<S: Simd> ExtractToken for Affine3xN<S> {
 
 impl<S: Simd> Mul for Affine3xN<S> {
     type Output = Self;
+    /// Composes two transforms, as [`mul_affine3`](Self::mul_affine3) does.
     #[inline(always)]
     fn mul(self, rhs: Self) -> Self {
-        self.mul_affine(rhs)
+        self.mul_affine3(rhs)
     }
 }
 
