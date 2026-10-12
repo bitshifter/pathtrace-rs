@@ -1,8 +1,8 @@
 # glam-fearless (prototype)
 
 Wide ("vertical") SIMD maths types for the glam ecosystem, built on
-[`fearless_simd`](https://docs.rs/fearless_simd): `Vec2xN`/`Vec3xN`/`Vec4xN<S>`, `QuatxN<S>` and mask
-types, generic over the SIMD token, so one type serves every dispatch level (4/8/16 lanes).
+[`fearless_simd`](https://docs.rs/fearless_simd): `Vec2xN`/`Vec3xN`/`Vec4xN<S>`, `QuatxN<S>`,
+`Mat3xN<S>`, `Affine3xN<S>` and mask types, generic over the SIMD token, so one type serves every dispatch level (4/8/16 lanes).
 
 This is a standalone crate (its own `[workspace]`), **not** part of `glam` and not part of the
 pathtrace-rs package graph. `pathtrace-rs` depends on it by path and uses it for the wide
@@ -32,6 +32,9 @@ cargo bench --bench spheres_soa    # criterion; see the spheres_soa/glam_fearles
   `let oc = ro - centre; let b = oc.dot(rd);`
 - Ask the width with `Vec3xN::<S>::LANES` inside a `#[simd]` function, or `lane_len_f32(level)` when
   you only have a `Level`.
+- `Mat3xN` is column-major with glam's column names and covers transpose, determinant, inverse, mat x
+  mat and mat x vec. `Affine3xN` is a `Mat3xN` plus a `Vec3xN` translation, with compose, inverse and
+  point and vector transforms.
 - `QuatxN` covers multiply, conjugate/inverse, normalize and rotating a `Vec3xN`. Angles and `slerp`
   need `sin`/`cos`/`acos`, which fearless_simd does not provide yet, so quaternions are built from
   components or from one scalar `glam::Quat` per lane (`splat_quat`).
